@@ -162,3 +162,38 @@ export function blockProgress(block: Block) {
   if (now >= end || block.status === "closed") return 100;
   return Math.round(((now - start) / Math.max(1, end - start)) * 100);
 }
+
+/** Every calendar date inside a block, inclusive. */
+export function blockDates(block: Pick<Block, "start_date" | "end_date">) {
+  const out: string[] = [];
+  const cur = new Date(block.start_date + "T00:00:00");
+  const end = new Date(block.end_date + "T00:00:00");
+  while (cur <= end && out.length < 400) {
+    out.push(cur.toISOString().slice(0, 10));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return out;
+}
+
+export type DayCell = {
+  date: string;
+  morning: AttendanceStatus | null;
+  afternoon: AttendanceStatus | null;
+  future: boolean;
+};
+
+export function buildCalendar(
+  block: Pick<Block, "start_date" | "end_date"> | null,
+  records: AttendanceRecord[],
+): DayCell[] {
+  if (!block) return [];
+  const today = new Date().toISOString().slice(0, 10);
+  const map = new Map<string, AttendanceRecord>();
+  for (const r of records) map.set(`${r.session_date}:${r.slot}`, r);
+  return blockDates(block).map((date) => ({
+    date,
+    morning: map.get(`${date}:morning`)?.status ?? null,
+    afternoon: map.get(`${date}:afternoon`)?.status ?? null,
+    future: date > today,
+  }));
+}
