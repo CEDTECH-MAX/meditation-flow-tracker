@@ -10,7 +10,7 @@ export const getMe = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const c = context as unknown as Ctx;
     const [{ data: profile }, { data: roles }] = await Promise.all([
-      c.supabase.from("profiles").select("*").eq("id", c.userId).maybeSingle(),
+      c.supabase.from("profiles").select("*, cohort:cohorts(id,name,programme,intake_year)").eq("id", c.userId).maybeSingle(),
       c.supabase.from("user_roles").select("role").eq("user_id", c.userId),
     ]);
     const isAdmin = (roles ?? []).some((r: any) => r.role === "admin");
@@ -453,7 +453,7 @@ export const getMyAttendance = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const c = context as unknown as Ctx;
     const [{ data: profile }, { data: blocks }, { data: records }] = await Promise.all([
-      c.supabase.from("profiles").select("*").eq("id", c.userId).maybeSingle(),
+      c.supabase.from("profiles").select("*, cohort:cohorts(id,name,programme,intake_year)").eq("id", c.userId).maybeSingle(),
       c.supabase.from("blocks").select("*").order("start_date", { ascending: false }),
       c.supabase
         .from("attendance")
