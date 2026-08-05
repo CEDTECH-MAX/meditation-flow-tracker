@@ -263,6 +263,10 @@ export const createStudent = createServerFn({ method: "POST" })
       student_number: data.student_number,
       email: data.email,
       photo_url: data.photo_url || null,
+      cohort_id: data.cohort_id ?? null,
+      programme: data.programme || null,
+      intake_year: data.intake_year ?? null,
+      internal_email: internalEmail(data.student_number),
     });
     if (pErr) {
       await supabaseAdmin.auth.admin.deleteUser(id);
@@ -283,6 +287,9 @@ export const updateStudent = createServerFn({ method: "POST" })
         student_number: z.string().trim().min(1).max(40),
         photo_url: z.string().trim().url().max(500).or(z.literal("")).optional(),
         password: z.string().min(8).max(72).or(z.literal("")).optional(),
+        cohort_id: z.string().uuid().nullable().optional(),
+        programme: z.string().trim().max(120).or(z.literal("")).optional(),
+        intake_year: z.number().int().min(2000).max(2100).nullable().optional(),
       })
       .parse(d),
   )
@@ -295,9 +302,14 @@ export const updateStudent = createServerFn({ method: "POST" })
         full_name: data.full_name,
         student_number: data.student_number,
         photo_url: data.photo_url || null,
+        cohort_id: data.cohort_id ?? null,
+        programme: data.programme || null,
+        intake_year: data.intake_year ?? null,
+        internal_email: internalEmail(data.student_number),
       })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+
 
     if (data.password) {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
