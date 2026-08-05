@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { assertAdmin, audit, type Ctx } from "./data.helpers";
+import { assertAdmin, audit, internalEmail, type Ctx } from "./data.helpers";
 
 /* ---------------------------------- me ---------------------------------- */
 
@@ -10,7 +10,7 @@ export const getMe = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const c = context as unknown as Ctx;
     const [{ data: profile }, { data: roles }] = await Promise.all([
-      c.supabase.from("profiles").select("*").eq("id", c.userId).maybeSingle(),
+      c.supabase.from("profiles").select("*, cohort:cohorts(id,name,programme,intake_year)").eq("id", c.userId).maybeSingle(),
       c.supabase.from("user_roles").select("role").eq("user_id", c.userId),
     ]);
     const isAdmin = (roles ?? []).some((r: any) => r.role === "admin");
@@ -123,6 +123,91 @@ export const resetBlockAttendance = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/* --------------------------------- cohorts ------------------------------- */
+
+export const listCohorts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const c = context as unknown as Ctx;
+    const { data, error } = await c.supabase
+      .from("cohorts")
+      .select("*")
+      .order("name", { ascending: true });
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+const cohortInput = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(2).max(60),
+  programme: z.string().trim().max(120).or(z.literal("")).optional(),
+  intake_year: z.number().int().min(2000).max(2100).nullable().optional(),
+});
+
+export const saveCohort = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => cohortInput.parse(d))
+  .handler(async ({ data, context }) => {
+    const c = context as unknown as Ctx;
+    await assertAdmin(c);
+    const payload = {
+      name: data.name,
+      programme: data.programme || null,
+      intake_year: data.intake_year ?? null,
+    };
+    if (data.id) {
+      const { error } = await c.supabase.from("cohorts").update(payload).eq("id", data.id);
+      if (error) throw new Error(error.message);
+      await audit(c, "update", "cohort", data.id, payload);
+      return { id: data.id };
+    }
+    const { data: created, error } = await c.supabase
+      .from("cohorts")
+      .insert(payload)
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    await audit(c, "create", "cohort", created.id, payload);
+    return { id: created.id as string };
+  });
+
+export const deleteCohort = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const c = context as unknown as Ctx;
+    await assertAdmin(c);
+    const { error } = await c.supabase.from("cohorts").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    await audit(c, "delete", "cohort", data.id, {});
+    return { ok: true };
+  });
+
+export const assignCohort = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        student_ids: z.array(z.string().uuid()).min(1).max(2000),
+        cohort_id: z.string().uuid().nullable(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const c = context as unknown as Ctx;
+    await assertAdmin(c);
+    const { error } = await c.supabase
+      .from("profiles")
+      .update({ cohort_id: data.cohort_id })
+      .in("id", data.student_ids);
+    if (error) throw new Error(error.message);
+    await audit(c, "assign_cohort", "student", data.cohort_id, {
+      cohort_id: data.cohort_id,
+      count: data.student_ids.length,
+    });
+    return { ok: true };
+  });
+
 /* -------------------------------- students ------------------------------- */
 
 export const listStudents = createServerFn({ method: "GET" })
@@ -149,7 +234,11 @@ const studentInput = z.object({
   email: z.string().trim().email().max(255),
   password: z.string().min(8).max(72),
   photo_url: z.string().trim().url().max(500).or(z.literal("")).optional(),
+  cohort_id: z.string().uuid().nullable().optional(),
+  programme: z.string().trim().max(120).or(z.literal("")).optional(),
+  intake_year: z.number().int().min(2000).max(2100).nullable().optional(),
 });
+
 
 export const createStudent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -174,6 +263,10 @@ export const createStudent = createServerFn({ method: "POST" })
       student_number: data.student_number,
       email: data.email,
       photo_url: data.photo_url || null,
+      cohort_id: data.cohort_id ?? null,
+      programme: data.programme || null,
+      intake_year: data.intake_year ?? null,
+      internal_email: internalEmail(data.student_number),
     });
     if (pErr) {
       await supabaseAdmin.auth.admin.deleteUser(id);
@@ -194,6 +287,9 @@ export const updateStudent = createServerFn({ method: "POST" })
         student_number: z.string().trim().min(1).max(40),
         photo_url: z.string().trim().url().max(500).or(z.literal("")).optional(),
         password: z.string().min(8).max(72).or(z.literal("")).optional(),
+        cohort_id: z.string().uuid().nullable().optional(),
+        programme: z.string().trim().max(120).or(z.literal("")).optional(),
+        intake_year: z.number().int().min(2000).max(2100).nullable().optional(),
       })
       .parse(d),
   )
@@ -206,9 +302,14 @@ export const updateStudent = createServerFn({ method: "POST" })
         full_name: data.full_name,
         student_number: data.student_number,
         photo_url: data.photo_url || null,
+        cohort_id: data.cohort_id ?? null,
+        programme: data.programme || null,
+        intake_year: data.intake_year ?? null,
+        internal_email: internalEmail(data.student_number),
       })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+
 
     if (data.password) {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -264,6 +365,11 @@ export const markAttendance = createServerFn({ method: "POST" })
         session_date: z.string().min(10).max(10),
         slot: z.enum(["morning", "afternoon"]),
         status: z.enum(["present", "absent", "excused"]).nullable(),
+        absence_reason: z
+          .enum(["sick_leave", "approved_leave", "late_arrival", "unexcused", "other"])
+          .nullable()
+          .optional(),
+        absence_note: z.string().trim().max(400).or(z.literal("")).optional(),
       })
       .parse(d),
   )
@@ -291,10 +397,13 @@ export const markAttendance = createServerFn({ method: "POST" })
         session_date: data.session_date,
         slot: data.slot,
         status: data.status,
+        absence_reason: data.status === "present" ? null : (data.absence_reason ?? null),
+        absence_note: data.status === "present" ? null : data.absence_note || null,
         recorded_by: c.userId,
       },
       { onConflict: "block_id,student_id,session_date,slot" },
     );
+
     if (error) throw new Error(error.message);
     await audit(c, "mark", "attendance", data.student_id, data as any);
     return { ok: true };
@@ -344,7 +453,7 @@ export const getMyAttendance = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const c = context as unknown as Ctx;
     const [{ data: profile }, { data: blocks }, { data: records }] = await Promise.all([
-      c.supabase.from("profiles").select("*").eq("id", c.userId).maybeSingle(),
+      c.supabase.from("profiles").select("*, cohort:cohorts(id,name,programme,intake_year)").eq("id", c.userId).maybeSingle(),
       c.supabase.from("blocks").select("*").order("start_date", { ascending: false }),
       c.supabase
         .from("attendance")

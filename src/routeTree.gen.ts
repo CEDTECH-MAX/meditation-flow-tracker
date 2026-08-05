@@ -16,6 +16,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedAdminAttendanceRouteImport } from './routes/_authenticated/admin.attendance'
 import { Route as AuthenticatedAdminBlocksRouteImport } from './routes/_authenticated/admin.blocks'
+import { Route as AuthenticatedAdminCohortsRouteImport } from './routes/_authenticated/admin.cohorts'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin.reports'
 import { Route as AuthenticatedAdminStudentsRouteImport } from './routes/_authenticated/admin.students'
 
@@ -55,6 +56,12 @@ const AuthenticatedAdminBlocksRoute =
     path: '/blocks',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminCohortsRoute =
+  AuthenticatedAdminCohortsRouteImport.update({
+    id: '/cohorts',
+    path: '/cohorts',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminReportsRoute =
   AuthenticatedAdminReportsRouteImport.update({
     id: '/reports',
@@ -74,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/admin/attendance': typeof AuthenticatedAdminAttendanceRoute
   '/admin/blocks': typeof AuthenticatedAdminBlocksRoute
+  '/admin/cohorts': typeof AuthenticatedAdminCohortsRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
@@ -83,6 +91,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/admin/attendance': typeof AuthenticatedAdminAttendanceRoute
   '/admin/blocks': typeof AuthenticatedAdminBlocksRoute
+  '/admin/cohorts': typeof AuthenticatedAdminCohortsRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
@@ -95,6 +104,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/admin/attendance': typeof AuthenticatedAdminAttendanceRoute
   '/_authenticated/admin/blocks': typeof AuthenticatedAdminBlocksRoute
+  '/_authenticated/admin/cohorts': typeof AuthenticatedAdminCohortsRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/admin/attendance'
     | '/admin/blocks'
+    | '/admin/cohorts'
     | '/admin/reports'
     | '/admin/students'
     | '/admin/'
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/admin/attendance'
     | '/admin/blocks'
+    | '/admin/cohorts'
     | '/admin/reports'
     | '/admin/students'
     | '/admin'
@@ -127,6 +139,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/admin/attendance'
     | '/_authenticated/admin/blocks'
+    | '/_authenticated/admin/cohorts'
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/students'
     | '/_authenticated/admin/'
@@ -188,6 +201,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminBlocksRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/cohorts': {
+      id: '/_authenticated/admin/cohorts'
+      path: '/cohorts'
+      fullPath: '/admin/cohorts'
+      preLoaderRoute: typeof AuthenticatedAdminCohortsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/reports': {
       id: '/_authenticated/admin/reports'
       path: '/reports'
@@ -208,6 +228,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAttendanceRoute: typeof AuthenticatedAdminAttendanceRoute
   AuthenticatedAdminBlocksRoute: typeof AuthenticatedAdminBlocksRoute
+  AuthenticatedAdminCohortsRoute: typeof AuthenticatedAdminCohortsRoute
   AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
   AuthenticatedAdminStudentsRoute: typeof AuthenticatedAdminStudentsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
@@ -216,6 +237,7 @@ interface AuthenticatedAdminRouteChildren {
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAttendanceRoute: AuthenticatedAdminAttendanceRoute,
   AuthenticatedAdminBlocksRoute: AuthenticatedAdminBlocksRoute,
+  AuthenticatedAdminCohortsRoute: AuthenticatedAdminCohortsRoute,
   AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
   AuthenticatedAdminStudentsRoute: AuthenticatedAdminStudentsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
@@ -244,13 +266,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

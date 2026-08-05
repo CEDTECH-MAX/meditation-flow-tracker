@@ -1,8 +1,33 @@
 export type AttendanceStatus = "present" | "absent" | "excused";
 export type SessionSlot = "morning" | "afternoon";
 export type BlockStatus = "upcoming" | "active" | "closed";
+export type AbsenceReason =
+  | "sick_leave"
+  | "approved_leave"
+  | "late_arrival"
+  | "unexcused"
+  | "other";
 
 export const PASS_MARK = 80;
+
+export const REASONS: { value: AbsenceReason; label: string }[] = [
+  { value: "sick_leave", label: "Sick leave" },
+  { value: "approved_leave", label: "Approved leave" },
+  { value: "late_arrival", label: "Late arrival" },
+  { value: "unexcused", label: "Unexcused" },
+  { value: "other", label: "Other" },
+];
+
+export function reasonLabel(reason: AbsenceReason | null | undefined) {
+  return REASONS.find((r) => r.value === reason)?.label ?? "—";
+}
+
+export type Cohort = {
+  id: string;
+  name: string;
+  programme: string | null;
+  intake_year: number | null;
+};
 
 export type Block = {
   id: string;
@@ -21,8 +46,11 @@ export type AttendanceRecord = {
   session_date: string;
   slot: SessionSlot;
   status: AttendanceStatus;
+  absence_reason?: AbsenceReason | null;
+  absence_note?: string | null;
   updated_at?: string;
 };
+
 
 export type AttendanceSummary = {
   totalSessions: number;
@@ -133,4 +161,39 @@ export function blockProgress(block: Block) {
   if (now <= start) return 0;
   if (now >= end || block.status === "closed") return 100;
   return Math.round(((now - start) / Math.max(1, end - start)) * 100);
+}
+
+/** Every calendar date inside a block, inclusive. */
+export function blockDates(block: Pick<Block, "start_date" | "end_date">) {
+  const out: string[] = [];
+  const cur = new Date(block.start_date + "T00:00:00");
+  const end = new Date(block.end_date + "T00:00:00");
+  while (cur <= end && out.length < 400) {
+    out.push(cur.toISOString().slice(0, 10));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return out;
+}
+
+export type DayCell = {
+  date: string;
+  morning: AttendanceStatus | null;
+  afternoon: AttendanceStatus | null;
+  future: boolean;
+};
+
+export function buildCalendar(
+  block: Pick<Block, "start_date" | "end_date"> | null,
+  records: AttendanceRecord[],
+): DayCell[] {
+  if (!block) return [];
+  const today = new Date().toISOString().slice(0, 10);
+  const map = new Map<string, AttendanceRecord>();
+  for (const r of records) map.set(`${r.session_date}:${r.slot}`, r);
+  return blockDates(block).map((date) => ({
+    date,
+    morning: map.get(`${date}:morning`)?.status ?? null,
+    afternoon: map.get(`${date}:afternoon`)?.status ?? null,
+    future: date > today,
+  }));
 }

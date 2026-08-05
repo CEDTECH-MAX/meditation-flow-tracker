@@ -14,6 +14,7 @@ const adminNav: { to: string; label: string; exact?: boolean }[] = [
   { to: "/admin", label: "Overview", exact: true },
   { to: "/admin/attendance", label: "Attendance" },
   { to: "/admin/students", label: "Students" },
+  { to: "/admin/cohorts", label: "Cohorts" },
   { to: "/admin/blocks", label: "Blocks" },
   { to: "/admin/reports", label: "Reports" },
 ];

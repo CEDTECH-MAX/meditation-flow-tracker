@@ -1,7 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { listAttendance, listBlocks, listStudents, getAuditLogs } from "@/lib/data.functions";
-import type { AttendanceRecord, Block } from "@/lib/attendance";
+import {
+  listAttendance,
+  listBlocks,
+  listCohorts,
+  listStudents,
+  getAuditLogs,
+} from "@/lib/data.functions";
+import type { AttendanceRecord, Block, Cohort } from "@/lib/attendance";
 
 export type Student = {
   id: string;
@@ -9,6 +15,10 @@ export type Student = {
   student_number: string | null;
   email: string | null;
   photo_url: string | null;
+  cohort_id: string | null;
+  programme: string | null;
+  intake_year: number | null;
+  internal_email: string | null;
 };
 
 export function useBlocks() {
@@ -16,10 +26,16 @@ export function useBlocks() {
   return useQuery<Block[]>({ queryKey: ["blocks"], queryFn: () => fn() as Promise<Block[]> });
 }
 
+export function useCohorts() {
+  const fn = useServerFn(listCohorts);
+  return useQuery<Cohort[]>({ queryKey: ["cohorts"], queryFn: () => fn() as Promise<Cohort[]> });
+}
+
 export function useStudents() {
   const fn = useServerFn(listStudents);
   return useQuery<Student[]>({ queryKey: ["students"], queryFn: () => fn() as Promise<Student[]> });
 }
+
 
 export function useAttendance(blockId: string | null) {
   const fn = useServerFn(listAttendance);
