@@ -35,7 +35,7 @@ export const Route = createFileRoute("/_authenticated/admin/cohorts")({
       },
     ],
   }),
-  component: AdminCohorts;
+  component: AdminCohorts,
 });
 
 type FormState = { id?: string; name: string; programme: string; intake_year: string };
