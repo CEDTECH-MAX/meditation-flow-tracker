@@ -17,10 +17,13 @@ import {
   type AttendanceRecord,
   type Block,
   blockProgress,
+  buildCalendar,
   formatDate,
+  reasonLabel,
   statusTone,
   summarise,
 } from "@/lib/attendance";
+import { AttendanceCalendar } from "@/components/AttendanceCalendar";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -56,6 +59,19 @@ function StudentDashboard() {
     [records, selected?.id],
   );
   const summary = useMemo(() => summarise(selected, blockRecords), [selected, blockRecords]);
+  const calendar = useMemo(() => buildCalendar(selected, blockRecords), [selected, blockRecords]);
+  const profile = data?.profile as
+    | {
+        full_name?: string;
+        student_number?: string | null;
+        photo_url?: string | null;
+        programme?: string | null;
+        intake_year?: number | null;
+        internal_email?: string | null;
+        cohort?: { name: string; programme: string | null } | null;
+      }
+    | null
+    | undefined;
   const tone = statusTone(summary.status);
 
   const notifications = useMemo(() => {
@@ -113,8 +129,18 @@ function StudentDashboard() {
               {data?.profile?.full_name ?? "Student"}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Student number: {data?.profile?.student_number ?? "—"}
+              Student number: {profile?.student_number ?? "—"}
             </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Badge tone="green">{profile?.cohort?.name ?? "No cohort"}</Badge>
+              {profile?.programme || profile?.cohort?.programme ? (
+                <Badge tone="gold">{profile.programme ?? profile.cohort?.programme}</Badge>
+              ) : null}
+              {profile?.intake_year ? <Badge>Intake {profile.intake_year}</Badge> : null}
+              {profile?.internal_email ? (
+                <span className="text-xs text-muted-foreground">{profile.internal_email}</span>
+              ) : null}
+            </div>
           </div>
         </div>
         {blocks.length > 0 ? (
@@ -220,6 +246,14 @@ function StudentDashboard() {
           </div>
 
           <Card className="mt-6">
+            <SectionTitle
+              title="Attendance calendar"
+              subtitle="Morning and afternoon sessions for every day of the block"
+            />
+            <AttendanceCalendar cells={calendar} />
+          </Card>
+
+          <Card className="mt-6">
             <SectionTitle title="Attendance history" subtitle="Read-only record of your sessions" />
             {blockRecords.length === 0 ? (
               <p className="text-sm text-muted-foreground">No sessions recorded yet for this block.</p>
@@ -231,6 +265,7 @@ function StudentDashboard() {
                       <th className="pb-2">Date</th>
                       <th className="pb-2">Session</th>
                       <th className="pb-2">Status</th>
+                      <th className="pb-2">Reason</th>
                       <th className="pb-2 text-right">Points</th>
                     </tr>
                   </thead>
@@ -247,6 +282,12 @@ function StudentDashboard() {
                           >
                             {r.status}
                           </Badge>
+                        </td>
+                        <td className="py-2 text-muted-foreground">
+                          {r.status === "present" ? "—" : reasonLabel(r.absence_reason)}
+                          {r.absence_note ? (
+                            <span className="block text-xs">{r.absence_note}</span>
+                          ) : null}
                         </td>
                         <td className="py-2 text-right">
                           {r.status === "present"
