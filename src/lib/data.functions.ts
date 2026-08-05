@@ -123,6 +123,91 @@ export const resetBlockAttendance = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/* --------------------------------- cohorts ------------------------------- */
+
+export const listCohorts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const c = context as unknown as Ctx;
+    const { data, error } = await c.supabase
+      .from("cohorts")
+      .select("*")
+      .order("name", { ascending: true });
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+const cohortInput = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(2).max(60),
+  programme: z.string().trim().max(120).or(z.literal("")).optional(),
+  intake_year: z.number().int().min(2000).max(2100).nullable().optional(),
+});
+
+export const saveCohort = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => cohortInput.parse(d))
+  .handler(async ({ data, context }) => {
+    const c = context as unknown as Ctx;
+    await assertAdmin(c);
+    const payload = {
+      name: data.name,
+      programme: data.programme || null,
+      intake_year: data.intake_year ?? null,
+    };
+    if (data.id) {
+      const { error } = await c.supabase.from("cohorts").update(payload).eq("id", data.id);
+      if (error) throw new Error(error.message);
+      await audit(c, "update", "cohort", data.id, payload);
+      return { id: data.id };
+    }
+    const { data: created, error } = await c.supabase
+      .from("cohorts")
+      .insert(payload)
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    await audit(c, "create", "cohort", created.id, payload);
+    return { id: created.id as string };
+  });
+
+export const deleteCohort = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const c = context as unknown as Ctx;
+    await assertAdmin(c);
+    const { error } = await c.supabase.from("cohorts").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    await audit(c, "delete", "cohort", data.id, {});
+    return { ok: true };
+  });
+
+export const assignCohort = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        student_ids: z.array(z.string().uuid()).min(1).max(2000),
+        cohort_id: z.string().uuid().nullable(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const c = context as unknown as Ctx;
+    await assertAdmin(c);
+    const { error } = await c.supabase
+      .from("profiles")
+      .update({ cohort_id: data.cohort_id })
+      .in("id", data.student_ids);
+    if (error) throw new Error(error.message);
+    await audit(c, "assign_cohort", "student", data.cohort_id, {
+      cohort_id: data.cohort_id,
+      count: data.student_ids.length,
+    });
+    return { ok: true };
+  });
+
 /* -------------------------------- students ------------------------------- */
 
 export const listStudents = createServerFn({ method: "GET" })
@@ -149,7 +234,11 @@ const studentInput = z.object({
   email: z.string().trim().email().max(255),
   password: z.string().min(8).max(72),
   photo_url: z.string().trim().url().max(500).or(z.literal("")).optional(),
+  cohort_id: z.string().uuid().nullable().optional(),
+  programme: z.string().trim().max(120).or(z.literal("")).optional(),
+  intake_year: z.number().int().min(2000).max(2100).nullable().optional(),
 });
+
 
 export const createStudent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
