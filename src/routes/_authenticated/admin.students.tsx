@@ -11,9 +11,17 @@ import {
   Input,
   Modal,
   SectionTitle,
+  Select,
   Spinner,
 } from "@/components/ui-kit";
-import { pickActive, useAttendance, useBlocks, useStudents, type Student } from "@/lib/admin-hooks";
+import {
+  pickActive,
+  useAttendance,
+  useBlocks,
+  useCohorts,
+  useStudents,
+  type Student,
+} from "@/lib/admin-hooks";
 import { createStudent, deleteStudent, updateStudent } from "@/lib/data.functions";
 import { summarise } from "@/lib/attendance";
 
@@ -43,6 +51,9 @@ type FormState = {
   email: string;
   password: string;
   photo_url: string;
+  cohort_id: string;
+  programme: string;
+  intake_year: string;
 };
 
 const empty: FormState = {
@@ -51,11 +62,15 @@ const empty: FormState = {
   email: "",
   password: "",
   photo_url: "",
+  cohort_id: "",
+  programme: "",
+  intake_year: "",
 };
 
 function AdminStudents() {
   const qc = useQueryClient();
   const { data: students, isLoading } = useStudents();
+  const { data: cohorts } = useCohorts();
   const { data: blocks } = useBlocks();
   const block = pickActive(blocks);
   const { data: records } = useAttendance(block?.id ?? null);
@@ -63,6 +78,7 @@ function AdminStudents() {
   const [form, setForm] = useState<FormState | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Student | null>(null);
   const [search, setSearch] = useState("");
+  const [cohortFilter, setCohortFilter] = useState("all");
 
   const createFn = useServerFn(createStudent);
   const updateFn = useServerFn(updateStudent);
@@ -85,6 +101,9 @@ function AdminStudents() {
             student_number: v.student_number,
             photo_url: v.photo_url,
             password: v.password,
+            cohort_id: v.cohort_id || null,
+            programme: v.programme,
+            intake_year: v.intake_year ? Number(v.intake_year) : null,
           },
         });
       }
@@ -95,6 +114,9 @@ function AdminStudents() {
           email: v.email,
           password: v.password,
           photo_url: v.photo_url,
+          cohort_id: v.cohort_id || null,
+          programme: v.programme,
+          intake_year: v.intake_year ? Number(v.intake_year) : null,
         },
       });
     },
@@ -111,6 +133,13 @@ function AdminStudents() {
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
     return (students ?? [])
+      .filter((s) =>
+        cohortFilter === "all"
+          ? true
+          : cohortFilter === "none"
+            ? !s.cohort_id
+            : s.cohort_id === cohortFilter,
+      )
       .filter(
         (s) =>
           !q ||
@@ -125,7 +154,7 @@ function AdminStudents() {
           (records ?? []).filter((r) => r.student_id === s.id),
         ),
       }));
-  }, [students, search, block, records]);
+  }, [students, search, cohortFilter, block, records]);
 
   if (isLoading) return <Spinner label="Loading students" />;
 
@@ -138,12 +167,21 @@ function AdminStudents() {
       />
 
       <Card>
-        <div className="mb-4 max-w-sm">
+        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:max-w-2xl">
           <Input
             placeholder="Search by name, number or email"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          <Select value={cohortFilter} onChange={(e) => setCohortFilter(e.target.value)} aria-label="Filter by cohort">
+            <option value="all">All cohorts</option>
+            <option value="none">Unassigned</option>
+            {(cohorts ?? []).map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
         </div>
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">No students found.</p>
@@ -154,6 +192,7 @@ function AdminStudents() {
                 <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="pb-2">Student</th>
                   <th className="pb-2">Number</th>
+                  <th className="pb-2">Cohort</th>
                   <th className="pb-2">Email</th>
                   <th className="pb-2">Attendance</th>
                   <th className="pb-2 text-right">Actions</th>
@@ -179,7 +218,17 @@ function AdminStudents() {
                       </div>
                     </td>
                     <td className="py-2">{student.student_number ?? "—"}</td>
-                    <td className="py-2 text-muted-foreground">{student.email ?? "—"}</td>
+                    <td className="py-2">
+                      {(cohorts ?? []).find((c) => c.id === student.cohort_id)?.name ?? (
+                        <span className="text-muted-foreground">Unassigned</span>
+                      )}
+                    </td>
+                    <td className="py-2 text-muted-foreground">
+                      <span className="block">{student.email ?? "—"}</span>
+                      {student.internal_email ? (
+                        <span className="block text-xs">{student.internal_email}</span>
+                      ) : null}
+                    </td>
                     <td className="py-2">
                       <Badge
                         tone={
@@ -206,6 +255,9 @@ function AdminStudents() {
                               email: student.email ?? "",
                               password: "",
                               photo_url: student.photo_url ?? "",
+                              cohort_id: student.cohort_id ?? "",
+                              programme: student.programme ?? "",
+                              intake_year: student.intake_year ? String(student.intake_year) : "",
                             })
                           }
                         >
@@ -272,6 +324,35 @@ function AdminStudents() {
                 maxLength={72}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
+              />
+            </Field>
+            <Field label="Cohort">
+              <Select
+                value={form.cohort_id}
+                onChange={(e) => setForm({ ...form, cohort_id: e.target.value })}
+              >
+                <option value="">Unassigned</option>
+                {(cohorts ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Programme (optional)">
+              <Input
+                maxLength={120}
+                value={form.programme}
+                onChange={(e) => setForm({ ...form, programme: e.target.value })}
+              />
+            </Field>
+            <Field label="Intake year (optional)">
+              <Input
+                type="number"
+                min={2000}
+                max={2100}
+                value={form.intake_year}
+                onChange={(e) => setForm({ ...form, intake_year: e.target.value })}
               />
             </Field>
             <Field label="Photo URL (optional)">
