@@ -365,6 +365,11 @@ export const markAttendance = createServerFn({ method: "POST" })
         session_date: z.string().min(10).max(10),
         slot: z.enum(["morning", "afternoon"]),
         status: z.enum(["present", "absent", "excused"]).nullable(),
+        absence_reason: z
+          .enum(["sick_leave", "approved_leave", "late_arrival", "unexcused", "other"])
+          .nullable()
+          .optional(),
+        absence_note: z.string().trim().max(400).or(z.literal("")).optional(),
       })
       .parse(d),
   )
@@ -392,10 +397,13 @@ export const markAttendance = createServerFn({ method: "POST" })
         session_date: data.session_date,
         slot: data.slot,
         status: data.status,
+        absence_reason: data.status === "present" ? null : (data.absence_reason ?? null),
+        absence_note: data.status === "present" ? null : data.absence_note || null,
         recorded_by: c.userId,
       },
       { onConflict: "block_id,student_id,session_date,slot" },
     );
+
     if (error) throw new Error(error.message);
     await audit(c, "mark", "attendance", data.student_id, data as any);
     return { ok: true };
