@@ -24,3 +24,9 @@ export async function audit(
     details,
   });
 }
+
+/** Internal institute inbox address derived from the student number. */
+export function internalEmail(studentNumber: string) {
+  const slug = studentNumber.trim().toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.|\.$/g, "");
+  return `${slug || "student"}@mi.local`;
+}
