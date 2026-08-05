@@ -1,8 +1,33 @@
 export type AttendanceStatus = "present" | "absent" | "excused";
 export type SessionSlot = "morning" | "afternoon";
 export type BlockStatus = "upcoming" | "active" | "closed";
+export type AbsenceReason =
+  | "sick_leave"
+  | "approved_leave"
+  | "late_arrival"
+  | "unexcused"
+  | "other";
 
 export const PASS_MARK = 80;
+
+export const REASONS: { value: AbsenceReason; label: string }[] = [
+  { value: "sick_leave", label: "Sick leave" },
+  { value: "approved_leave", label: "Approved leave" },
+  { value: "late_arrival", label: "Late arrival" },
+  { value: "unexcused", label: "Unexcused" },
+  { value: "other", label: "Other" },
+];
+
+export function reasonLabel(reason: AbsenceReason | null | undefined) {
+  return REASONS.find((r) => r.value === reason)?.label ?? "—";
+}
+
+export type Cohort = {
+  id: string;
+  name: string;
+  programme: string | null;
+  intake_year: number | null;
+};
 
 export type Block = {
   id: string;
@@ -21,8 +46,11 @@ export type AttendanceRecord = {
   session_date: string;
   slot: SessionSlot;
   status: AttendanceStatus;
+  absence_reason?: AbsenceReason | null;
+  absence_note?: string | null;
   updated_at?: string;
 };
+
 
 export type AttendanceSummary = {
   totalSessions: number;
