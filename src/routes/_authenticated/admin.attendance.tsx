@@ -14,10 +14,10 @@ import {
   Select,
   Spinner,
 } from "@/components/ui-kit";
-import { pickActive, useAttendance, useBlocks, useStudents } from "@/lib/admin-hooks";
+import { pickActive, useAttendance, useBlocks, useCohorts, useStudents } from "@/lib/admin-hooks";
 import { markAttendance, markDayForAll } from "@/lib/data.functions";
-import type { AttendanceStatus, SessionSlot } from "@/lib/attendance";
-import { formatDate, summarise } from "@/lib/attendance";
+import type { AbsenceReason, AttendanceRecord, AttendanceStatus, SessionSlot } from "@/lib/attendance";
+import { formatDate, REASONS, reasonLabel, summarise } from "@/lib/attendance";
 
 export const Route = createFileRoute("/_authenticated/admin/attendance")({
   head: () => ({
@@ -44,6 +44,7 @@ function AdminAttendance() {
   const qc = useQueryClient();
   const { data: blocks, isLoading: lb } = useBlocks();
   const { data: students, isLoading: ls } = useStudents();
+  const { data: cohorts } = useCohorts();
   const active = pickActive(blocks);
   const [blockId, setBlockId] = useState<string | null>(null);
   const block = blocks?.find((b) => b.id === (blockId ?? active?.id)) ?? null;
@@ -51,6 +52,15 @@ function AdminAttendance() {
 
   const [date, setDate] = useState(today());
   const [search, setSearch] = useState("");
+  const [cohortFilter, setCohortFilter] = useState("all");
+  const [reasonFor, setReasonFor] = useState<{
+    student_id: string;
+    name: string;
+    slot: SessionSlot;
+    status: AttendanceStatus;
+    absence_reason: AbsenceReason | "";
+    absence_note: string;
+  } | null>(null);
   const [bulk, setBulk] = useState<{ slot: SessionSlot; status: AttendanceStatus } | null>(null);
 
   const markFn = useServerFn(markAttendance);
@@ -63,6 +73,8 @@ function AdminAttendance() {
       student_id: string;
       slot: SessionSlot;
       status: AttendanceStatus | null;
+      absence_reason?: AbsenceReason | null;
+      absence_note?: string;
     }) =>
       markFn({
         data: { block_id: block!.id, session_date: date, ...v },
@@ -79,7 +91,7 @@ function AdminAttendance() {
           session_date: date,
           slot: v.slot,
           status: v.status,
-          student_ids: (students ?? []).map((s) => s.id),
+          student_ids: rows.map((r) => r.student.id),
         },
       }),
     onSuccess: () => {
@@ -91,9 +103,9 @@ function AdminAttendance() {
   });
 
   const dayMap = useMemo(() => {
-    const map = new Map<string, AttendanceStatus>();
+    const map = new Map<string, AttendanceRecord>();
     for (const r of records ?? []) {
-      if (r.session_date === date) map.set(`${r.student_id}:${r.slot}`, r.status);
+      if (r.session_date === date) map.set(`${r.student_id}:${r.slot}`, r);
     }
     return map;
   }, [records, date]);
@@ -101,6 +113,13 @@ function AdminAttendance() {
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
     return (students ?? [])
+      .filter((s) =>
+        cohortFilter === "all"
+          ? true
+          : cohortFilter === "none"
+            ? !s.cohort_id
+            : s.cohort_id === cohortFilter,
+      )
       .filter(
         (s) =>
           !q ||
@@ -116,7 +135,7 @@ function AdminAttendance() {
           (records ?? []).filter((r) => r.student_id === s.id),
         ),
       }));
-  }, [students, search, dayMap, records, block]);
+  }, [students, search, cohortFilter, dayMap, records, block]);
 
   const locked = !block || block.status === "closed";
 
@@ -164,7 +183,18 @@ function AdminAttendance() {
                   onChange={(e) => setDate(e.target.value)}
                 />
               </Field>
-              <Field label="Search student" className="lg:col-span-2">
+              <Field label="Cohort">
+                <Select value={cohortFilter} onChange={(e) => setCohortFilter(e.target.value)}>
+                  <option value="all">All cohorts</option>
+                  <option value="none">Unassigned</option>
+                  {(cohorts ?? []).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Search student">
                 <Input
                   placeholder="Name or student number"
                   value={search}
@@ -222,17 +252,50 @@ function AdminAttendance() {
                             {student.student_number ?? "—"}
                           </span>
                         </td>
-                        {(["morning", "afternoon"] as SessionSlot[]).map((slot) => (
-                          <td key={slot} className="py-2">
-                            <SlotButtons
-                              value={slot === "morning" ? morning : afternoon}
-                              disabled={locked || mark.isPending}
-                              onPick={(status) =>
-                                mark.mutate({ student_id: student.id, slot, status })
-                              }
-                            />
-                          </td>
-                        ))}
+                        {(["morning", "afternoon"] as SessionSlot[]).map((slot) => {
+                          const rec = slot === "morning" ? morning : afternoon;
+                          return (
+                            <td key={slot} className="py-2">
+                              <SlotButtons
+                                value={rec?.status ?? null}
+                                disabled={locked || mark.isPending}
+                                onPick={(status) => {
+                                  if (status && status !== "present") {
+                                    setReasonFor({
+                                      student_id: student.id,
+                                      name: student.full_name,
+                                      slot,
+                                      status,
+                                      absence_reason: (rec?.absence_reason ?? "") as AbsenceReason | "",
+                                      absence_note: rec?.absence_note ?? "",
+                                    });
+                                    return;
+                                  }
+                                  mark.mutate({ student_id: student.id, slot, status });
+                                }}
+                              />
+                              {rec && rec.status !== "present" ? (
+                                <button
+                                  type="button"
+                                  disabled={locked}
+                                  onClick={() =>
+                                    setReasonFor({
+                                      student_id: student.id,
+                                      name: student.full_name,
+                                      slot,
+                                      status: rec.status,
+                                      absence_reason: (rec.absence_reason ?? "") as AbsenceReason | "",
+                                      absence_note: rec.absence_note ?? "",
+                                    })
+                                  }
+                                  className="mt-1 block text-xs text-muted-foreground underline decoration-dotted hover:text-foreground"
+                                >
+                                  {reasonLabel(rec.absence_reason)}
+                                </button>
+                              ) : null}
+                            </td>
+                          );
+                        })}
                         <td className="py-2 text-right">
                           <Badge
                             tone={
@@ -255,6 +318,65 @@ function AdminAttendance() {
           </Card>
         </>
       )}
+
+      <Modal
+        open={Boolean(reasonFor)}
+        onClose={() => setReasonFor(null)}
+        title={`Reason · ${reasonFor?.name ?? ""}`}
+      >
+        {reasonFor ? (
+          <form
+            className="grid gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              mark.mutate({
+                student_id: reasonFor.student_id,
+                slot: reasonFor.slot,
+                status: reasonFor.status,
+                absence_reason: reasonFor.absence_reason || null,
+                absence_note: reasonFor.absence_note,
+              });
+              setReasonFor(null);
+            }}
+          >
+            <p className="text-sm text-muted-foreground">
+              Marking the {reasonFor.slot} session on {formatDate(date)} as{" "}
+              <strong>{reasonFor.status}</strong>.
+            </p>
+            <Field label="Reason">
+              <Select
+                value={reasonFor.absence_reason}
+                onChange={(e) =>
+                  setReasonFor({ ...reasonFor, absence_reason: e.target.value as AbsenceReason | "" })
+                }
+              >
+                <option value="">No reason given</option>
+                {REASONS.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Note (optional)">
+              <Input
+                maxLength={400}
+                placeholder="Doctor's note received"
+                value={reasonFor.absence_note}
+                onChange={(e) => setReasonFor({ ...reasonFor, absence_note: e.target.value })}
+              />
+            </Field>
+            <div className="mt-2 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setReasonFor(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={mark.isPending}>
+                Save record
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </Modal>
 
       <Modal open={Boolean(bulk)} onClose={() => setBulk(null)} title="Confirm bulk update">
         <p className="text-sm text-muted-foreground">
