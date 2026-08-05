@@ -16,6 +16,8 @@ export type Database = {
     Tables: {
       attendance: {
         Row: {
+          absence_note: string | null
+          absence_reason: Database["public"]["Enums"]["absence_reason"] | null
           block_id: string
           created_at: string
           id: string
@@ -27,6 +29,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          absence_note?: string | null
+          absence_reason?: Database["public"]["Enums"]["absence_reason"] | null
           block_id: string
           created_at?: string
           id?: string
@@ -38,6 +42,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          absence_note?: string | null
+          absence_reason?: Database["public"]["Enums"]["absence_reason"] | null
           block_id?: string
           created_at?: string
           id?: string
@@ -134,35 +140,82 @@ export type Database = {
         }
         Relationships: []
       }
-      profiles: {
+      cohorts: {
         Row: {
           created_at: string
-          email: string | null
-          full_name: string
           id: string
-          photo_url: string | null
-          student_number: string | null
+          intake_year: number | null
+          name: string
+          programme: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
-          email?: string | null
-          full_name?: string
-          id: string
-          photo_url?: string | null
-          student_number?: string | null
+          id?: string
+          intake_year?: number | null
+          name: string
+          programme?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
-          email?: string | null
-          full_name?: string
           id?: string
-          photo_url?: string | null
-          student_number?: string | null
+          intake_year?: number | null
+          name?: string
+          programme?: string | null
           updated_at?: string
         }
         Relationships: []
+      }
+      profiles: {
+        Row: {
+          cohort_id: string | null
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          intake_year: number | null
+          internal_email: string | null
+          photo_url: string | null
+          programme: string | null
+          student_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          cohort_id?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          id: string
+          intake_year?: number | null
+          internal_email?: string | null
+          photo_url?: string | null
+          programme?: string | null
+          student_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cohort_id?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          id?: string
+          intake_year?: number | null
+          internal_email?: string | null
+          photo_url?: string | null
+          programme?: string | null
+          student_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -196,6 +249,12 @@ export type Database = {
       }
     }
     Enums: {
+      absence_reason:
+        | "sick_leave"
+        | "approved_leave"
+        | "late_arrival"
+        | "unexcused"
+        | "other"
       app_role: "admin" | "student"
       attendance_status: "present" | "absent" | "excused"
       block_status: "upcoming" | "active" | "closed"
@@ -327,6 +386,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      absence_reason: [
+        "sick_leave",
+        "approved_leave",
+        "late_arrival",
+        "unexcused",
+        "other",
+      ],
       app_role: ["admin", "student"],
       attendance_status: ["present", "absent", "excused"],
       block_status: ["upcoming", "active", "closed"],
