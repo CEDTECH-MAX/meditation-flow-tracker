@@ -436,3 +436,62 @@ export async function exportRegisterWorkbook(
   a.click();
   URL.revokeObjectURL(url);
 }
+
+export type RegisterRow = {
+  student: RegisterStudent;
+  weeks: {
+    label: string;
+    dates: string[];
+    /** 12 slot values: Mon AM/PM … Sat AM/PM */
+    slots: number[];
+    weekPoints: number;
+    cumulative: number;
+  }[];
+  finalPoints: number;
+  percentage: number;
+};
+
+/** Same numbers the workbook computes, for the PDF register. */
+export function buildRegisterRows(
+  block: Block,
+  students: RegisterStudent[],
+  records: AttendanceRecord[],
+): RegisterRow[] {
+  const weeks = Math.max(1, block.weeks || 1);
+  return students.map((student) => {
+    let cumulative = 0;
+    const weekRows = Array.from({ length: weeks }, (_, w) => {
+      const monday = weekMonday(block.start_date, w);
+      const dates: string[] = [];
+      const slots: number[] = [];
+      for (let d = 0; d < 6; d += 1) {
+        const date = new Date(monday);
+        date.setDate(date.getDate() + d);
+        const key = iso(date);
+        dates.push(key);
+        for (const slot of ["morning", "afternoon"] as const) {
+          slots.push(
+            points(
+              records.find(
+                (r) => r.student_id === student.id && r.session_date === key && r.slot === slot,
+              ),
+            ),
+          );
+        }
+      }
+      const weekPoints = slots.reduce((a, b) => a + b, 0);
+      cumulative += weekPoints;
+      return { label: `Week ${w + 1}`, dates, slots, weekPoints, cumulative };
+    });
+    const finalPoints = weekRows.reduce((a, r) => a + r.weekPoints, 0);
+    return {
+      student,
+      weeks: weekRows,
+      finalPoints,
+      percentage: Math.round((finalPoints / (WEEK_TARGET_100 * weeks)) * 1000) / 10,
+    };
+  });
+}
+
+export const REGISTER_WEEK_TARGET_80 = WEEK_TARGET_80;
+export const REGISTER_WEEK_TARGET_100 = WEEK_TARGET_100;
