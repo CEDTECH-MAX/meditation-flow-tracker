@@ -1,9 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Badge, Button, Card, Field, SectionTitle, Select, Spinner } from "@/components/ui-kit";
-import { useAttendance, useBlocks, useStudents, pickActive } from "@/lib/admin-hooks";
+import { useAttendance, useBlocks, useCohorts, useStudents, pickActive } from "@/lib/admin-hooks";
 import { formatDate, summarise } from "@/lib/attendance";
-import { exportExcel, exportPdf } from "@/lib/exporters";
+import { exportRegisterPdf } from "@/lib/exporters";
+import { buildRegisterRows, exportRegisterWorkbook } from "@/lib/register-export";
+
 
 export const Route = createFileRoute("/_authenticated/admin/reports")({
   head: () => ({
