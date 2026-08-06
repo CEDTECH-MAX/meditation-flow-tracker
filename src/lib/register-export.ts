@@ -167,7 +167,7 @@ export async function exportRegisterWorkbook(
     cell.value = label;
     cell.font = { bold: true, size: label === "EMAIL ADDRESS" ? 8 : 10 };
     cell.alignment = { horizontal: i === 0 ? "left" : "center", wrapText: true };
-    ws.getColumn(i + 1).width = LEFT_WIDTHS[i];
+    ws.getColumn(i + 1).width = LEFT_WIDTHS[i] ?? 10;
   });
 
   // ---- per-week sections -------------------------------------------------
@@ -374,37 +374,20 @@ export async function exportRegisterWorkbook(
   const lastRow = 5 + students.length;
   if (students.length > 0) {
     const pctRange = `${colLetter(finalPctCol)}6:${colLetter(finalPctCol)}${lastRow}`;
+    const pctFirst = `${colLetter(finalPctCol)}6`;
+    const band = (formula: string, priority: number, argb: string) => ({
+      type: "expression" as const,
+      priority,
+      formulae: [formula],
+      style: { fill: { type: "pattern" as const, pattern: "solid" as const, fgColor: { argb } } },
+    });
     ws.addConditionalFormatting({
       ref: pctRange,
       rules: [
-        {
-          type: "cellIs",
-          operator: "greaterThanOrEqual",
-          priority: 1,
-          formulae: ["1"],
-          style: { fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D2E9" } } },
-        },
-        {
-          type: "cellIs",
-          operator: "greaterThanOrEqual",
-          priority: 2,
-          formulae: ["0.9"],
-          style: { fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFD966" } } },
-        },
-        {
-          type: "cellIs",
-          operator: "greaterThanOrEqual",
-          priority: 3,
-          formulae: ["0.8"],
-          style: { fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFB6D7A8" } } },
-        },
-        {
-          type: "cellIs",
-          operator: "lessThan",
-          priority: 4,
-          formulae: ["0.8"],
-          style: { fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFEA9999" } } },
-        },
+        band(`${pctFirst}>=1`, 1, "FFD9D2E9"),
+        band(`AND(${pctFirst}>=0.9,${pctFirst}<1)`, 2, "FFFFD966"),
+        band(`AND(${pctFirst}>=0.8,${pctFirst}<0.9)`, 3, "FFB6D7A8"),
+        band(`${pctFirst}<0.8`, 4, "FFEA9999"),
       ],
     });
 
