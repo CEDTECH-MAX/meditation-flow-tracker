@@ -32,24 +32,28 @@ type ReportKind = "all" | "below" | "met";
 function AdminReports() {
   const { data: blocks, isLoading: lb } = useBlocks();
   const { data: students, isLoading: ls } = useStudents();
+  const { data: cohorts } = useCohorts();
   const active = pickActive(blocks);
   const [blockId, setBlockId] = useState<string | null>(null);
   const block = blocks?.find((b) => b.id === (blockId ?? active?.id)) ?? null;
   const { data: records, isLoading: la } = useAttendance(block?.id ?? null);
   const [kind, setKind] = useState<ReportKind>("all");
+  const [cohortId, setCohortId] = useState<string>("all");
 
   const rows = useMemo(() => {
-    const all = (students ?? []).map((s) => {
-      const summary = summarise(
-        block,
-        (records ?? []).filter((r) => r.student_id === s.id),
-      );
-      return { student: s, summary };
-    });
+    const all = (students ?? [])
+      .filter((s) => cohortId === "all" || s.cohort_id === cohortId)
+      .map((s) => {
+        const summary = summarise(
+          block,
+          (records ?? []).filter((r) => r.student_id === s.id),
+        );
+        return { student: s, summary };
+      });
     if (kind === "below") return all.filter((r) => !r.summary.met);
     if (kind === "met") return all.filter((r) => r.summary.met);
     return all;
-  }, [students, records, block, kind]);
+  }, [students, records, block, kind, cohortId]);
 
   const head = [
     "Student",
@@ -62,24 +66,48 @@ function AdminReports() {
     "Attendance %",
     "Status",
   ];
-  const body = rows.map(({ student, summary }) => [
-    student.full_name,
-    student.student_number ?? "—",
-    summary.morningPresent,
-    summary.afternoonPresent,
-    summary.present,
-    summary.absent,
-    summary.excused,
-    `${summary.percentage}%`,
-    summary.statusLabel,
-  ]);
 
   const title =
     kind === "below" ? "Students below 80%" : kind === "met" ? "Students meeting 80%" : "Full attendance report";
   const subtitle = block
-    ? `${block.name} · ${formatDate(block.start_date)} → ${formatDate(block.end_date)} · ${block.meditation_days * 2} sessions · generated ${formatDate(new Date().toISOString().slice(0, 10))}`
+    ? `${block.name} · ${formatDate(block.start_date)} → ${formatDate(block.end_date)} · ${block.weeks} week${block.weeks === 1 ? "" : "s"} · ${block.meditation_days * 2} sessions · generated ${formatDate(new Date().toISOString().slice(0, 10))}`
     : "No block selected";
-  const filename = `attendance-${(block?.name ?? "block").toLowerCase().replace(/\s+/g, "-")}-${kind}`;
+  const filename = `attendance-register-${(block?.name ?? "block").toLowerCase().replace(/\s+/g, "-")}-${kind}`;
+
+  const cohortName =
+    cohortId === "all"
+      ? (cohorts?.length === 1 ? cohorts[0]!.name : "All Cohorts")
+      : (cohorts?.find((c) => c.id === cohortId)?.name ?? "All Cohorts");
+
+  const registerStudents = rows.map(({ student }) => ({
+    id: student.id,
+    full_name: student.full_name,
+    student_number: student.student_number,
+    email: student.email,
+    internal_email: student.internal_email,
+    programme: student.programme,
+    cohort_name: cohorts?.find((c) => c.id === student.cohort_id)?.name ?? null,
+  }));
+
+  async function handleExcel() {
+    if (!block) return;
+    try {
+      await exportRegisterWorkbook(block, cohortName, registerStudents, records ?? [], filename);
+      toast.success("Register exported to Excel");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Export failed");
+    }
+  }
+
+  function handlePdf() {
+    if (!block) return;
+    exportRegisterPdf(
+      block.name,
+      cohortName,
+      buildRegisterRows(block, registerStudents, records ?? []),
+      filename,
+    );
+  }
 
   if (lb || ls) return <Spinner label="Loading" />;
 
@@ -87,20 +115,13 @@ function AdminReports() {
     <>
       <SectionTitle
         title="Reports"
-        subtitle="Export institutional attendance records for record keeping"
+        subtitle="Exports use the official Consciousness Attendance Register template"
         action={
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              disabled={!block || rows.length === 0}
-              onClick={() => exportExcel(title, head, body, filename)}
-            >
+            <Button variant="outline" disabled={!block || rows.length === 0} onClick={handleExcel}>
               Export Excel
             </Button>
-            <Button
-              disabled={!block || rows.length === 0}
-              onClick={() => exportPdf(title, subtitle, head, body, filename)}
-            >
+            <Button disabled={!block || rows.length === 0} onClick={handlePdf}>
               Export PDF
             </Button>
           </div>
@@ -108,12 +129,22 @@ function AdminReports() {
       />
 
       <Card className="mb-4">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-3">
           <Field label="Block">
             <Select value={block?.id ?? ""} onChange={(e) => setBlockId(e.target.value)}>
               {(blocks ?? []).map((b) => (
                 <option key={b.id} value={b.id}>
-                  {b.name} · {b.status}
+                  {b.name} · {b.weeks}w · {b.status}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Cohort">
+            <Select value={cohortId} onChange={(e) => setCohortId(e.target.value)}>
+              <option value="all">All cohorts</option>
+              {(cohorts ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
                 </option>
               ))}
             </Select>
@@ -126,7 +157,13 @@ function AdminReports() {
             </Select>
           </Field>
         </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          The register renders one 15-column week section per block week — a{" "}
+          {block?.weeks ?? 0}-week block exports exactly {block?.weeks ?? 0} week
+          {block?.weeks === 1 ? "" : "s"}, with block cumulative and final points columns.
+        </p>
       </Card>
+
 
       <Card>
         <SectionTitle title={title} subtitle={subtitle} />
