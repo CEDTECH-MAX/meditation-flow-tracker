@@ -141,6 +141,7 @@ function AdminStudents() {
             ? !s.cohort_id
             : s.cohort_id === cohortFilter,
       )
+      .filter((s) => (classFilter === "all" ? true : s.classification === classFilter))
       .filter(
         (s) =>
           !q ||
@@ -155,7 +156,7 @@ function AdminStudents() {
           (records ?? []).filter((r) => r.student_id === s.id),
         ),
       }));
-  }, [students, search, cohortFilter, block, records]);
+  }, [students, search, cohortFilter, classFilter, block, records]);
 
   if (isLoading) return <Spinner label="Loading students" />;
 
