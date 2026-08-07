@@ -253,6 +253,12 @@ function StudentDashboard() {
             <AttendanceCalendar cells={calendar} />
           </Card>
 
+          <div className="mt-6">
+            <Leaderboard />
+          </div>
+
+
+
           <Card className="mt-6">
             <SectionTitle title="Attendance history" subtitle="Read-only record of your sessions" />
             {blockRecords.length === 0 ? (
