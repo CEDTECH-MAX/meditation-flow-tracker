@@ -169,10 +169,14 @@ export type Database = {
       }
       profiles: {
         Row: {
+          classification:
+            | Database["public"]["Enums"]["student_classification"]
+            | null
           cohort_id: string | null
           created_at: string
           email: string | null
           full_name: string
+          gender: Database["public"]["Enums"]["student_gender"] | null
           id: string
           intake_year: number | null
           internal_email: string | null
@@ -182,10 +186,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          classification?:
+            | Database["public"]["Enums"]["student_classification"]
+            | null
           cohort_id?: string | null
           created_at?: string
           email?: string | null
           full_name?: string
+          gender?: Database["public"]["Enums"]["student_gender"] | null
           id: string
           intake_year?: number | null
           internal_email?: string | null
@@ -195,10 +203,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          classification?:
+            | Database["public"]["Enums"]["student_classification"]
+            | null
           cohort_id?: string | null
           created_at?: string
           email?: string | null
           full_name?: string
+          gender?: Database["public"]["Enums"]["student_gender"] | null
           id?: string
           intake_year?: number | null
           internal_email?: string | null
@@ -259,6 +271,8 @@ export type Database = {
       attendance_status: "present" | "absent" | "excused"
       block_status: "upcoming" | "active" | "closed"
       session_slot: "morning" | "afternoon"
+      student_classification: "meditator" | "rising_siddha" | "siddha"
+      student_gender: "male" | "female"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -397,6 +411,8 @@ export const Constants = {
       attendance_status: ["present", "absent", "excused"],
       block_status: ["upcoming", "active", "closed"],
       session_slot: ["morning", "afternoon"],
+      student_classification: ["meditator", "rising_siddha", "siddha"],
+      student_gender: ["male", "female"],
     },
   },
 } as const
