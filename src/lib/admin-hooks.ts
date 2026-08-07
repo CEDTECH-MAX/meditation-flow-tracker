@@ -19,6 +19,8 @@ export type Student = {
   programme: string | null;
   intake_year: number | null;
   internal_email: string | null;
+  gender: "male" | "female" | null;
+  classification: "meditator" | "rising_siddha" | "siddha" | null;
 };
 
 export function useBlocks() {

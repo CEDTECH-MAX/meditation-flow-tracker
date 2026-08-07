@@ -24,6 +24,7 @@ import {
   summarise,
 } from "@/lib/attendance";
 import { AttendanceCalendar } from "@/components/AttendanceCalendar";
+import { Leaderboard } from "@/components/Leaderboard";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -252,6 +253,12 @@ function StudentDashboard() {
             />
             <AttendanceCalendar cells={calendar} />
           </Card>
+
+          <div className="mt-6">
+            <Leaderboard />
+          </div>
+
+
 
           <Card className="mt-6">
             <SectionTitle title="Attendance history" subtitle="Read-only record of your sessions" />

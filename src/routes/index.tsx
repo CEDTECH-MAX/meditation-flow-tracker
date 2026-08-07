@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button, Card, Field, Input } from "@/components/ui-kit";
@@ -102,10 +102,16 @@ function SignIn() {
               {busy ? "Signing in…" : "Sign in"}
             </Button>
           </form>
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            Accounts are created by the administrator. There is no public registration.
-          </p>
+          <div className="mt-4 flex items-center justify-between gap-3 text-sm">
+            <Link to="/signup" className="font-medium text-primary hover:underline">
+              Create student account
+            </Link>
+            <Link to="/forgot-password" className="text-muted-foreground hover:underline">
+              Forgot password?
+            </Link>
+          </div>
         </Card>
+
 
         <div className="mt-6 grid grid-cols-3 gap-2 text-center text-[11px] text-muted-foreground">
           <div className="glass-muted rounded-xl px-2 py-3">Secure sign-in</div>

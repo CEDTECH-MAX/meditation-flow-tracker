@@ -23,7 +23,7 @@ import {
   type Student,
 } from "@/lib/admin-hooks";
 import { createStudent, deleteStudent, updateStudent } from "@/lib/data.functions";
-import { summarise } from "@/lib/attendance";
+import { CLASSIFICATIONS, classificationLabel, genderLabel, summarise } from "@/lib/attendance";
 
 export const Route = createFileRoute("/_authenticated/admin/students")({
   head: () => ({
@@ -79,6 +79,7 @@ function AdminStudents() {
   const [confirmDelete, setConfirmDelete] = useState<Student | null>(null);
   const [search, setSearch] = useState("");
   const [cohortFilter, setCohortFilter] = useState("all");
+  const [classFilter, setClassFilter] = useState("all");
 
   const createFn = useServerFn(createStudent);
   const updateFn = useServerFn(updateStudent);
@@ -140,6 +141,7 @@ function AdminStudents() {
             ? !s.cohort_id
             : s.cohort_id === cohortFilter,
       )
+      .filter((s) => (classFilter === "all" ? true : s.classification === classFilter))
       .filter(
         (s) =>
           !q ||
@@ -154,7 +156,7 @@ function AdminStudents() {
           (records ?? []).filter((r) => r.student_id === s.id),
         ),
       }));
-  }, [students, search, cohortFilter, block, records]);
+  }, [students, search, cohortFilter, classFilter, block, records]);
 
   if (isLoading) return <Spinner label="Loading students" />;
 
@@ -167,7 +169,7 @@ function AdminStudents() {
       />
 
       <Card>
-        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:max-w-2xl">
+        <div className="mb-4 grid gap-3 sm:grid-cols-3 lg:max-w-3xl">
           <Input
             placeholder="Search by name, number or email"
             value={search}
@@ -182,19 +184,34 @@ function AdminStudents() {
               </option>
             ))}
           </Select>
+          <Select
+            value={classFilter}
+            onChange={(e) => setClassFilter(e.target.value)}
+            aria-label="Filter by classification"
+          >
+            <option value="all">All classifications</option>
+            {CLASSIFICATIONS.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </Select>
         </div>
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">No students found.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[680px] text-sm">
+            <table className="w-full min-w-[780px] text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="pb-2">Student</th>
                   <th className="pb-2">Number</th>
                   <th className="pb-2">Cohort</th>
+                  <th className="pb-2">Classification</th>
+                  <th className="pb-2">Gender</th>
                   <th className="pb-2">Email</th>
                   <th className="pb-2">Attendance</th>
+
                   <th className="pb-2 text-right">Actions</th>
                 </tr>
               </thead>
@@ -223,6 +240,8 @@ function AdminStudents() {
                         <span className="text-muted-foreground">Unassigned</span>
                       )}
                     </td>
+                    <td className="py-2">{classificationLabel(student.classification)}</td>
+                    <td className="py-2">{genderLabel(student.gender)}</td>
                     <td className="py-2 text-muted-foreground">
                       <span className="block">{student.email ?? "—"}</span>
                       {student.internal_email ? (
