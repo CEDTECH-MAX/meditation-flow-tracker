@@ -24,6 +24,7 @@ import {
   summarise,
 } from "@/lib/attendance";
 import { AttendanceCalendar } from "@/components/AttendanceCalendar";
+import { Leaderboard } from "@/components/Leaderboard";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
