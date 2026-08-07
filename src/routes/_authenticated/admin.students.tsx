@@ -79,6 +79,7 @@ function AdminStudents() {
   const [confirmDelete, setConfirmDelete] = useState<Student | null>(null);
   const [search, setSearch] = useState("");
   const [cohortFilter, setCohortFilter] = useState("all");
+  const [classFilter, setClassFilter] = useState("all");
 
   const createFn = useServerFn(createStudent);
   const updateFn = useServerFn(updateStudent);
