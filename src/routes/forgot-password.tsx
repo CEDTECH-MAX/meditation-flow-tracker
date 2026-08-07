@@ -21,7 +21,7 @@ export const Route = createFileRoute("/forgot-password")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: ForgotPassword;
+  component: ForgotPassword,
 });
 
 function ForgotPassword() {
