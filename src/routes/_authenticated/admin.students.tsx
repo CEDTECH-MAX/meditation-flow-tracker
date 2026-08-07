@@ -240,6 +240,8 @@ function AdminStudents() {
                         <span className="text-muted-foreground">Unassigned</span>
                       )}
                     </td>
+                    <td className="py-2">{classificationLabel(student.classification)}</td>
+                    <td className="py-2">{genderLabel(student.gender)}</td>
                     <td className="py-2 text-muted-foreground">
                       <span className="block">{student.email ?? "—"}</span>
                       {student.internal_email ? (
