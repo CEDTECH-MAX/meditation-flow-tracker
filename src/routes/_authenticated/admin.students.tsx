@@ -23,7 +23,7 @@ import {
   type Student,
 } from "@/lib/admin-hooks";
 import { createStudent, deleteStudent, updateStudent } from "@/lib/data.functions";
-import { summarise } from "@/lib/attendance";
+import { CLASSIFICATIONS, classificationLabel, genderLabel, summarise } from "@/lib/attendance";
 
 export const Route = createFileRoute("/_authenticated/admin/students")({
   head: () => ({
