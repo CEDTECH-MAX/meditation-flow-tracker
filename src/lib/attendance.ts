@@ -197,3 +197,27 @@ export function buildCalendar(
     future: date > today,
   }));
 }
+
+/* ------------------------- gender & classification ------------------------ */
+
+export type Gender = "male" | "female";
+export type Classification = "meditator" | "rising_siddha" | "siddha";
+
+export const CLASSIFICATIONS: { value: Classification; label: string }[] = [
+  { value: "meditator", label: "Meditator" },
+  { value: "rising_siddha", label: "Rising Siddha" },
+  { value: "siddha", label: "Siddha" },
+];
+
+export const GENDERS: { value: Gender; label: string }[] = [
+  { value: "male", label: "Male" },
+  { value: "female", label: "Female" },
+];
+
+export function classificationLabel(value: Classification | null | undefined) {
+  return CLASSIFICATIONS.find((c) => c.value === value)?.label ?? "—";
+}
+
+export function genderLabel(value: Gender | null | undefined) {
+  return GENDERS.find((g) => g.value === value)?.label ?? "—";
+}
