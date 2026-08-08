@@ -30,3 +30,16 @@ export function internalEmail(studentNumber: string) {
   const slug = studentNumber.trim().toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.|\.$/g, "");
   return `${slug || "student"}@mi.local`;
 }
+
+/**
+ * Attendance is recorded as points (0 – 2.0 per session). The legacy status
+ * column is derived so historical reports and RLS-facing queries stay valid.
+ */
+export function statusFromPoints(
+  points: number,
+  reason?: string | null,
+): "present" | "absent" | "excused" {
+  if (points > 0) return "present";
+  return reason === "sick_leave" || reason === "approved_leave" ? "excused" : "absent";
+}
+

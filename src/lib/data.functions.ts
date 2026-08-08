@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { assertAdmin, audit, internalEmail, type Ctx } from "./data.helpers";
+import { assertAdmin, audit, internalEmail, statusFromPoints, type Ctx } from "./data.helpers";
 
 /* ---------------------------------- me ---------------------------------- */
 
@@ -237,6 +237,8 @@ const studentInput = z.object({
   cohort_id: z.string().uuid().nullable().optional(),
   programme: z.string().trim().max(120).or(z.literal("")).optional(),
   intake_year: z.number().int().min(2000).max(2100).nullable().optional(),
+  classification: z.enum(["meditator", "rising_siddha", "siddha"]).nullable().optional(),
+  gender: z.enum(["male", "female"]).nullable().optional(),
 });
 
 
@@ -266,8 +268,11 @@ export const createStudent = createServerFn({ method: "POST" })
       cohort_id: data.cohort_id ?? null,
       programme: data.programme || null,
       intake_year: data.intake_year ?? null,
+      classification: data.classification ?? null,
+      gender: data.gender ?? null,
       internal_email: internalEmail(data.student_number),
     });
+
     if (pErr) {
       await supabaseAdmin.auth.admin.deleteUser(id);
       throw new Error(pErr.message);
@@ -290,6 +295,8 @@ export const updateStudent = createServerFn({ method: "POST" })
         cohort_id: z.string().uuid().nullable().optional(),
         programme: z.string().trim().max(120).or(z.literal("")).optional(),
         intake_year: z.number().int().min(2000).max(2100).nullable().optional(),
+        classification: z.enum(["meditator", "rising_siddha", "siddha"]).nullable().optional(),
+        gender: z.enum(["male", "female"]).nullable().optional(),
       })
       .parse(d),
   )
@@ -305,10 +312,13 @@ export const updateStudent = createServerFn({ method: "POST" })
         cohort_id: data.cohort_id ?? null,
         programme: data.programme || null,
         intake_year: data.intake_year ?? null,
+        classification: data.classification ?? null,
+        gender: data.gender ?? null,
         internal_email: internalEmail(data.student_number),
       })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+
 
 
     if (data.password) {
@@ -355,6 +365,14 @@ export const listAttendance = createServerFn({ method: "POST" })
     return rows ?? [];
   });
 
+const POINTS = z.union([
+  z.literal(0),
+  z.literal(0.5),
+  z.literal(1),
+  z.literal(1.5),
+  z.literal(2),
+]);
+
 export const markAttendance = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -364,7 +382,7 @@ export const markAttendance = createServerFn({ method: "POST" })
         student_id: z.string().uuid(),
         session_date: z.string().min(10).max(10),
         slot: z.enum(["morning", "afternoon"]),
-        status: z.enum(["present", "absent", "excused"]).nullable(),
+        points: POINTS.nullable(),
         absence_reason: z
           .enum(["sick_leave", "approved_leave", "late_arrival", "unexcused", "other"])
           .nullable()
@@ -377,7 +395,7 @@ export const markAttendance = createServerFn({ method: "POST" })
     const c = context as unknown as Ctx;
     await assertAdmin(c);
 
-    if (data.status === null) {
+    if (data.points === null) {
       const { error } = await c.supabase
         .from("attendance")
         .delete()
@@ -390,15 +408,19 @@ export const markAttendance = createServerFn({ method: "POST" })
       return { ok: true };
     }
 
+    const status = statusFromPoints(data.points, data.absence_reason ?? null);
+    const full = data.points === 2;
+
     const { error } = await c.supabase.from("attendance").upsert(
       {
         block_id: data.block_id,
         student_id: data.student_id,
         session_date: data.session_date,
         slot: data.slot,
-        status: data.status,
-        absence_reason: data.status === "present" ? null : (data.absence_reason ?? null),
-        absence_note: data.status === "present" ? null : data.absence_note || null,
+        points: data.points,
+        status,
+        absence_reason: full ? null : (data.absence_reason ?? null),
+        absence_note: full ? null : data.absence_note || null,
         recorded_by: c.userId,
       },
       { onConflict: "block_id,student_id,session_date,slot" },
@@ -417,7 +439,7 @@ export const markDayForAll = createServerFn({ method: "POST" })
         block_id: z.string().uuid(),
         session_date: z.string().min(10).max(10),
         slot: z.enum(["morning", "afternoon"]),
-        status: z.enum(["present", "absent", "excused"]),
+        points: POINTS,
         student_ids: z.array(z.string().uuid()).min(1).max(2000),
       })
       .parse(d),
@@ -425,12 +447,14 @@ export const markDayForAll = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const c = context as unknown as Ctx;
     await assertAdmin(c);
+    const status = statusFromPoints(data.points, null);
     const rows = data.student_ids.map((student_id) => ({
       block_id: data.block_id,
       student_id,
       session_date: data.session_date,
       slot: data.slot,
-      status: data.status,
+      points: data.points,
+      status,
       recorded_by: c.userId,
     }));
     const { error } = await c.supabase
@@ -440,11 +464,12 @@ export const markDayForAll = createServerFn({ method: "POST" })
     await audit(c, "bulk_mark", "attendance", data.block_id, {
       session_date: data.session_date,
       slot: data.slot,
-      status: data.status,
+      points: data.points,
       count: rows.length,
     });
     return { ok: true };
   });
+
 
 /* --------------------------- student self-service ------------------------ */
 
@@ -467,6 +492,9 @@ export const getMyAttendance = createServerFn({ method: "GET" })
       records: records ?? [],
     };
   });
+
+
+
 
 export const getAuditLogs = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

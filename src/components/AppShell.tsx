@@ -19,6 +19,13 @@ const adminNav: { to: string; label: string; exact?: boolean }[] = [
   { to: "/admin/reports", label: "Reports" },
 ];
 
+const studentNav: { to: string; label: string; exact?: boolean }[] = [
+  { to: "/dashboard", label: "My attendance", exact: true },
+  { to: "/advisor", label: "AI Advisor" },
+  { to: "/password", label: "Password" },
+];
+
+
 export function AppShell({
   children,
   admin = false,
@@ -61,22 +68,21 @@ export function AppShell({
             </Button>
           </div>
         </div>
-        {admin ? (
-          <nav className="mx-auto max-w-6xl overflow-x-auto px-4 pb-2">
-            <div className="flex gap-1">
-              {adminNav.map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  activeOptions={{ exact: item.exact ?? false }}
-                  className="rounded-full px-3 py-1.5 text-sm text-muted-foreground transition hover:bg-accent data-[status=active]:bg-primary data-[status=active]:text-primary-foreground"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          </nav>
-        ) : null}
+        <nav className="mx-auto max-w-6xl overflow-x-auto px-4 pb-2">
+          <div className="flex gap-1">
+            {(admin ? adminNav : studentNav).map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                activeOptions={{ exact: item.exact ?? false }}
+                className="rounded-full px-3 py-1.5 text-sm text-muted-foreground transition hover:bg-accent data-[status=active]:bg-primary data-[status=active]:text-primary-foreground"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        </nav>
+
       </header>
       <main className="mx-auto max-w-6xl px-4 py-6 sm:py-8">{children}</main>
       <footer className="mx-auto max-w-6xl px-4 pb-8 pt-2 text-center text-xs text-muted-foreground">
