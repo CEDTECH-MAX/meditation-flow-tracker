@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { assertAdmin, audit, internalEmail, type Ctx } from "./data.helpers";
+import { assertAdmin, audit, internalEmail, statusFromPoints, type Ctx } from "./data.helpers";
 
 /* ---------------------------------- me ---------------------------------- */
 
