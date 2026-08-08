@@ -493,42 +493,6 @@ export const getMyAttendance = createServerFn({ method: "GET" })
     };
   });
 
-/** Students change their own password (verified against their current one). */
-export const changeMyPassword = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
-    z
-      .object({
-        current_password: z.string().min(1).max(72),
-        new_password: z.string().min(8).max(72),
-      })
-      .parse(d),
-  )
-  .handler(async ({ data, context }) => {
-    const c = context as unknown as Ctx;
-    const email = (c.claims?.["email"] as string) ?? "";
-    if (!email) throw new Error("Your account has no email address on file.");
-
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { createClient } = await import("@supabase/supabase-js");
-    const verifier = createClient(
-      process.env["SUPABASE_URL"]!,
-      process.env["SUPABASE_PUBLISHABLE_KEY"]!,
-      { auth: { persistSession: false, autoRefreshToken: false } },
-    );
-    const { error: vErr } = await verifier.auth.signInWithPassword({
-      email,
-      password: data.current_password,
-    });
-    if (vErr) throw new Error("Your current password is incorrect.");
-
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(c.userId, {
-      password: data.new_password,
-    });
-    if (error) throw new Error(error.message);
-    await audit(c, "password_change", "student", c.userId, {});
-    return { ok: true };
-  });
 
 
 
