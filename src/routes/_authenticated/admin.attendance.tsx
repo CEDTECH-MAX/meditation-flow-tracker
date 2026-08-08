@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -16,8 +16,16 @@ import {
 } from "@/components/ui-kit";
 import { pickActive, useAttendance, useBlocks, useCohorts, useStudents } from "@/lib/admin-hooks";
 import { markAttendance, markDayForAll } from "@/lib/data.functions";
-import type { AbsenceReason, AttendanceRecord, AttendanceStatus, SessionSlot } from "@/lib/attendance";
-import { formatDate, REASONS, reasonLabel, summarise } from "@/lib/attendance";
+import type { AbsenceReason, AttendanceRecord, SessionSlot } from "@/lib/attendance";
+import {
+  formatDate,
+  isSunday,
+  POINT_OPTIONS,
+  REASONS,
+  reasonLabel,
+  skipSunday,
+  summarise,
+} from "@/lib/attendance";
 
 export const Route = createFileRoute("/_authenticated/admin/attendance")({
   head: () => ({
@@ -26,19 +34,23 @@ export const Route = createFileRoute("/_authenticated/admin/attendance")({
       {
         name: "description",
         content:
-          "Mark morning and afternoon meditation attendance for every student, with bulk actions and excused absences.",
+          "Score morning and afternoon meditation sessions out of 2.0 points, fill a score down a whole cohort, and record reasons for absence.",
       },
       { property: "og:title", content: "Mark Attendance" },
       {
         property: "og:description",
-        content: "Record daily meditation attendance per student and session.",
+        content: "Record daily meditation points per student and session.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: AdminAttendance,
 });
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => skipSunday(new Date().toISOString().slice(0, 10));
+
+type Points = 0 | 0.5 | 1 | 1.5 | 2;
 
 function AdminAttendance() {
   const qc = useQueryClient();
@@ -57,11 +69,21 @@ function AdminAttendance() {
     student_id: string;
     name: string;
     slot: SessionSlot;
-    status: AttendanceStatus;
+    points: Points;
     absence_reason: AbsenceReason | "";
     absence_note: string;
   } | null>(null);
-  const [bulk, setBulk] = useState<{ slot: SessionSlot; status: AttendanceStatus } | null>(null);
+  const [bulk, setBulk] = useState<{ slot: SessionSlot; points: Points } | null>(null);
+
+  /** Click-and-drag fill: source cell plus the row currently hovered. */
+  const [drag, setDrag] = useState<{
+    slot: SessionSlot;
+    from: number;
+    to: number;
+    points: Points;
+  } | null>(null);
+  const dragRef = useRef(drag);
+  dragRef.current = drag;
 
   const markFn = useServerFn(markAttendance);
   const bulkFn = useServerFn(markDayForAll);
@@ -72,32 +94,49 @@ function AdminAttendance() {
     mutationFn: (v: {
       student_id: string;
       slot: SessionSlot;
-      status: AttendanceStatus | null;
+      points: Points | null;
       absence_reason?: AbsenceReason | null;
       absence_note?: string;
-    }) =>
-      markFn({
-        data: { block_id: block!.id, session_date: date, ...v },
-      }),
+    }) => markFn({ data: { block_id: block!.id, session_date: date, ...v } }),
     onSuccess: invalidate,
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const fill = useMutation({
+    mutationFn: async (v: { slot: SessionSlot; points: Points; student_ids: string[] }) => {
+      await bulkFn({
+        data: {
+          block_id: block!.id,
+          session_date: date,
+          slot: v.slot,
+          points: v.points,
+          student_ids: v.student_ids,
+        },
+      });
+      return v.student_ids.length;
+    },
+    onSuccess: (count) => {
+      invalidate();
+      toast.success(`${count} student${count === 1 ? "" : "s"} scored`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const bulkMark = useMutation({
-    mutationFn: (v: { slot: SessionSlot; status: AttendanceStatus }) =>
+    mutationFn: (v: { slot: SessionSlot; points: Points }) =>
       bulkFn({
         data: {
           block_id: block!.id,
           session_date: date,
           slot: v.slot,
-          status: v.status,
+          points: v.points,
           student_ids: rows.map((r) => r.student.id),
         },
       }),
     onSuccess: () => {
       invalidate();
       setBulk(null);
-      toast.success("Attendance updated for all students");
+      toast.success("Session scored for all students");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -139,13 +178,38 @@ function AdminAttendance() {
 
   const locked = !block || block.status === "closed";
 
+  // Finish a drag-fill wherever the pointer is released.
+  useEffect(() => {
+    function end() {
+      const d = dragRef.current;
+      setDrag(null);
+      if (!d) return;
+      const lo = Math.min(d.from, d.to);
+      const hi = Math.max(d.from, d.to);
+      const ids = rows.slice(lo, hi + 1).map((r) => r.student.id);
+      if (ids.length < 2) return;
+      fill.mutate({ slot: d.slot, points: d.points, student_ids: ids });
+    }
+    window.addEventListener("mouseup", end);
+    window.addEventListener("touchend", end);
+    return () => {
+      window.removeEventListener("mouseup", end);
+      window.removeEventListener("touchend", end);
+    };
+  }, [rows, fill]);
+
+  function inDrag(slot: SessionSlot, index: number) {
+    if (!drag || drag.slot !== slot) return false;
+    return index >= Math.min(drag.from, drag.to) && index <= Math.max(drag.from, drag.to);
+  }
+
   if (lb || ls) return <Spinner label="Loading" />;
 
   return (
     <>
       <SectionTitle
         title="Mark attendance"
-        subtitle="Morning and afternoon sessions · excused absences are excluded from percentages"
+        subtitle="Each session is scored out of 2.0 points · drag a score down to fill the rest of the list"
         action={
           block ? (
             <Badge tone={block.status === "active" ? "green" : block.status === "closed" ? "red" : "gold"}>
@@ -174,13 +238,22 @@ function AdminAttendance() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Session date">
+              <Field label="Session date (no Sundays)">
                 <Input
                   type="date"
                   value={date}
                   min={block.start_date}
                   max={block.end_date}
-                  onChange={(e) => setDate(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (!value) return;
+                    if (isSunday(value)) {
+                      toast.error("Sundays are not meditation days.");
+                      setDate(skipSunday(value));
+                      return;
+                    }
+                    setDate(value);
+                  }}
                 />
               </Field>
               <Field label="Cohort">
@@ -209,32 +282,48 @@ function AdminAttendance() {
               </p>
             ) : (
               <div className="mt-4 flex flex-wrap gap-2">
-                {(["morning", "afternoon"] as SessionSlot[]).map((slot) =>
-                  (["present", "absent"] as AttendanceStatus[]).map((status) => (
-                    <Button
-                      key={`${slot}-${status}`}
-                      size="sm"
-                      variant={status === "present" ? "soft" : "outline"}
-                      onClick={() => setBulk({ slot, status })}
-                    >
-                      All {slot} {status}
-                    </Button>
-                  )),
-                )}
+                {(["morning", "afternoon"] as SessionSlot[]).map((slot) => (
+                  <Button
+                    key={slot}
+                    size="sm"
+                    variant="soft"
+                    onClick={() => setBulk({ slot, points: 2 })}
+                  >
+                    All {slot} 2.0
+                  </Button>
+                ))}
+                {(["morning", "afternoon"] as SessionSlot[]).map((slot) => (
+                  <Button
+                    key={`${slot}-zero`}
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setBulk({ slot, points: 0 })}
+                  >
+                    All {slot} 0
+                  </Button>
+                ))}
               </div>
             )}
+
+            <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground">
+              {POINT_OPTIONS.map((o) => (
+                <span key={o.value} className="glass-muted rounded-full px-3 py-1">
+                  <strong className="text-foreground">{o.label}</strong> · {o.hint}
+                </span>
+              ))}
+            </div>
           </Card>
 
           <Card>
             <SectionTitle
               title={formatDate(date)}
-              subtitle={`${rows.length} student${rows.length === 1 ? "" : "s"} · each session is worth ${summarise(block, []).sessionWeight}% of the block`}
+              subtitle={`${rows.length} student${rows.length === 1 ? "" : "s"} · a full meditation day is 4.0 points (2.0 morning + 2.0 afternoon)`}
             />
             {la ? (
               <Spinner label="Loading attendance" />
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[720px] text-sm">
+              <div className="overflow-x-auto select-none">
+                <table className="w-full min-w-[760px] text-sm">
                   <thead>
                     <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                       <th className="pb-2">Student</th>
@@ -244,7 +333,7 @@ function AdminAttendance() {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map(({ student, morning, afternoon, summary }) => (
+                    {rows.map(({ student, morning, afternoon, summary }, index) => (
                       <tr key={student.id} className="border-t border-border/60">
                         <td className="py-2">
                           <span className="block font-medium">{student.full_name}</span>
@@ -254,27 +343,67 @@ function AdminAttendance() {
                         </td>
                         {(["morning", "afternoon"] as SessionSlot[]).map((slot) => {
                           const rec = slot === "morning" ? morning : afternoon;
+                          const value = rec ? (Number(rec.points) as Points) : null;
                           return (
-                            <td key={slot} className="py-2">
-                              <SlotButtons
-                                value={rec?.status ?? null}
-                                disabled={locked || mark.isPending}
-                                onPick={(status) => {
-                                  if (status && status !== "present") {
-                                    setReasonFor({
-                                      student_id: student.id,
-                                      name: student.full_name,
-                                      slot,
-                                      status,
-                                      absence_reason: (rec?.absence_reason ?? "") as AbsenceReason | "",
-                                      absence_note: rec?.absence_note ?? "",
-                                    });
-                                    return;
-                                  }
-                                  mark.mutate({ student_id: student.id, slot, status });
-                                }}
-                              />
-                              {rec && rec.status !== "present" ? (
+                            <td
+                              key={slot}
+                              onMouseEnter={() =>
+                                setDrag((d) => (d && d.slot === slot ? { ...d, to: index } : d))
+                              }
+                              className={[
+                                "py-2 pr-4",
+                                inDrag(slot, index) ? "bg-primary-soft/60" : "",
+                              ].join(" ")}
+                            >
+                              <div className="relative inline-flex items-center gap-2">
+                                <Select
+                                  aria-label={`${slot} points for ${student.full_name}`}
+                                  className="w-24"
+                                  disabled={locked || mark.isPending || fill.isPending}
+                                  value={value === null ? "" : String(value)}
+                                  onChange={(e) => {
+                                    const raw = e.target.value;
+                                    if (raw === "") {
+                                      mark.mutate({ student_id: student.id, slot, points: null });
+                                      return;
+                                    }
+                                    const points = Number(raw) as Points;
+                                    if (points < 2) {
+                                      setReasonFor({
+                                        student_id: student.id,
+                                        name: student.full_name,
+                                        slot,
+                                        points,
+                                        absence_reason: (rec?.absence_reason ?? "") as
+                                          | AbsenceReason
+                                          | "",
+                                        absence_note: rec?.absence_note ?? "",
+                                      });
+                                      return;
+                                    }
+                                    mark.mutate({ student_id: student.id, slot, points });
+                                  }}
+                                >
+                                  <option value="">—</option>
+                                  {POINT_OPTIONS.map((o) => (
+                                    <option key={o.value} value={o.value}>
+                                      {o.label}
+                                    </option>
+                                  ))}
+                                </Select>
+                                {value !== null && !locked ? (
+                                  <button
+                                    type="button"
+                                    title="Drag down to give the students below the same score"
+                                    aria-label="Fill score down"
+                                    onMouseDown={() =>
+                                      setDrag({ slot, from: index, to: index, points: value })
+                                    }
+                                    className="h-3 w-3 cursor-crosshair rounded-sm bg-primary ring-2 ring-card"
+                                  />
+                                ) : null}
+                              </div>
+                              {rec && Number(rec.points) < 2 ? (
                                 <button
                                   type="button"
                                   disabled={locked}
@@ -283,8 +412,10 @@ function AdminAttendance() {
                                       student_id: student.id,
                                       name: student.full_name,
                                       slot,
-                                      status: rec.status,
-                                      absence_reason: (rec.absence_reason ?? "") as AbsenceReason | "",
+                                      points: Number(rec.points) as Points,
+                                      absence_reason: (rec.absence_reason ?? "") as
+                                        | AbsenceReason
+                                        | "",
                                       absence_note: rec.absence_note ?? "",
                                     })
                                   }
@@ -332,7 +463,7 @@ function AdminAttendance() {
               mark.mutate({
                 student_id: reasonFor.student_id,
                 slot: reasonFor.slot,
-                status: reasonFor.status,
+                points: reasonFor.points,
                 absence_reason: reasonFor.absence_reason || null,
                 absence_note: reasonFor.absence_note,
               });
@@ -340,8 +471,9 @@ function AdminAttendance() {
             }}
           >
             <p className="text-sm text-muted-foreground">
-              Marking the {reasonFor.slot} session on {formatDate(date)} as{" "}
-              <strong>{reasonFor.status}</strong>.
+              Scoring the {reasonFor.slot} session on {formatDate(date)} as{" "}
+              <strong>{reasonFor.points.toFixed(1)} points</strong>. Sick leave and approved leave are
+              excluded from the percentage.
             </p>
             <Field label="Reason">
               <Select
@@ -380,62 +512,19 @@ function AdminAttendance() {
 
       <Modal open={Boolean(bulk)} onClose={() => setBulk(null)} title="Confirm bulk update">
         <p className="text-sm text-muted-foreground">
-          Mark <strong>all {rows.length} students</strong> as {bulk?.status} for the {bulk?.slot}{" "}
-          session on {formatDate(date)}? Existing marks for that session will be overwritten.
+          Score <strong>all {rows.length} students</strong> {bulk?.points.toFixed(1)} points for the{" "}
+          {bulk?.slot} session on {formatDate(date)}? Existing scores for that session will be
+          overwritten.
         </p>
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="outline" onClick={() => setBulk(null)}>
             Cancel
           </Button>
-          <Button
-            disabled={bulkMark.isPending}
-            onClick={() => bulk && bulkMark.mutate(bulk)}
-          >
+          <Button disabled={bulkMark.isPending} onClick={() => bulk && bulkMark.mutate(bulk)}>
             {bulkMark.isPending ? "Saving…" : "Confirm"}
           </Button>
         </div>
       </Modal>
     </>
-  );
-}
-
-function SlotButtons({
-  value,
-  disabled,
-  onPick,
-}: {
-  value: AttendanceStatus | null;
-  disabled: boolean;
-  onPick: (status: AttendanceStatus | null) => void;
-}) {
-  const options: { key: AttendanceStatus; label: string }[] = [
-    { key: "present", label: "P" },
-    { key: "absent", label: "A" },
-    { key: "excused", label: "E" },
-  ];
-  return (
-    <div className="inline-flex items-center gap-1">
-      {options.map((o) => (
-        <button
-          key={o.key}
-          type="button"
-          disabled={disabled}
-          title={o.key}
-          onClick={() => onPick(value === o.key ? null : o.key)}
-          className={[
-            "h-8 w-8 rounded-full text-xs font-bold transition disabled:opacity-40",
-            value === o.key
-              ? o.key === "present"
-                ? "bg-success text-primary-foreground"
-                : o.key === "absent"
-                  ? "bg-destructive text-destructive-foreground"
-                  : "bg-gold text-gold-foreground"
-              : "border border-border bg-card/70 text-muted-foreground hover:bg-accent",
-          ].join(" ")}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
   );
 }
