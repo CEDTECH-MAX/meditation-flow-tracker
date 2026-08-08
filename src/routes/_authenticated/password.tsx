@@ -23,7 +23,7 @@ export const Route = createFileRoute("/_authenticated/password")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: ChangePassword;
+  component: ChangePassword,
 });
 
 function ChangePassword() {
