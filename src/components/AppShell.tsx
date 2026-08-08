@@ -19,6 +19,13 @@ const adminNav: { to: string; label: string; exact?: boolean }[] = [
   { to: "/admin/reports", label: "Reports" },
 ];
 
+const studentNav: { to: string; label: string; exact?: boolean }[] = [
+  { to: "/dashboard", label: "My attendance", exact: true },
+  { to: "/advisor", label: "AI Advisor" },
+  { to: "/password", label: "Password" },
+];
+
+
 export function AppShell({
   children,
   admin = false,
