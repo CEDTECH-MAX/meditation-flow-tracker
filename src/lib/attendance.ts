@@ -10,6 +10,23 @@ export type AbsenceReason =
 
 export const PASS_MARK = 80;
 
+/** Points a single session can be worth. A full day (AM + PM) is 4.0. */
+export const MAX_SESSION_POINTS = 2;
+
+export const POINT_OPTIONS: { value: number; label: string; hint: string }[] = [
+  { value: 2, label: "2.0", hint: "Full programme attended" },
+  { value: 1.5, label: "1.5", hint: "Arrived late" },
+  { value: 1, label: "1.0", hint: "Did not do Asanas" },
+  { value: 0.5, label: "0.5", hint: "Left within the last 10 minutes" },
+  { value: 0, label: "0", hint: "Did not attend" },
+];
+
+export function pointsLabel(points: number | null | undefined) {
+  if (points === null || points === undefined) return "—";
+  return points.toFixed(1);
+}
+
+
 export const REASONS: { value: AbsenceReason; label: string }[] = [
   { value: "sick_leave", label: "Sick leave" },
   { value: "approved_leave", label: "Approved leave" },
