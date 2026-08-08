@@ -201,17 +201,31 @@ export function blockProgress(block: Block) {
   return Math.round(((now - start) / Math.max(1, end - start)) * 100);
 }
 
-/** Every calendar date inside a block, inclusive. */
+/** Sundays do not exist in this system — no meditation sessions are ever held. */
+export function isSunday(date: string) {
+  return new Date(date + "T00:00:00").getDay() === 0;
+}
+
+/** The next non-Sunday date on or after the given date. */
+export function skipSunday(date: string) {
+  if (!isSunday(date)) return date;
+  const d = new Date(date + "T00:00:00");
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Every session date inside a block, inclusive, excluding Sundays. */
 export function blockDates(block: Pick<Block, "start_date" | "end_date">) {
   const out: string[] = [];
   const cur = new Date(block.start_date + "T00:00:00");
   const end = new Date(block.end_date + "T00:00:00");
   while (cur <= end && out.length < 400) {
-    out.push(cur.toISOString().slice(0, 10));
+    if (cur.getDay() !== 0) out.push(cur.toISOString().slice(0, 10));
     cur.setDate(cur.getDate() + 1);
   }
   return out;
 }
+
 
 export type DayCell = {
   date: string;
