@@ -102,14 +102,16 @@ function SignIn() {
               {busy ? "Signing in…" : "Sign in"}
             </Button>
           </form>
-          <div className="mt-4 flex items-center justify-between gap-3 text-sm">
-            <Link to="/signup" className="font-medium text-primary hover:underline">
-              Create student account
-            </Link>
+          <div className="mt-4 flex flex-col items-center gap-1 text-sm">
             <Link to="/forgot-password" className="text-muted-foreground hover:underline">
               Forgot password?
             </Link>
+            <p className="text-center text-xs text-muted-foreground">
+              Accounts are created by the administrator. Ask them for your sign-in details, then
+              change your password once you are signed in.
+            </p>
           </div>
+
         </Card>
 
 
