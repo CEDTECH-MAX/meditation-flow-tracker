@@ -290,6 +290,8 @@ export const updateStudent = createServerFn({ method: "POST" })
         cohort_id: z.string().uuid().nullable().optional(),
         programme: z.string().trim().max(120).or(z.literal("")).optional(),
         intake_year: z.number().int().min(2000).max(2100).nullable().optional(),
+        classification: z.enum(["meditator", "rising_siddha", "siddha"]).nullable().optional(),
+        gender: z.enum(["male", "female"]).nullable().optional(),
       })
       .parse(d),
   )
@@ -305,10 +307,13 @@ export const updateStudent = createServerFn({ method: "POST" })
         cohort_id: data.cohort_id ?? null,
         programme: data.programme || null,
         intake_year: data.intake_year ?? null,
+        classification: data.classification ?? null,
+        gender: data.gender ?? null,
         internal_email: internalEmail(data.student_number),
       })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+
 
 
     if (data.password) {
