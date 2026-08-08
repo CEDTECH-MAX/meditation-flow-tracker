@@ -63,6 +63,7 @@ export type AttendanceRecord = {
   session_date: string;
   slot: SessionSlot;
   status: AttendanceStatus;
+  points: number;
   absence_reason?: AbsenceReason | null;
   absence_note?: string | null;
   updated_at?: string;
@@ -78,6 +79,9 @@ export type AttendanceSummary = {
   recorded: number;
   remainingSessions: number;
   countedSessions: number;
+  pointsEarned: number;
+  pointsPossible: number;
+  pointsNeeded: number;
   percentage: number;
   maxPossible: number;
   percentageNeeded: number;
@@ -92,13 +96,14 @@ export type AttendanceSummary = {
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
 /**
- * Percentages scale to the specific block: 100% = every required session in the
- * block attended, regardless of block length. Excused sessions are excluded
- * from the denominator so they never penalise the student.
+ * Points-based scoring: each session is worth up to 2.0 points (so a full
+ * meditation day is 4.0). Percentages scale to the specific block — 100% =
+ * every required point earned. Excused sessions are removed from the
+ * denominator so they never penalise the student.
  */
 export function summarise(
   block: Pick<Block, "meditation_days"> | null,
-  records: Pick<AttendanceRecord, "slot" | "status">[],
+  records: Pick<AttendanceRecord, "slot" | "status" | "points">[],
 ): AttendanceSummary {
   const totalSessions = Math.max(0, (block?.meditation_days ?? 0) * 2);
   const sessionWeight = totalSessions > 0 ? 100 / totalSessions : 0;
@@ -108,31 +113,43 @@ export function summarise(
   let excused = 0;
   let morningPresent = 0;
   let afternoonPresent = 0;
+  let pointsEarned = 0;
 
   for (const r of records) {
-    if (r.status === "present") {
+    const pts = Number(r.points ?? 0);
+    if (r.status === "excused") {
+      excused += 1;
+      continue;
+    }
+    pointsEarned += pts;
+    if (pts > 0) {
       present += 1;
       if (r.slot === "morning") morningPresent += 1;
       else afternoonPresent += 1;
-    } else if (r.status === "absent") absent += 1;
-    else excused += 1;
+    } else absent += 1;
   }
 
+  pointsEarned = round1(pointsEarned);
   const recorded = present + absent + excused;
   const remainingSessions = Math.max(0, totalSessions - recorded);
   const countedSessions = Math.max(0, totalSessions - excused);
+  const pointsPossible = round1(countedSessions * MAX_SESSION_POINTS);
 
-  const percentage = countedSessions > 0 ? round1((present / countedSessions) * 100) : 0;
+  const percentage = pointsPossible > 0 ? round1((pointsEarned / pointsPossible) * 100) : 0;
   const maxPossible =
-    countedSessions > 0
-      ? round1((Math.min(present + remainingSessions, countedSessions) / countedSessions) * 100)
+    pointsPossible > 0
+      ? round1(
+          (Math.min(pointsEarned + remainingSessions * MAX_SESSION_POINTS, pointsPossible) /
+            pointsPossible) *
+            100,
+        )
       : 0;
 
   const percentageNeeded = round1(Math.max(0, PASS_MARK - percentage));
-  const sessionsNeeded = Math.max(
-    0,
-    Math.ceil((PASS_MARK / 100) * countedSessions - present - 1e-9),
+  const pointsNeeded = round1(
+    Math.max(0, (PASS_MARK / 100) * pointsPossible - pointsEarned),
   );
+  const sessionsNeeded = Math.max(0, Math.ceil(pointsNeeded / MAX_SESSION_POINTS - 1e-9));
 
   const status = percentage >= PASS_MARK ? "met" : percentage >= 70 ? "warning" : "risk";
 
@@ -145,6 +162,9 @@ export function summarise(
     recorded,
     remainingSessions,
     countedSessions,
+    pointsEarned,
+    pointsPossible,
+    pointsNeeded,
     percentage,
     maxPossible,
     percentageNeeded,
@@ -157,6 +177,7 @@ export function summarise(
       status === "met" ? "Requirement Met" : status === "warning" ? "Warning" : "At Risk",
   };
 }
+
 
 export function statusTone(status: AttendanceSummary["status"]) {
   if (status === "met")
