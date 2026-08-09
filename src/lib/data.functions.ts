@@ -44,6 +44,7 @@ const blockInput = z.object({
   weeks: z.number().int().min(1).max(52),
   meditation_days: z.number().int().min(1).max(400),
   status: z.enum(["upcoming", "active", "closed"]),
+  cohort_id: z.string().uuid().nullable().optional(),
 });
 
 export const saveBlock = createServerFn({ method: "POST" })
@@ -52,7 +53,7 @@ export const saveBlock = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const c = context as unknown as Ctx;
     await assertAdmin(c);
-    const payload = { ...data };
+    const payload = { ...data, cohort_id: data.cohort_id ?? null };
     delete (payload as any).id;
 
     if (data.status === "active") {
@@ -233,7 +234,6 @@ const studentInput = z.object({
   student_number: z.string().trim().min(1).max(40),
   email: z.string().trim().email().max(255),
   password: z.string().min(8).max(72),
-  photo_url: z.string().trim().url().max(500).or(z.literal("")).optional(),
   cohort_id: z.string().uuid().nullable().optional(),
   programme: z.string().trim().max(120).or(z.literal("")).optional(),
   intake_year: z.number().int().min(2000).max(2100).nullable().optional(),
@@ -264,7 +264,6 @@ export const createStudent = createServerFn({ method: "POST" })
       full_name: data.full_name,
       student_number: data.student_number,
       email: data.email,
-      photo_url: data.photo_url || null,
       cohort_id: data.cohort_id ?? null,
       programme: data.programme || null,
       intake_year: data.intake_year ?? null,
@@ -290,7 +289,6 @@ export const updateStudent = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         full_name: z.string().trim().min(2).max(120),
         student_number: z.string().trim().min(1).max(40),
-        photo_url: z.string().trim().url().max(500).or(z.literal("")).optional(),
         password: z.string().min(8).max(72).or(z.literal("")).optional(),
         cohort_id: z.string().uuid().nullable().optional(),
         programme: z.string().trim().max(120).or(z.literal("")).optional(),
@@ -308,7 +306,6 @@ export const updateStudent = createServerFn({ method: "POST" })
       .update({
         full_name: data.full_name,
         student_number: data.student_number,
-        photo_url: data.photo_url || null,
         cohort_id: data.cohort_id ?? null,
         programme: data.programme || null,
         intake_year: data.intake_year ?? null,

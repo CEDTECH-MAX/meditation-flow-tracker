@@ -14,7 +14,7 @@ import {
   Select,
   Spinner,
 } from "@/components/ui-kit";
-import { useBlocks } from "@/lib/admin-hooks";
+import { useBlocks, useCohorts } from "@/lib/admin-hooks";
 import { deleteBlock, resetBlockAttendance, saveBlock, setBlockStatus } from "@/lib/data.functions";
 import { blockProgress, formatDate, type Block, type BlockStatus } from "@/lib/attendance";
 
@@ -45,6 +45,7 @@ type FormState = {
   weeks: number;
   meditation_days: number;
   status: BlockStatus;
+  cohort_id: string;
 };
 
 const empty: FormState = {
@@ -54,11 +55,15 @@ const empty: FormState = {
   weeks: 4,
   meditation_days: 20,
   status: "upcoming",
+  cohort_id: "",
 };
 
 function AdminBlocks() {
   const qc = useQueryClient();
   const { data: blocks, isLoading } = useBlocks();
+  const { data: cohorts } = useCohorts();
+  const cohortName = (id: string | null | undefined) =>
+    (cohorts ?? []).find((c) => c.id === id)?.name ?? null;
   const [form, setForm] = useState<FormState | null>(null);
   const [confirm, setConfirm] = useState<{ kind: "delete" | "reset"; block: Block } | null>(null);
 
@@ -86,6 +91,7 @@ function AdminBlocks() {
           weeks: Number(v.weeks),
           meditation_days: Number(v.meditation_days),
           status: v.status,
+          cohort_id: v.cohort_id || null,
         },
       }),
     onSuccess: () => refresh("Block saved"),
@@ -136,6 +142,9 @@ function AdminBlocks() {
                   <p className="text-sm text-muted-foreground">
                     {formatDate(b.start_date)} → {formatDate(b.end_date)}
                   </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {cohortName(b.cohort_id) ? `Cohort · ${cohortName(b.cohort_id)}` : "All cohorts"}
+                  </p>
                 </div>
                 <Badge
                   tone={b.status === "active" ? "green" : b.status === "closed" ? "red" : "gold"}
@@ -173,6 +182,7 @@ function AdminBlocks() {
                       weeks: b.weeks,
                       meditation_days: b.meditation_days,
                       status: b.status,
+                      cohort_id: b.cohort_id ?? "",
                     })
                   }
                 >
@@ -274,6 +284,19 @@ function AdminBlocks() {
                 />
               </Field>
             </div>
+            <Field label="Cohort">
+              <Select
+                value={form.cohort_id}
+                onChange={(e) => setForm({ ...form, cohort_id: e.target.value })}
+              >
+                <option value="">All cohorts</option>
+                {(cohorts ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
             <Field label="Status">
               <Select
                 value={form.status}

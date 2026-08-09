@@ -23,7 +23,15 @@ import {
   type Student,
 } from "@/lib/admin-hooks";
 import { createStudent, deleteStudent, updateStudent } from "@/lib/data.functions";
-import { CLASSIFICATIONS, classificationLabel, genderLabel, summarise } from "@/lib/attendance";
+import {
+  CLASSIFICATIONS,
+  GENDERS,
+  classificationLabel,
+  genderLabel,
+  summarise,
+  type Classification,
+  type Gender,
+} from "@/lib/attendance";
 
 export const Route = createFileRoute("/_authenticated/admin/students")({
   head: () => ({
@@ -50,10 +58,11 @@ type FormState = {
   student_number: string;
   email: string;
   password: string;
-  photo_url: string;
   cohort_id: string;
   programme: string;
   intake_year: string;
+  classification: "" | Classification;
+  gender: "" | Gender;
 };
 
 const empty: FormState = {
@@ -61,10 +70,11 @@ const empty: FormState = {
   student_number: "",
   email: "",
   password: "",
-  photo_url: "",
   cohort_id: "",
   programme: "",
   intake_year: "",
+  classification: "",
+  gender: "",
 };
 
 function AdminStudents() {
@@ -100,11 +110,12 @@ function AdminStudents() {
             id: v.id,
             full_name: v.full_name,
             student_number: v.student_number,
-            photo_url: v.photo_url,
             password: v.password,
             cohort_id: v.cohort_id || null,
             programme: v.programme,
             intake_year: v.intake_year ? Number(v.intake_year) : null,
+            classification: v.classification || null,
+            gender: v.gender || null,
           },
         });
       }
@@ -114,10 +125,11 @@ function AdminStudents() {
           student_number: v.student_number,
           email: v.email,
           password: v.password,
-          photo_url: v.photo_url,
           cohort_id: v.cohort_id || null,
           programme: v.programme,
           intake_year: v.intake_year ? Number(v.intake_year) : null,
+          classification: v.classification || null,
+          gender: v.gender || null,
         },
       });
     },
@@ -220,17 +232,9 @@ function AdminStudents() {
                   <tr key={student.id} className="border-t border-border/60">
                     <td className="py-2">
                       <div className="flex items-center gap-3">
-                        {student.photo_url ? (
-                          <img
-                            src={student.photo_url}
-                            alt={student.full_name}
-                            className="h-9 w-9 rounded-xl object-cover"
-                          />
-                        ) : (
-                          <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary-soft text-xs font-semibold text-secondary-foreground">
-                            {student.full_name.slice(0, 1)}
-                          </span>
-                        )}
+                        <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary-soft text-xs font-semibold text-secondary-foreground">
+                          {student.full_name.slice(0, 1)}
+                        </span>
                         <span className="font-medium">{student.full_name}</span>
                       </div>
                     </td>
@@ -273,10 +277,11 @@ function AdminStudents() {
                               student_number: student.student_number ?? "",
                               email: student.email ?? "",
                               password: "",
-                              photo_url: student.photo_url ?? "",
                               cohort_id: student.cohort_id ?? "",
                               programme: student.programme ?? "",
                               intake_year: student.intake_year ? String(student.intake_year) : "",
+                              classification: student.classification ?? "",
+                              gender: student.gender ?? "",
                             })
                           }
                         >
@@ -374,14 +379,38 @@ function AdminStudents() {
                 onChange={(e) => setForm({ ...form, intake_year: e.target.value })}
               />
             </Field>
-            <Field label="Photo URL (optional)">
-              <Input
-                type="url"
-                maxLength={500}
-                value={form.photo_url}
-                onChange={(e) => setForm({ ...form, photo_url: e.target.value })}
-              />
-            </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Classification">
+                <Select
+                  required
+                  value={form.classification}
+                  onChange={(e) =>
+                    setForm({ ...form, classification: e.target.value as "" | Classification })
+                  }
+                >
+                  <option value="">Select classification</option>
+                  {CLASSIFICATIONS.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Gender">
+                <Select
+                  required
+                  value={form.gender}
+                  onChange={(e) => setForm({ ...form, gender: e.target.value as "" | Gender })}
+                >
+                  <option value="">Select gender</option>
+                  {GENDERS.map((g) => (
+                    <option key={g.value} value={g.value}>
+                      {g.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
             <div className="mt-2 flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setForm(null)}>
                 Cancel

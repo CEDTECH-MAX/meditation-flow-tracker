@@ -153,7 +153,9 @@ function AdminAttendance() {
     const q = search.trim().toLowerCase();
     return (students ?? [])
       .filter((s) =>
-        cohortFilter === "all"
+        block?.cohort_id && s.cohort_id !== block.cohort_id
+          ? false
+          : cohortFilter === "all"
           ? true
           : cohortFilter === "none"
             ? !s.cohort_id

@@ -1,6 +1,6 @@
 import type { AttendanceStatus, DayCell } from "@/lib/attendance";
 
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function slotClass(status: AttendanceStatus | null, future: boolean) {
   if (status === "present") return "bg-success";
@@ -26,13 +26,13 @@ export function AttendanceCalendar({ cells }: { cells: DayCell[] }) {
     <div className="space-y-6">
       {[...months.entries()].map(([month, days]) => {
         const first = new Date(days[0]!.date + "T00:00:00");
-        const offset = (first.getDay() + 6) % 7;
+        const offset = Math.min((first.getDay() + 6) % 7, 5);
         return (
           <div key={month}>
             <p className="mb-2 text-sm font-semibold">
               {first.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
             </p>
-            <div className="grid grid-cols-7 gap-1.5 text-center">
+            <div className="grid grid-cols-6 gap-1.5 text-center">
               {WEEKDAYS.map((d) => (
                 <span key={d} className="text-[10px] font-semibold uppercase text-muted-foreground">
                   {d}
@@ -67,7 +67,7 @@ export function AttendanceCalendar({ cells }: { cells: DayCell[] }) {
         <Legend className="bg-gold" label="Excused" />
         <Legend className="bg-border" label="Not recorded" />
         <Legend className="bg-muted" label="Upcoming" />
-        <span>Each day shows morning (left) and afternoon (right).</span>
+        <span>Each day shows morning (left) and afternoon (right). Sundays are excluded.</span>
       </div>
     </div>
   );

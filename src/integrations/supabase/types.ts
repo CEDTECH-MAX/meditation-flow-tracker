@@ -133,6 +133,7 @@ export type Database = {
       }
       blocks: {
         Row: {
+          cohort_id: string | null
           created_at: string
           end_date: string
           id: string
@@ -144,6 +145,7 @@ export type Database = {
           weeks: number
         }
         Insert: {
+          cohort_id?: string | null
           created_at?: string
           end_date: string
           id?: string
@@ -155,6 +157,7 @@ export type Database = {
           weeks?: number
         }
         Update: {
+          cohort_id?: string | null
           created_at?: string
           end_date?: string
           id?: string
@@ -165,7 +168,15 @@ export type Database = {
           updated_at?: string
           weeks?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "blocks_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cohorts: {
         Row: {
