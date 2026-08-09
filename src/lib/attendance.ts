@@ -54,6 +54,7 @@ export type Block = {
   weeks: number;
   meditation_days: number;
   status: BlockStatus;
+  cohort_id?: string | null;
 };
 
 export type AttendanceRecord = {
