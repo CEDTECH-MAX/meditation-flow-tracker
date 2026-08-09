@@ -1,9 +1,12 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { Menu, X } from "lucide-react";
 import { getMe } from "@/lib/data.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui-kit";
+
 
 export function useMe() {
   const fn = useServerFn(getMe);
