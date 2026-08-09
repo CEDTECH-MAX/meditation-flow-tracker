@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge, Button, Card, Field, SectionTitle, Select, Spinner } from "@/components/ui-kit";
 import { useAttendance, useBlocks, useCohorts, useStudents, pickActive } from "@/lib/admin-hooks";
-import { formatDate, summarise } from "@/lib/attendance";
+import { GENDERS, formatDate, summarise, type Gender } from "@/lib/attendance";
 import { exportRegisterPdf } from "@/lib/exporters";
 import { buildRegisterRows, exportRegisterWorkbook } from "@/lib/register-export";
 
@@ -39,10 +39,12 @@ function AdminReports() {
   const { data: records, isLoading: la } = useAttendance(block?.id ?? null);
   const [kind, setKind] = useState<ReportKind>("all");
   const [cohortId, setCohortId] = useState<string>("all");
+  const [gender, setGender] = useState<"all" | Gender>("all");
 
   const rows = useMemo(() => {
     const all = (students ?? [])
       .filter((s) => cohortId === "all" || s.cohort_id === cohortId)
+      .filter((s) => gender === "all" || s.gender === gender)
       .map((s) => {
         const summary = summarise(
           block,
@@ -53,7 +55,7 @@ function AdminReports() {
     if (kind === "below") return all.filter((r) => !r.summary.met);
     if (kind === "met") return all.filter((r) => r.summary.met);
     return all;
-  }, [students, records, block, kind, cohortId]);
+  }, [students, records, block, kind, cohortId, gender]);
 
   const head = [
     "Student",
@@ -72,7 +74,8 @@ function AdminReports() {
   const subtitle = block
     ? `${block.name} · ${formatDate(block.start_date)} → ${formatDate(block.end_date)} · ${block.weeks} week${block.weeks === 1 ? "" : "s"} · ${block.meditation_days * 2} sessions · generated ${formatDate(new Date().toISOString().slice(0, 10))}`
     : "No block selected";
-  const filename = `attendance-register-${(block?.name ?? "block").toLowerCase().replace(/\s+/g, "-")}-${kind}`;
+  const genderLabelText = gender === "male" ? "Boys" : gender === "female" ? "Girls" : "All";
+  const filename = `attendance-register-${(block?.name ?? "block").toLowerCase().replace(/\s+/g, "-")}-${gender === "all" ? "" : gender + "-"}${kind}`;
 
   const cohortName =
     cohortId === "all"
@@ -129,7 +132,7 @@ function AdminReports() {
       />
 
       <Card className="mb-4">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Block">
             <Select value={block?.id ?? ""} onChange={(e) => setBlockId(e.target.value)}>
               {(blocks ?? []).map((b) => (
@@ -145,6 +148,16 @@ function AdminReports() {
               {(cohorts ?? []).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Boys / Girls">
+            <Select value={gender} onChange={(e) => setGender(e.target.value as "all" | Gender)}>
+              <option value="all">Boys and girls</option>
+              {GENDERS.map((g) => (
+                <option key={g.value} value={g.value}>
+                  {g.value === "male" ? "Boys only" : "Girls only"}
                 </option>
               ))}
             </Select>
