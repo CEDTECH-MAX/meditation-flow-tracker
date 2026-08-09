@@ -82,6 +82,8 @@ function AdminReports() {
       ? (cohorts?.length === 1 ? cohorts[0]!.name : "All Cohorts")
       : (cohorts?.find((c) => c.id === cohortId)?.name ?? "All Cohorts");
 
+  const registerLabel = gender === "all" ? cohortName : `${cohortName} · ${genderLabelText}`;
+
   const registerStudents = rows.map(({ student }) => ({
     id: student.id,
     full_name: student.full_name,
@@ -95,7 +97,7 @@ function AdminReports() {
   async function handleExcel() {
     if (!block) return;
     try {
-      await exportRegisterWorkbook(block, cohortName, registerStudents, records ?? [], filename);
+      await exportRegisterWorkbook(block, registerLabel, registerStudents, records ?? [], filename);
       toast.success("Register exported to Excel");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Export failed");
@@ -106,7 +108,7 @@ function AdminReports() {
     if (!block) return;
     exportRegisterPdf(
       block.name,
-      cohortName,
+      registerLabel,
       buildRegisterRows(block, registerStudents, records ?? []),
       filename,
     );
