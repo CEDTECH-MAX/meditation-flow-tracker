@@ -13,7 +13,14 @@ import {
 } from "recharts";
 import { Card, SectionTitle, Spinner, StatCard, Badge } from "@/components/ui-kit";
 import { pickActive, useAttendance, useBlocks, useStudents } from "@/lib/admin-hooks";
-import { blockProgress, formatDate, summarise, type AttendanceRecord } from "@/lib/attendance";
+import {
+  averagePercentage,
+  blockProgress,
+  formatDate,
+  statusBadgeTone,
+  summariseStudents,
+  type AttendanceRecord,
+} from "@/lib/attendance";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
   head: () => ({
@@ -42,27 +49,17 @@ function AdminOverview() {
 
   const perStudent = useMemo(() => {
     if (!students || !records) return [];
-    return students.map((s) => ({
-      student: s,
-      summary: summarise(
-        block,
-        records.filter((r) => r.student_id === s.id),
-      ),
-    }));
+    return summariseStudents(block, records, students);
   }, [students, records, block]);
 
   const above = perStudent.filter((p) => p.summary.met).length;
   const below = perStudent.length - above;
-  const classAverage =
-    perStudent.length > 0
-      ? Math.round((perStudent.reduce((a, p) => a + p.summary.percentage, 0) / perStudent.length) * 10) / 10
-      : 0;
+  const classAverage = averagePercentage(perStudent.map((p) => p.summary.percentage));
 
   const daily = useMemo(() => byDate(records ?? [], students?.length ?? 0), [records, students]);
   const weekly = useMemo(() => byWeek(daily), [daily]);
 
-  if (lb || ls || la)
-    return <Spinner label="Loading dashboard" />;
+  if (lb || ls || la) return <Spinner label="Loading dashboard" />;
 
   return (
     <>
@@ -73,7 +70,11 @@ function AdminOverview() {
             ? `${block.name} · ${formatDate(block.start_date)} → ${formatDate(block.end_date)}`
             : "No block created yet"
         }
-        action={block ? <Badge tone={block.status === "active" ? "green" : "gold"}>{block.status}</Badge> : null}
+        action={
+          block ? (
+            <Badge tone={block.status === "active" ? "green" : "gold"}>{block.status}</Badge>
+          ) : null
+        }
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -87,7 +88,6 @@ function AdminOverview() {
           {...(block ? { hint: `${block.meditation_days} meditation days` } : {})}
           tone="neutral"
         />
-
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
@@ -100,7 +100,14 @@ function AdminOverview() {
                 <XAxis dataKey="label" fontSize={11} stroke="var(--muted-foreground)" />
                 <YAxis fontSize={11} stroke="var(--muted-foreground)" />
                 <Tooltip />
-                <Line type="monotone" dataKey="rate" name="Attendance %" stroke="var(--primary)" strokeWidth={3} dot={false} />
+                <Line
+                  type="monotone"
+                  dataKey="rate"
+                  name="Attendance %"
+                  stroke="var(--primary)"
+                  strokeWidth={3}
+                  dot={false}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -149,9 +156,7 @@ function AdminOverview() {
                       <td className="py-2">{summary.percentage}%</td>
                       <td className="py-2">{summary.percentageNeeded}%</td>
                       <td className="py-2">
-                        <Badge tone={summary.status === "warning" ? "amber" : "red"}>
-                          {summary.statusLabel}
-                        </Badge>
+                        <Badge tone={statusBadgeTone(summary.status)}>{summary.statusLabel}</Badge>
                       </td>
                     </tr>
                   ))}

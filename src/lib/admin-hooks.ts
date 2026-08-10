@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import {
   listAttendance,
   listBlocks,
@@ -8,6 +9,8 @@ import {
   getAuditLogs,
 } from "@/lib/data.functions";
 import type { AttendanceRecord, Block, Cohort } from "@/lib/attendance";
+
+export { pickActive } from "@/lib/attendance";
 
 export type Student = {
   id: string;
@@ -38,7 +41,6 @@ export function useStudents() {
   return useQuery<Student[]>({ queryKey: ["students"], queryFn: () => fn() as Promise<Student[]> });
 }
 
-
 export function useAttendance(blockId: string | null) {
   const fn = useServerFn(listAttendance);
   return useQuery<AttendanceRecord[]>({
@@ -53,7 +55,30 @@ export function useAuditLogs() {
   return useQuery({ queryKey: ["audit"], queryFn: () => fn() });
 }
 
-export function pickActive(blocks: Block[] | undefined) {
-  if (!blocks || blocks.length === 0) return null;
-  return blocks.find((b) => b.status === "active") ?? blocks[0]!;
+/**
+ * Admin write with the shared feedback every admin screen expects: refresh the
+ * affected queries, run any local cleanup, then a success or error toast.
+ */
+export function useAdminMutation<TData, TVars>({
+  mutationFn,
+  invalidate = [],
+  success,
+  onDone,
+}: {
+  mutationFn: (vars: TVars) => Promise<TData>;
+  invalidate?: QueryKey[];
+  success?: string | ((data: TData) => string);
+  onDone?: (data: TData) => void;
+}) {
+  const qc = useQueryClient();
+  return useMutation<TData, Error, TVars>({
+    mutationFn,
+    onSuccess: (data) => {
+      for (const queryKey of invalidate) qc.invalidateQueries({ queryKey });
+      onDone?.(data);
+      const message = typeof success === "function" ? success(data) : success;
+      if (message) toast.success(message);
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
 }

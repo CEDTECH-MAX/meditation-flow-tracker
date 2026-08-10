@@ -1,5 +1,12 @@
 import ExcelJS from "exceljs";
-import type { AttendanceRecord, Block } from "@/lib/attendance";
+import {
+  addDays,
+  splitName,
+  toIsoDate,
+  type AttendanceRecord,
+  type Block,
+  type SessionSlot,
+} from "@/lib/attendance";
 
 /**
  * Builds the institutional "Consciousness Attendance Register" workbook, matching
@@ -53,12 +60,23 @@ function weekMonday(startDate: string, weekIndex: number) {
   const d = new Date(startDate + "T00:00:00");
   const dow = d.getDay(); // 0 = Sunday
   const backTo = dow === 0 ? 6 : dow - 1;
-  d.setDate(d.getDate() - backTo + weekIndex * 7);
-  return d;
+  return addDays(d, weekIndex * 7 - backTo);
 }
 
-function iso(d: Date) {
-  return d.toISOString().slice(0, 10);
+/** ISO date of the n-th day (0 = Monday) of the given register week. */
+function weekDay(monday: Date, dayIndex: number) {
+  return toIsoDate(addDays(monday, dayIndex));
+}
+
+function recordFor(
+  records: AttendanceRecord[],
+  studentId: string,
+  date: string,
+  slot: SessionSlot,
+) {
+  return records.find(
+    (r) => r.student_id === studentId && r.session_date === date && r.slot === slot,
+  );
 }
 
 function points(record: AttendanceRecord | undefined) {
@@ -68,12 +86,6 @@ function points(record: AttendanceRecord | undefined) {
   }
   if (record.absence_reason === "late_arrival") return LATE_POINTS;
   return 0;
-}
-
-function splitName(full: string) {
-  const parts = full.trim().split(/\s+/);
-  if (parts.length === 1) return { first: parts[0] ?? "", last: "" };
-  return { first: parts.slice(0, -1).join(" "), last: parts[parts.length - 1] ?? "" };
 }
 
 const LEFT_HEADERS = [
@@ -242,15 +254,13 @@ export async function exportRegisterWorkbook(
     weekTag.font = { bold: true, color: { argb: RED } };
 
     // row 4 — day names with the session dates for this week
-    for (const { offset, label, span } of DAY_LABELS) {
+    DAY_LABELS.forEach(({ offset, label, span }, idx) => {
       ws.mergeCells(4, base + offset, 4, base + offset + span - 1);
-      const idx = DAY_LABELS.findIndex((d) => d.offset === offset);
-      const date = new Date(monday);
-      date.setDate(date.getDate() + idx);
+      const date = addDays(monday, idx);
       const cell = ws.getCell(4, base + offset);
       cell.value = `${label} ${date.getDate()}/${date.getMonth() + 1}`;
       cell.alignment = { horizontal: "center", wrapText: true };
-    }
+    });
     ws.mergeCells(4, base + 13, 4, base + 14);
     const wk80 = ws.getCell(4, base + 13);
     wk80.value = `For 80% Points${weeks > 1 ? ` WK ${w + 1}` : ""}`;
@@ -285,18 +295,10 @@ export async function exportRegisterWorkbook(
       }
 
       SLOT_OFFSETS.forEach(([amOffset, pmOffset], dayIdx) => {
-        const date = new Date(monday);
-        date.setDate(date.getDate() + dayIdx);
-        const key = iso(date);
-        const morning = records.find(
-          (r) => r.student_id === student.id && r.session_date === key && r.slot === "morning",
-        );
-        const afternoon = records.find(
-          (r) => r.student_id === student.id && r.session_date === key && r.slot === "afternoon",
-        );
+        const key = weekDay(monday, dayIdx);
         for (const [offset, record] of [
-          [amOffset, morning],
-          [pmOffset, afternoon],
+          [amOffset, recordFor(records, student.id, key, "morning")],
+          [pmOffset, recordFor(records, student.id, key, "afternoon")],
         ] as [number, AttendanceRecord | undefined][]) {
           const cell = ws.getCell(row, base + offset);
           cell.value = points(record);
@@ -317,10 +319,7 @@ export async function exportRegisterWorkbook(
       const cumul = ws.getCell(row, base + 14);
       const prevCumul = colLetter(base - WEEK_COLS + 14);
       cumul.value = {
-        formula:
-          w === 0
-            ? `${L(13)}${row}`
-            : `SUM(${prevCumul}${row},${L(13)}${row})`,
+        formula: w === 0 ? `${L(13)}${row}` : `SUM(${prevCumul}${row},${L(13)}${row})`,
       };
       cumul.numFmt = "#,##0.0";
       cumul.fill = { type: "pattern", pattern: "solid", fgColor: { argb: YELLOW_FILL } };
@@ -465,18 +464,10 @@ export function buildRegisterRows(
       const dates: string[] = [];
       const slots: number[] = [];
       for (let d = 0; d < 6; d += 1) {
-        const date = new Date(monday);
-        date.setDate(date.getDate() + d);
-        const key = iso(date);
+        const key = weekDay(monday, d);
         dates.push(key);
         for (const slot of ["morning", "afternoon"] as const) {
-          slots.push(
-            points(
-              records.find(
-                (r) => r.student_id === student.id && r.session_date === key && r.slot === slot,
-              ),
-            ),
-          );
+          slots.push(points(recordFor(records, student.id, key, slot)));
         }
       }
       const weekPoints = slots.reduce((a, b) => a + b, 0);

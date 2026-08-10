@@ -1,8 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { toast } from "sonner";
 import {
   Badge,
   Button,
@@ -14,9 +12,17 @@ import {
   Select,
   Spinner,
 } from "@/components/ui-kit";
-import { useBlocks, useCohorts } from "@/lib/admin-hooks";
+import { useAdminMutation, useBlocks, useCohorts } from "@/lib/admin-hooks";
 import { deleteBlock, resetBlockAttendance, saveBlock, setBlockStatus } from "@/lib/data.functions";
-import { blockProgress, formatDate, type Block, type BlockStatus } from "@/lib/attendance";
+import {
+  addDays,
+  blockProgress,
+  formatDate,
+  toIsoDate,
+  todayIso,
+  type Block,
+  type BlockStatus,
+} from "@/lib/attendance";
 
 export const Route = createFileRoute("/_authenticated/admin/blocks")({
   head: () => ({
@@ -50,8 +56,8 @@ type FormState = {
 
 const empty: FormState = {
   name: "",
-  start_date: new Date().toISOString().slice(0, 10),
-  end_date: new Date(Date.now() + 27 * 864e5).toISOString().slice(0, 10),
+  start_date: todayIso(),
+  end_date: toIsoDate(addDays(new Date(), 27)),
   weeks: 4,
   meditation_days: 20,
   status: "upcoming",
@@ -59,7 +65,6 @@ const empty: FormState = {
 };
 
 function AdminBlocks() {
-  const qc = useQueryClient();
   const { data: blocks, isLoading } = useBlocks();
   const { data: cohorts } = useCohorts();
   const cohortName = (id: string | null | undefined) =>
@@ -72,15 +77,18 @@ function AdminBlocks() {
   const deleteFn = useServerFn(deleteBlock);
   const resetFn = useServerFn(resetBlockAttendance);
 
-  const refresh = (msg: string) => {
-    qc.invalidateQueries({ queryKey: ["blocks"] });
-    qc.invalidateQueries({ queryKey: ["attendance"] });
-    setForm(null);
-    setConfirm(null);
-    toast.success(msg);
+  /** Every block write refreshes the same queries and closes the open dialog. */
+  const refresh = {
+    invalidate: [["blocks"], ["attendance"]],
+    onDone: () => {
+      setForm(null);
+      setConfirm(null);
+    },
   };
 
-  const save = useMutation({
+  const save = useAdminMutation({
+    ...refresh,
+    success: "Block saved",
     mutationFn: (v: FormState) =>
       saveFn({
         data: {
@@ -94,26 +102,24 @@ function AdminBlocks() {
           cohort_id: v.cohort_id || null,
         },
       }),
-    onSuccess: () => refresh("Block saved"),
-    onError: (e: Error) => toast.error(e.message),
   });
 
-  const changeStatus = useMutation({
+  const changeStatus = useAdminMutation({
+    ...refresh,
+    success: "Block status updated",
     mutationFn: (v: { id: string; status: BlockStatus }) => statusFn({ data: v }),
-    onSuccess: () => refresh("Block status updated"),
-    onError: (e: Error) => toast.error(e.message),
   });
 
-  const remove = useMutation({
+  const remove = useAdminMutation({
+    ...refresh,
+    success: "Block deleted",
     mutationFn: (id: string) => deleteFn({ data: { id } }),
-    onSuccess: () => refresh("Block deleted"),
-    onError: (e: Error) => toast.error(e.message),
   });
 
-  const reset = useMutation({
+  const reset = useAdminMutation({
+    ...refresh,
+    success: "Attendance reset for block",
     mutationFn: (block_id: string) => resetFn({ data: { block_id } }),
-    onSuccess: () => refresh("Attendance reset for block"),
-    onError: (e: Error) => toast.error(e.message),
   });
 
   if (isLoading) return <Spinner label="Loading blocks" />;
@@ -143,7 +149,9 @@ function AdminBlocks() {
                     {formatDate(b.start_date)} → {formatDate(b.end_date)}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {cohortName(b.cohort_id) ? `Cohort · ${cohortName(b.cohort_id)}` : "All cohorts"}
+                    {cohortName(b.cohort_id)
+                      ? `Cohort · ${cohortName(b.cohort_id)}`
+                      : "All cohorts"}
                   </p>
                 </div>
                 <Badge

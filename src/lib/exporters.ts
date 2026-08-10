@@ -1,6 +1,12 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import { creditStatusLabel, splitName } from "@/lib/attendance";
+import {
+  REGISTER_WEEK_TARGET_100,
+  REGISTER_WEEK_TARGET_80,
+  type RegisterRow,
+} from "@/lib/register-export";
 
 export function exportPdf(
   title: string,
@@ -42,9 +48,6 @@ export function exportExcel(
   XLSX.writeFile(wb, `${filename}.xlsx`);
 }
 
-import type { RegisterRow } from "@/lib/register-export";
-import { REGISTER_WEEK_TARGET_100, REGISTER_WEEK_TARGET_80 } from "@/lib/register-export";
-
 const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
 /** PDF version of the Consciousness Attendance Register — one section per block week. */
@@ -64,7 +67,11 @@ export function exportRegisterPdf(
     doc.text("CONSCIOUSNESS ATTENDANCE REGISTER", 14, 14);
     doc.setFontSize(10);
     doc.setTextColor(153, 0, 0);
-    doc.text(`${blockName.toUpperCase()} · Week ${w + 1} · GROUP NAME : ${groupName.toUpperCase()}`, 14, 20);
+    doc.text(
+      `${blockName.toUpperCase()} · Week ${w + 1} · GROUP NAME : ${groupName.toUpperCase()}`,
+      14,
+      20,
+    );
     doc.setFontSize(8);
     doc.setTextColor(90);
     doc.text(
@@ -76,15 +83,23 @@ export function exportRegisterPdf(
     doc.setTextColor(0);
 
     const head = [
-      ["NO", "LAST", "FIRST", "STUDENT NO", ...DAYS.flatMap((d) => [`${d} AM`, `${d} PM`]), "Week Actual Points", "Block Cumulv Points"],
+      [
+        "NO",
+        "LAST",
+        "FIRST",
+        "STUDENT NO",
+        ...DAYS.flatMap((d) => [`${d} AM`, `${d} PM`]),
+        "Week Actual Points",
+        "Block Cumulv Points",
+      ],
     ];
     const body = rows.map((row, i) => {
       const week = row.weeks[w]!;
-      const name = row.student.full_name.trim().split(/\s+/);
+      const { first, last } = splitName(row.student.full_name);
       return [
         i + 1,
-        (name.length > 1 ? name[name.length - 1]! : "").toUpperCase(),
-        name.length > 1 ? name.slice(0, -1).join(" ") : name[0]!,
+        last.toUpperCase(),
+        first,
         row.student.student_number ?? "",
         ...week.slots.map((v) => v.toFixed(1)),
         week.weekPoints.toFixed(1),
@@ -107,19 +122,27 @@ export function exportRegisterPdf(
   doc.text("BLOCK FINAL POINTS", 14, 14);
   doc.setTextColor(0);
   autoTable(doc, {
-    head: [["NO", "LAST", "FIRST", "STUDENT NO", "Block Final Points", "Block Attendance @ 100%", "Status"]],
+    head: [
+      [
+        "NO",
+        "LAST",
+        "FIRST",
+        "STUDENT NO",
+        "Block Final Points",
+        "Block Attendance @ 100%",
+        "Status",
+      ],
+    ],
     body: rows.map((row, i) => {
-      const name = row.student.full_name.trim().split(/\s+/);
-      const pct = row.percentage;
-      const status = pct >= 100 ? "Platinum" : pct >= 90 ? "Gold" : pct >= 80 ? "Green (Pass)" : "Red - No Pass";
+      const { first, last } = splitName(row.student.full_name);
       return [
         i + 1,
-        (name.length > 1 ? name[name.length - 1]! : "").toUpperCase(),
-        name.length > 1 ? name.slice(0, -1).join(" ") : name[0]!,
+        last.toUpperCase(),
+        first,
         row.student.student_number ?? "",
         row.finalPoints.toFixed(1),
-        `${pct.toFixed(1)}%`,
-        status,
+        `${row.percentage.toFixed(1)}%`,
+        creditStatusLabel(row.percentage),
       ];
     }),
     startY: 20,

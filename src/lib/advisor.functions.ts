@@ -1,8 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { summarise, type Block } from "./attendance";
-import type { Ctx } from "./data.helpers";
+import { pickActive, summarise, todayIso, type Block } from "./attendance";
+import { ctx, unwrap, type Ctx } from "./data.helpers";
 
 export type AdvisorMessage = {
   id: string;
@@ -15,13 +15,14 @@ export type AdvisorMessage = {
 export const listAdvisorMessages = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const c = context as unknown as Ctx;
-    const { data, error } = await c.supabase
-      .from("advisor_messages")
-      .select("id, role, content, created_at")
-      .eq("user_id", c.userId)
-      .order("created_at", { ascending: true });
-    if (error) throw new Error(error.message);
+    const c = ctx(context);
+    const data = unwrap(
+      await c.supabase
+        .from("advisor_messages")
+        .select("id, role, content, created_at")
+        .eq("user_id", c.userId)
+        .order("created_at", { ascending: true }),
+    );
     return (data ?? []) as AdvisorMessage[];
   });
 
@@ -35,8 +36,7 @@ async function studentContext(c: Ctx) {
     c.supabase.from("blocks").select("*").order("start_date", { ascending: false }),
   ]);
 
-  const list = (blocks ?? []) as Block[];
-  const block = list.find((b) => b.status === "active") ?? list[0] ?? null;
+  const block = pickActive((blocks ?? []) as Block[]);
 
   let records: { slot: "morning" | "afternoon"; status: any; points: number }[] = [];
   if (block) {
@@ -49,7 +49,7 @@ async function studentContext(c: Ctx) {
   }
 
   const s = summarise(block, records);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIso();
 
   return `Student: ${profile?.full_name ?? "Unknown"} (${profile?.student_number ?? "no number"})
 Cohort: ${(profile as any)?.cohort?.name ?? "unassigned"} · Classification: ${profile?.classification ?? "unknown"} · Gender: ${profile?.gender ?? "unknown"}
@@ -79,15 +79,16 @@ export const askAdvisor = createServerFn({ method: "POST" })
     z.object({ message: z.string().trim().min(1).max(1000) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const c = context as unknown as Ctx;
+    const c = ctx(context);
 
     const key = process.env["LOVABLE_API_KEY"];
     if (!key) throw new Error("The advisor is not configured yet.");
 
-    const { error: insErr } = await c.supabase
-      .from("advisor_messages")
-      .insert({ user_id: c.userId, role: "user", content: data.message });
-    if (insErr) throw new Error(insErr.message);
+    unwrap(
+      await c.supabase
+        .from("advisor_messages")
+        .insert({ user_id: c.userId, role: "user", content: data.message }),
+    );
 
     const [{ data: history }, facts] = await Promise.all([
       c.supabase
@@ -118,9 +119,13 @@ export const askAdvisor = createServerFn({ method: "POST" })
 
     if (!res.ok) {
       const body = await res.text();
-      if (res.status === 429) throw new Error("The advisor is busy right now — please try again shortly.");
-      if (res.status === 402) throw new Error("The advisor is temporarily unavailable. Please tell your administrator.");
-      throw new Error(`The advisor could not answer right now. (${res.status}) ${body.slice(0, 200)}`);
+      if (res.status === 429)
+        throw new Error("The advisor is busy right now — please try again shortly.");
+      if (res.status === 402)
+        throw new Error("The advisor is temporarily unavailable. Please tell your administrator.");
+      throw new Error(
+        `The advisor could not answer right now. (${res.status}) ${body.slice(0, 200)}`,
+      );
     }
 
     const json = (await res.json()) as any;
@@ -128,10 +133,11 @@ export const askAdvisor = createServerFn({ method: "POST" })
       json?.choices?.[0]?.message?.content?.trim() ||
       "I could not work that out just now. Please try asking again.";
 
-    const { error: aErr } = await c.supabase
-      .from("advisor_messages")
-      .insert({ user_id: c.userId, role: "assistant", content: reply });
-    if (aErr) throw new Error(aErr.message);
+    unwrap(
+      await c.supabase
+        .from("advisor_messages")
+        .insert({ user_id: c.userId, role: "assistant", content: reply }),
+    );
 
     return { reply };
   });

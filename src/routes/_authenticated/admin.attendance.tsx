@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
@@ -14,7 +13,14 @@ import {
   Select,
   Spinner,
 } from "@/components/ui-kit";
-import { pickActive, useAttendance, useBlocks, useCohorts, useStudents } from "@/lib/admin-hooks";
+import {
+  pickActive,
+  useAdminMutation,
+  useAttendance,
+  useBlocks,
+  useCohorts,
+  useStudents,
+} from "@/lib/admin-hooks";
 import { markAttendance, markDayForAll } from "@/lib/data.functions";
 import type { AbsenceReason, AttendanceRecord, SessionSlot } from "@/lib/attendance";
 import {
@@ -24,7 +30,8 @@ import {
   REASONS,
   reasonLabel,
   skipSunday,
-  summarise,
+  summariseStudent,
+  todayIso,
 } from "@/lib/attendance";
 
 export const Route = createFileRoute("/_authenticated/admin/attendance")({
@@ -48,12 +55,11 @@ export const Route = createFileRoute("/_authenticated/admin/attendance")({
   component: AdminAttendance,
 });
 
-const today = () => skipSunday(new Date().toISOString().slice(0, 10));
+const today = () => skipSunday(todayIso());
 
 type Points = 0 | 0.5 | 1 | 1.5 | 2;
 
 function AdminAttendance() {
-  const qc = useQueryClient();
   const { data: blocks, isLoading: lb } = useBlocks();
   const { data: students, isLoading: ls } = useStudents();
   const { data: cohorts } = useCohorts();
@@ -88,9 +94,10 @@ function AdminAttendance() {
   const markFn = useServerFn(markAttendance);
   const bulkFn = useServerFn(markDayForAll);
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["attendance", block?.id] });
+  const invalidate = [["attendance", block?.id]];
 
-  const mark = useMutation({
+  const mark = useAdminMutation({
+    invalidate,
     mutationFn: (v: {
       student_id: string;
       slot: SessionSlot;
@@ -98,11 +105,11 @@ function AdminAttendance() {
       absence_reason?: AbsenceReason | null;
       absence_note?: string;
     }) => markFn({ data: { block_id: block!.id, session_date: date, ...v } }),
-    onSuccess: invalidate,
-    onError: (e: Error) => toast.error(e.message),
   });
 
-  const fill = useMutation({
+  const fill = useAdminMutation({
+    invalidate,
+    success: (count: number) => `${count} student${count === 1 ? "" : "s"} scored`,
     mutationFn: async (v: { slot: SessionSlot; points: Points; student_ids: string[] }) => {
       await bulkFn({
         data: {
@@ -115,14 +122,12 @@ function AdminAttendance() {
       });
       return v.student_ids.length;
     },
-    onSuccess: (count) => {
-      invalidate();
-      toast.success(`${count} student${count === 1 ? "" : "s"} scored`);
-    },
-    onError: (e: Error) => toast.error(e.message),
   });
 
-  const bulkMark = useMutation({
+  const bulkMark = useAdminMutation({
+    invalidate,
+    success: "Session scored for all students",
+    onDone: () => setBulk(null),
     mutationFn: (v: { slot: SessionSlot; points: Points }) =>
       bulkFn({
         data: {
@@ -133,12 +138,6 @@ function AdminAttendance() {
           student_ids: rows.map((r) => r.student.id),
         },
       }),
-    onSuccess: () => {
-      invalidate();
-      setBulk(null);
-      toast.success("Session scored for all students");
-    },
-    onError: (e: Error) => toast.error(e.message),
   });
 
   const dayMap = useMemo(() => {
@@ -156,10 +155,10 @@ function AdminAttendance() {
         block?.cohort_id && s.cohort_id !== block.cohort_id
           ? false
           : cohortFilter === "all"
-          ? true
-          : cohortFilter === "none"
-            ? !s.cohort_id
-            : s.cohort_id === cohortFilter,
+            ? true
+            : cohortFilter === "none"
+              ? !s.cohort_id
+              : s.cohort_id === cohortFilter,
       )
       .filter(
         (s) =>
@@ -171,10 +170,7 @@ function AdminAttendance() {
         student: s,
         morning: dayMap.get(`${s.id}:morning`) ?? null,
         afternoon: dayMap.get(`${s.id}:afternoon`) ?? null,
-        summary: summarise(
-          block,
-          (records ?? []).filter((r) => r.student_id === s.id),
-        ),
+        summary: summariseStudent(block, records, s.id),
       }));
   }, [students, search, cohortFilter, dayMap, records, block]);
 
@@ -214,7 +210,11 @@ function AdminAttendance() {
         subtitle="Each session is scored out of 2.0 points · drag a score down to fill the rest of the list"
         action={
           block ? (
-            <Badge tone={block.status === "active" ? "green" : block.status === "closed" ? "red" : "gold"}>
+            <Badge
+              tone={
+                block.status === "active" ? "green" : block.status === "closed" ? "red" : "gold"
+              }
+            >
               {block.status}
             </Badge>
           ) : null
@@ -377,8 +377,7 @@ function AdminAttendance() {
                                         slot,
                                         points,
                                         absence_reason: (rec?.absence_reason ?? "") as
-                                          | AbsenceReason
-                                          | "",
+                                          AbsenceReason | "",
                                         absence_note: rec?.absence_note ?? "",
                                       });
                                       return;
@@ -416,8 +415,7 @@ function AdminAttendance() {
                                       slot,
                                       points: Number(rec.points) as Points,
                                       absence_reason: (rec.absence_reason ?? "") as
-                                        | AbsenceReason
-                                        | "",
+                                        AbsenceReason | "",
                                       absence_note: rec.absence_note ?? "",
                                     })
                                   }
@@ -474,14 +472,17 @@ function AdminAttendance() {
           >
             <p className="text-sm text-muted-foreground">
               Scoring the {reasonFor.slot} session on {formatDate(date)} as{" "}
-              <strong>{reasonFor.points.toFixed(1)} points</strong>. Sick leave and approved leave are
-              excluded from the percentage.
+              <strong>{reasonFor.points.toFixed(1)} points</strong>. Sick leave and approved leave
+              are excluded from the percentage.
             </p>
             <Field label="Reason">
               <Select
                 value={reasonFor.absence_reason}
                 onChange={(e) =>
-                  setReasonFor({ ...reasonFor, absence_reason: e.target.value as AbsenceReason | "" })
+                  setReasonFor({
+                    ...reasonFor,
+                    absence_reason: e.target.value as AbsenceReason | "",
+                  })
                 }
               >
                 <option value="">No reason given</option>

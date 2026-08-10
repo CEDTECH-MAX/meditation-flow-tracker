@@ -2,7 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getLeaderboard, type LeaderboardResult } from "@/lib/leaderboard.functions";
 import { Badge, Card, SectionTitle } from "@/components/ui-kit";
-import { classificationLabel, genderLabel, type Classification, type Gender } from "@/lib/attendance";
+import {
+  classificationLabel,
+  genderLabel,
+  percentageTone,
+  type Classification,
+  type Gender,
+} from "@/lib/attendance";
 
 const medal = ["🥇", "🥈", "🥉"];
 
@@ -37,7 +43,9 @@ export function Leaderboard() {
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading rankings…</p>
       ) : !data?.available ? (
-        <p className="text-sm text-muted-foreground">{data?.reason ?? "Leaderboard not available yet."}</p>
+        <p className="text-sm text-muted-foreground">
+          {data?.reason ?? "Leaderboard not available yet."}
+        </p>
       ) : (
         <>
           <ol className="space-y-2">
@@ -53,9 +61,11 @@ export function Leaderboard() {
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">
                   {e.full_name}
-                  {e.isMe ? <span className="ml-2 text-xs text-muted-foreground">(you)</span> : null}
+                  {e.isMe ? (
+                    <span className="ml-2 text-xs text-muted-foreground">(you)</span>
+                  ) : null}
                 </span>
-                <Badge tone={e.percentage >= 80 ? "green" : e.percentage >= 70 ? "amber" : "red"}>
+                <Badge tone={percentageTone(e.percentage)}>
                   {e.present} pts · {e.percentage}%
                 </Badge>
               </li>
@@ -66,9 +76,10 @@ export function Leaderboard() {
             <div className="mt-3 flex items-center gap-3 rounded-2xl bg-primary-soft px-3 py-2.5 ring-1 ring-primary/30">
               <span className="w-7 text-center text-sm font-semibold">{data.me.rank}</span>
               <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                {data.me.full_name} <span className="ml-1 text-xs text-muted-foreground">(you)</span>
+                {data.me.full_name}{" "}
+                <span className="ml-1 text-xs text-muted-foreground">(you)</span>
               </span>
-              <Badge tone={data.me.percentage >= 80 ? "green" : data.me.percentage >= 70 ? "amber" : "red"}>
+              <Badge tone={percentageTone(data.me.percentage)}>
                 {data.me.present} pts · {data.me.percentage}%
               </Badge>
             </div>
