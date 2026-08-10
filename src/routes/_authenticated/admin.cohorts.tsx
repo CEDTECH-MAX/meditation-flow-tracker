@@ -1,8 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { toast } from "sonner";
 import {
   Badge,
   Button,
@@ -15,9 +13,16 @@ import {
   Spinner,
   StatCard,
 } from "@/components/ui-kit";
-import { pickActive, useAttendance, useBlocks, useCohorts, useStudents } from "@/lib/admin-hooks";
+import {
+  pickActive,
+  useAdminMutation,
+  useAttendance,
+  useBlocks,
+  useCohorts,
+  useStudents,
+} from "@/lib/admin-hooks";
 import { assignCohort, deleteCohort, saveCohort } from "@/lib/data.functions";
-import { summarise, type Cohort } from "@/lib/attendance";
+import { averagePercentage, percentageTone, summariseStudent, type Cohort } from "@/lib/attendance";
 
 export const Route = createFileRoute("/_authenticated/admin/cohorts")({
   head: () => ({
@@ -42,7 +47,6 @@ type FormState = { id?: string; name: string; programme: string; intake_year: st
 const empty: FormState = { name: "", programme: "", intake_year: "" };
 
 function AdminCohorts() {
-  const qc = useQueryClient();
   const { data: cohorts, isLoading: lc } = useCohorts();
   const { data: students, isLoading: ls } = useStudents();
   const { data: blocks } = useBlocks();
@@ -59,7 +63,7 @@ function AdminCohorts() {
   const deleteFn = useServerFn(deleteCohort);
   const assignFn = useServerFn(assignCohort);
 
-  const save = useMutation({
+  const save = useAdminMutation({
     mutationFn: (v: FormState) =>
       saveFn({
         data: {
@@ -69,34 +73,24 @@ function AdminCohorts() {
           intake_year: v.intake_year ? Number(v.intake_year) : null,
         },
       }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["cohorts"] });
-      setForm(null);
-      toast.success("Cohort saved");
-    },
-    onError: (e: Error) => toast.error(e.message),
+    invalidate: [["cohorts"]],
+    success: "Cohort saved",
+    onDone: () => setForm(null),
   });
 
-  const remove = useMutation({
+  const remove = useAdminMutation({
     mutationFn: (id: string) => deleteFn({ data: { id } }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["cohorts"] });
-      qc.invalidateQueries({ queryKey: ["students"] });
-      setConfirmDelete(null);
-      toast.success("Cohort deleted — its students are now unassigned");
-    },
-    onError: (e: Error) => toast.error(e.message),
+    invalidate: [["cohorts"], ["students"]],
+    success: "Cohort deleted — its students are now unassigned",
+    onDone: () => setConfirmDelete(null),
   });
 
-  const move = useMutation({
+  const move = useAdminMutation({
     mutationFn: (ids: string[]) =>
       assignFn({ data: { student_ids: ids, cohort_id: moveTo === "none" ? null : moveTo } }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["students"] });
-      setPicked({});
-      toast.success("Students moved");
-    },
-    onError: (e: Error) => toast.error(e.message),
+    invalidate: [["students"]],
+    success: "Students moved",
+    onDone: () => setPicked({}),
   });
 
   const stats = useMemo(() => {
@@ -104,20 +98,11 @@ function AdminCohorts() {
     const all = students ?? [];
     const rows = list.map((c) => {
       const members = all.filter((s) => s.cohort_id === c.id);
-      const summaries = members.map((s) =>
-        summarise(
-          block,
-          (records ?? []).filter((r) => r.student_id === s.id),
-        ),
-      );
-      const avg =
-        summaries.length > 0
-          ? Math.round((summaries.reduce((a, s) => a + s.percentage, 0) / summaries.length) * 10) / 10
-          : 0;
+      const summaries = members.map((s) => summariseStudent(block, records, s.id));
       return {
         cohort: c,
         count: members.length,
-        average: avg,
+        average: averagePercentage(summaries.map((s) => s.percentage)),
         met: summaries.filter((s) => s.met).length,
         atRisk: summaries.filter((s) => s.status === "risk").length,
       };
@@ -153,16 +138,22 @@ function AdminCohorts() {
         <StatCard
           label="Best cohort"
           value={
-            stats.filter((s) => s.count > 0).sort((a, b) => b.average - a.average)[0]?.cohort.name ?? "—"
+            stats.filter((s) => s.count > 0).sort((a, b) => b.average - a.average)[0]?.cohort
+              .name ?? "—"
           }
           tone="green"
         />
       </div>
 
       <Card>
-        <SectionTitle title="Cohort statistics" subtitle="Average attendance for the current block" />
+        <SectionTitle
+          title="Cohort statistics"
+          subtitle="Average attendance for the current block"
+        />
         {stats.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No cohorts yet. Create one to get started.</p>
+          <p className="text-sm text-muted-foreground">
+            No cohorts yet. Create one to get started.
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[680px] text-sm">
@@ -185,9 +176,7 @@ function AdminCohorts() {
                     <td className="py-2 text-muted-foreground">{cohort.intake_year ?? "—"}</td>
                     <td className="py-2">{count}</td>
                     <td className="py-2">
-                      <Badge tone={average >= 80 ? "green" : average >= 70 ? "amber" : "red"}>
-                        {average}%
-                      </Badge>
+                      <Badge tone={percentageTone(average)}>{average}%</Badge>
                     </td>
                     <td className="py-2">
                       {met}/{count}
@@ -312,7 +301,11 @@ function AdminCohorts() {
         )}
       </Card>
 
-      <Modal open={Boolean(form)} onClose={() => setForm(null)} title={form?.id ? "Edit cohort" : "New cohort"}>
+      <Modal
+        open={Boolean(form)}
+        onClose={() => setForm(null)}
+        title={form?.id ? "Edit cohort" : "New cohort"}
+      >
         {form ? (
           <form
             className="grid gap-3"
@@ -360,7 +353,11 @@ function AdminCohorts() {
         ) : null}
       </Modal>
 
-      <Modal open={Boolean(confirmDelete)} onClose={() => setConfirmDelete(null)} title="Delete cohort">
+      <Modal
+        open={Boolean(confirmDelete)}
+        onClose={() => setConfirmDelete(null)}
+        title="Delete cohort"
+      >
         <p className="text-sm text-muted-foreground">
           Delete <strong>{confirmDelete?.name}</strong>? Students stay in the system but become
           unassigned. Attendance records are not affected.

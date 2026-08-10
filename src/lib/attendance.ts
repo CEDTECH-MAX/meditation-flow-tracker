@@ -2,13 +2,12 @@ export type AttendanceStatus = "present" | "absent" | "excused";
 export type SessionSlot = "morning" | "afternoon";
 export type BlockStatus = "upcoming" | "active" | "closed";
 export type AbsenceReason =
-  | "sick_leave"
-  | "approved_leave"
-  | "late_arrival"
-  | "unexcused"
-  | "other";
+  "sick_leave" | "approved_leave" | "late_arrival" | "unexcused" | "other";
 
 export const PASS_MARK = 80;
+
+/** Anything from this mark up to the pass mark is a warning rather than a risk. */
+export const WARNING_MARK = 70;
 
 /** Points a single session can be worth. A full day (AM + PM) is 4.0. */
 export const MAX_SESSION_POINTS = 2;
@@ -25,7 +24,6 @@ export function pointsLabel(points: number | null | undefined) {
   if (points === null || points === undefined) return "—";
   return points.toFixed(1);
 }
-
 
 export const REASONS: { value: AbsenceReason; label: string }[] = [
   { value: "sick_leave", label: "Sick leave" },
@@ -70,7 +68,6 @@ export type AttendanceRecord = {
   updated_at?: string;
 };
 
-
 export type AttendanceSummary = {
   totalSessions: number;
   sessionWeight: number;
@@ -94,7 +91,13 @@ export type AttendanceSummary = {
   statusLabel: string;
 };
 
-const round1 = (n: number) => Math.round(n * 10) / 10;
+export const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/** Average of a list of percentages, rounded to one decimal. */
+export function averagePercentage(values: number[]) {
+  if (values.length === 0) return 0;
+  return round1(values.reduce((a, v) => a + v, 0) / values.length);
+}
 
 /**
  * Points-based scoring: each session is worth up to 2.0 points (so a full
@@ -147,12 +150,10 @@ export function summarise(
       : 0;
 
   const percentageNeeded = round1(Math.max(0, PASS_MARK - percentage));
-  const pointsNeeded = round1(
-    Math.max(0, (PASS_MARK / 100) * pointsPossible - pointsEarned),
-  );
+  const pointsNeeded = round1(Math.max(0, (PASS_MARK / 100) * pointsPossible - pointsEarned));
   const sessionsNeeded = Math.max(0, Math.ceil(pointsNeeded / MAX_SESSION_POINTS - 1e-9));
 
-  const status = percentage >= PASS_MARK ? "met" : percentage >= 70 ? "warning" : "risk";
+  const status = statusFromPercentage(percentage);
 
   return {
     totalSessions,
@@ -179,13 +180,76 @@ export function summarise(
   };
 }
 
+export function statusFromPercentage(percentage: number): AttendanceSummary["status"] {
+  if (percentage >= PASS_MARK) return "met";
+  return percentage >= WARNING_MARK ? "warning" : "risk";
+}
+
+export function statusBadgeTone(status: AttendanceSummary["status"]): "green" | "amber" | "red" {
+  return status === "met" ? "green" : status === "warning" ? "amber" : "red";
+}
+
+/** Badge colour for a raw percentage: green at the pass mark, amber, then red. */
+export function percentageTone(percentage: number) {
+  return statusBadgeTone(statusFromPercentage(percentage));
+}
+
+/** Block credit banding used by the institutional register exports. */
+export function creditStatusLabel(percentage: number) {
+  if (percentage >= 100) return "Platinum";
+  if (percentage >= 90) return "Gold";
+  return percentage >= PASS_MARK ? "Green (Pass)" : "Red - No Pass";
+}
 
 export function statusTone(status: AttendanceSummary["status"]) {
   if (status === "met")
-    return { text: "text-success", bg: "bg-success/12", ring: "ring-success/30", stroke: "var(--success)" };
+    return {
+      text: "text-success",
+      bg: "bg-success/12",
+      ring: "ring-success/30",
+      stroke: "var(--success)",
+    };
   if (status === "warning")
-    return { text: "text-warning-foreground", bg: "bg-warning/18", ring: "ring-warning/40", stroke: "var(--warning)" };
-  return { text: "text-destructive", bg: "bg-destructive/10", ring: "ring-destructive/30", stroke: "var(--destructive)" };
+    return {
+      text: "text-warning-foreground",
+      bg: "bg-warning/18",
+      ring: "ring-warning/40",
+      stroke: "var(--warning)",
+    };
+  return {
+    text: "text-destructive",
+    bg: "bg-destructive/10",
+    ring: "ring-destructive/30",
+    stroke: "var(--destructive)",
+  };
+}
+
+export function toIsoDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+export function todayIso() {
+  return toIsoDate(new Date());
+}
+
+/** A new date `days` after the given date, never mutating the input. */
+export function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+/** The block being worked on: the active one, else the most recent. */
+export function pickActive<T extends { status: BlockStatus }>(blocks: T[] | undefined) {
+  if (!blocks || blocks.length === 0) return null;
+  return blocks.find((b) => b.status === "active") ?? blocks[0]!;
+}
+
+/** Splits a full name into the register's FIRST / LAST columns. */
+export function splitName(full: string) {
+  const parts = full.trim().split(/\s+/);
+  if (parts.length === 1) return { first: parts[0] ?? "", last: "" };
+  return { first: parts.slice(0, -1).join(" "), last: parts[parts.length - 1] ?? "" };
 }
 
 export function formatDate(value: string) {
@@ -210,9 +274,7 @@ export function isSunday(date: string) {
 /** The next non-Sunday date on or after the given date. */
 export function skipSunday(date: string) {
   if (!isSunday(date)) return date;
-  const d = new Date(date + "T00:00:00");
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+  return toIsoDate(addDays(new Date(date + "T00:00:00"), 1));
 }
 
 /** Every session date inside a block, inclusive, excluding Sundays. */
@@ -221,12 +283,11 @@ export function blockDates(block: Pick<Block, "start_date" | "end_date">) {
   const cur = new Date(block.start_date + "T00:00:00");
   const end = new Date(block.end_date + "T00:00:00");
   while (cur <= end && out.length < 400) {
-    if (cur.getDay() !== 0) out.push(cur.toISOString().slice(0, 10));
+    if (cur.getDay() !== 0) out.push(toIsoDate(cur));
     cur.setDate(cur.getDate() + 1);
   }
   return out;
 }
-
 
 export type DayCell = {
   date: string;
@@ -240,7 +301,7 @@ export function buildCalendar(
   records: AttendanceRecord[],
 ): DayCell[] {
   if (!block) return [];
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIso();
   const map = new Map<string, AttendanceRecord>();
   for (const r of records) map.set(`${r.session_date}:${r.slot}`, r);
   return blockDates(block).map((date) => ({
@@ -273,4 +334,28 @@ export function classificationLabel(value: Classification | null | undefined) {
 
 export function genderLabel(value: Gender | null | undefined) {
   return GENDERS.find((g) => g.value === value)?.label ?? "—";
+}
+
+/** Attendance summary for one student out of a block-wide record set. */
+export function summariseStudent(
+  block: Pick<Block, "meditation_days"> | null,
+  records: AttendanceRecord[] | undefined,
+  studentId: string,
+) {
+  return summarise(
+    block,
+    (records ?? []).filter((r) => r.student_id === studentId),
+  );
+}
+
+/** Pairs every student with their summary for the given block. */
+export function summariseStudents<T extends { id: string }>(
+  block: Pick<Block, "meditation_days"> | null,
+  records: AttendanceRecord[] | undefined,
+  students: T[] | undefined,
+) {
+  return (students ?? []).map((student) => ({
+    student,
+    summary: summariseStudent(block, records, student.id),
+  }));
 }

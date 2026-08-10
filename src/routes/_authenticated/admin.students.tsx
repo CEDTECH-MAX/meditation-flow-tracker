@@ -1,8 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { toast } from "sonner";
 import {
   Badge,
   Button,
@@ -16,6 +14,7 @@ import {
 } from "@/components/ui-kit";
 import {
   pickActive,
+  useAdminMutation,
   useAttendance,
   useBlocks,
   useCohorts,
@@ -28,7 +27,8 @@ import {
   GENDERS,
   classificationLabel,
   genderLabel,
-  summarise,
+  statusBadgeTone,
+  summariseStudent,
   type Classification,
   type Gender,
 } from "@/lib/attendance";
@@ -78,7 +78,6 @@ const empty: FormState = {
 };
 
 function AdminStudents() {
-  const qc = useQueryClient();
   const { data: students, isLoading } = useStudents();
   const { data: cohorts } = useCohorts();
   const { data: blocks } = useBlocks();
@@ -95,14 +94,15 @@ function AdminStudents() {
   const updateFn = useServerFn(updateStudent);
   const deleteFn = useServerFn(deleteStudent);
 
-  const done = (msg: string) => {
-    qc.invalidateQueries({ queryKey: ["students"] });
+  const done = () => {
     setForm(null);
     setConfirmDelete(null);
-    toast.success(msg);
   };
 
-  const save = useMutation({
+  const save = useAdminMutation({
+    invalidate: [["students"]],
+    success: "Student saved",
+    onDone: done,
     mutationFn: async (v: FormState) => {
       if (v.id) {
         return updateFn({
@@ -133,14 +133,13 @@ function AdminStudents() {
         },
       });
     },
-    onSuccess: () => done("Student saved"),
-    onError: (e: Error) => toast.error(e.message),
   });
 
-  const remove = useMutation({
+  const remove = useAdminMutation({
     mutationFn: (id: string) => deleteFn({ data: { id } }),
-    onSuccess: () => done("Student removed"),
-    onError: (e: Error) => toast.error(e.message),
+    invalidate: [["students"]],
+    success: "Student removed",
+    onDone: done,
   });
 
   const rows = useMemo(() => {
@@ -161,13 +160,7 @@ function AdminStudents() {
           (s.student_number ?? "").toLowerCase().includes(q) ||
           (s.email ?? "").toLowerCase().includes(q),
       )
-      .map((s) => ({
-        student: s,
-        summary: summarise(
-          block,
-          (records ?? []).filter((r) => r.student_id === s.id),
-        ),
-      }));
+      .map((s) => ({ student: s, summary: summariseStudent(block, records, s.id) }));
   }, [students, search, cohortFilter, classFilter, block, records]);
 
   if (isLoading) return <Spinner label="Loading students" />;
@@ -187,7 +180,11 @@ function AdminStudents() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <Select value={cohortFilter} onChange={(e) => setCohortFilter(e.target.value)} aria-label="Filter by cohort">
+          <Select
+            value={cohortFilter}
+            onChange={(e) => setCohortFilter(e.target.value)}
+            aria-label="Filter by cohort"
+          >
             <option value="all">All cohorts</option>
             <option value="none">Unassigned</option>
             {(cohorts ?? []).map((c) => (
@@ -253,17 +250,7 @@ function AdminStudents() {
                       ) : null}
                     </td>
                     <td className="py-2">
-                      <Badge
-                        tone={
-                          summary.status === "met"
-                            ? "green"
-                            : summary.status === "warning"
-                              ? "amber"
-                              : "red"
-                        }
-                      >
-                        {summary.percentage}%
-                      </Badge>
+                      <Badge tone={statusBadgeTone(summary.status)}>{summary.percentage}%</Badge>
                     </td>
                     <td className="py-2">
                       <div className="flex justify-end gap-2">
@@ -287,7 +274,11 @@ function AdminStudents() {
                         >
                           Edit
                         </Button>
-                        <Button size="sm" variant="danger" onClick={() => setConfirmDelete(student)}>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={() => setConfirmDelete(student)}
+                        >
                           Delete
                         </Button>
                       </div>

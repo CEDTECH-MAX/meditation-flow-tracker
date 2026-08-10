@@ -1,16 +1,35 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { assertAdmin, audit, internalEmail, statusFromPoints, type Ctx } from "./data.helpers";
+import {
+  PROFILE_WITH_COHORT,
+  absenceReasonInput,
+  adminClient,
+  assertAdmin,
+  audit,
+  blockIdInput,
+  blockStatusInput,
+  ctx,
+  idInput,
+  isoDate,
+  optionalText,
+  slotInput,
+  statusFromPoints,
+  studentIdsInput,
+  studentProfileInput,
+  studentProfileRow,
+  unwrap,
+  uuid,
+} from "./data.helpers";
 
 /* ---------------------------------- me ---------------------------------- */
 
 export const getMe = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const c = context as unknown as Ctx;
+    const c = ctx(context);
     const [{ data: profile }, { data: roles }] = await Promise.all([
-      c.supabase.from("profiles").select("*, cohort:cohorts(id,name,programme,intake_year)").eq("id", c.userId).maybeSingle(),
+      c.supabase.from("profiles").select(PROFILE_WITH_COHORT).eq("id", c.userId).maybeSingle(),
       c.supabase.from("user_roles").select("role").eq("user_id", c.userId),
     ]);
     const isAdmin = (roles ?? []).some((r: any) => r.role === "admin");
@@ -27,31 +46,30 @@ export const getMe = createServerFn({ method: "GET" })
 export const listBlocks = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const c = context as unknown as Ctx;
-    const { data, error } = await c.supabase
-      .from("blocks")
-      .select("*")
-      .order("start_date", { ascending: false });
-    if (error) throw new Error(error.message);
-    return data ?? [];
+    const c = ctx(context);
+    return (
+      unwrap(
+        await c.supabase.from("blocks").select("*").order("start_date", { ascending: false }),
+      ) ?? []
+    );
   });
 
 const blockInput = z.object({
-  id: z.string().uuid().optional(),
+  id: uuid.optional(),
   name: z.string().trim().min(2).max(120),
-  start_date: z.string().min(10).max(10),
-  end_date: z.string().min(10).max(10),
+  start_date: isoDate,
+  end_date: isoDate,
   weeks: z.number().int().min(1).max(52),
   meditation_days: z.number().int().min(1).max(400),
-  status: z.enum(["upcoming", "active", "closed"]),
-  cohort_id: z.string().uuid().nullable().optional(),
+  status: blockStatusInput,
+  cohort_id: uuid.nullable().optional(),
 });
 
 export const saveBlock = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => blockInput.parse(d))
   .handler(async ({ data, context }) => {
-    const c = context as unknown as Ctx;
+    const c = ctx(context);
     await assertAdmin(c);
     const payload = { ...data, cohort_id: data.cohort_id ?? null };
     delete (payload as any).id;
@@ -61,28 +79,22 @@ export const saveBlock = createServerFn({ method: "POST" })
     }
 
     if (data.id) {
-      const { error } = await c.supabase.from("blocks").update(payload).eq("id", data.id);
-      if (error) throw new Error(error.message);
+      unwrap(await c.supabase.from("blocks").update(payload).eq("id", data.id));
       await audit(c, "update", "block", data.id, payload);
       return { id: data.id };
     }
-    const { data: created, error } = await c.supabase
-      .from("blocks")
-      .insert(payload)
-      .select("id")
-      .single();
-    if (error) throw new Error(error.message);
+    const created = unwrap<{ id: string }>(
+      await c.supabase.from("blocks").insert(payload).select("id").single(),
+    );
     await audit(c, "create", "block", created.id, payload);
     return { id: created.id as string };
   });
 
 export const setBlockStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
-    z.object({ id: z.string().uuid(), status: z.enum(["upcoming", "active", "closed"]) }).parse(d),
-  )
+  .inputValidator((d: unknown) => z.object({ id: uuid, status: blockStatusInput }).parse(d))
   .handler(async ({ data, context }) => {
-    const c = context as unknown as Ctx;
+    const c = ctx(context);
     await assertAdmin(c);
     if (data.status === "active") {
       await c.supabase
@@ -91,35 +103,29 @@ export const setBlockStatus = createServerFn({ method: "POST" })
         .eq("status", "active")
         .neq("id", data.id);
     }
-    const { error } = await c.supabase
-      .from("blocks")
-      .update({ status: data.status })
-      .eq("id", data.id);
-    if (error) throw new Error(error.message);
+    unwrap(await c.supabase.from("blocks").update({ status: data.status }).eq("id", data.id));
     await audit(c, "status_change", "block", data.id, { status: data.status });
     return { ok: true };
   });
 
 export const deleteBlock = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) => idInput.parse(d))
   .handler(async ({ data, context }) => {
-    const c = context as unknown as Ctx;
+    const c = ctx(context);
     await assertAdmin(c);
-    const { error } = await c.supabase.from("blocks").delete().eq("id", data.id);
-    if (error) throw new Error(error.message);
+    unwrap(await c.supabase.from("blocks").delete().eq("id", data.id));
     await audit(c, "delete", "block", data.id, {});
     return { ok: true };
   });
 
 export const resetBlockAttendance = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ block_id: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) => blockIdInput.parse(d))
   .handler(async ({ data, context }) => {
-    const c = context as unknown as Ctx;
+    const c = ctx(context);
     await assertAdmin(c);
-    const { error } = await c.supabase.from("attendance").delete().eq("block_id", data.block_id);
-    if (error) throw new Error(error.message);
+    unwrap(await c.supabase.from("attendance").delete().eq("block_id", data.block_id));
     await audit(c, "reset", "attendance", data.block_id, { scope: "block" });
     return { ok: true };
   });
@@ -129,19 +135,16 @@ export const resetBlockAttendance = createServerFn({ method: "POST" })
 export const listCohorts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const c = context as unknown as Ctx;
-    const { data, error } = await c.supabase
-      .from("cohorts")
-      .select("*")
-      .order("name", { ascending: true });
-    if (error) throw new Error(error.message);
-    return data ?? [];
+    const c = ctx(context);
+    return (
+      unwrap(await c.supabase.from("cohorts").select("*").order("name", { ascending: true })) ?? []
+    );
   });
 
 const cohortInput = z.object({
-  id: z.string().uuid().optional(),
+  id: uuid.optional(),
   name: z.string().trim().min(2).max(60),
-  programme: z.string().trim().max(120).or(z.literal("")).optional(),
+  programme: optionalText(120),
   intake_year: z.number().int().min(2000).max(2100).nullable().optional(),
 });
 
@@ -149,7 +152,7 @@ export const saveCohort = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => cohortInput.parse(d))
   .handler(async ({ data, context }) => {
-    const c = context as unknown as Ctx;
+    const c = ctx(context);
     await assertAdmin(c);
     const payload = {
       name: data.name,
@@ -157,29 +160,24 @@ export const saveCohort = createServerFn({ method: "POST" })
       intake_year: data.intake_year ?? null,
     };
     if (data.id) {
-      const { error } = await c.supabase.from("cohorts").update(payload).eq("id", data.id);
-      if (error) throw new Error(error.message);
+      unwrap(await c.supabase.from("cohorts").update(payload).eq("id", data.id));
       await audit(c, "update", "cohort", data.id, payload);
       return { id: data.id };
     }
-    const { data: created, error } = await c.supabase
-      .from("cohorts")
-      .insert(payload)
-      .select("id")
-      .single();
-    if (error) throw new Error(error.message);
+    const created = unwrap<{ id: string }>(
+      await c.supabase.from("cohorts").insert(payload).select("id").single(),
+    );
     await audit(c, "create", "cohort", created.id, payload);
     return { id: created.id as string };
   });
 
 export const deleteCohort = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) => idInput.parse(d))
   .handler(async ({ data, context }) => {
-    const c = context as unknown as Ctx;
+    const c = ctx(context);
     await assertAdmin(c);
-    const { error } = await c.supabase.from("cohorts").delete().eq("id", data.id);
-    if (error) throw new Error(error.message);
+    unwrap(await c.supabase.from("cohorts").delete().eq("id", data.id));
     await audit(c, "delete", "cohort", data.id, {});
     return { ok: true };
   });
@@ -187,21 +185,17 @@ export const deleteCohort = createServerFn({ method: "POST" })
 export const assignCohort = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z
-      .object({
-        student_ids: z.array(z.string().uuid()).min(1).max(2000),
-        cohort_id: z.string().uuid().nullable(),
-      })
-      .parse(d),
+    z.object({ student_ids: studentIdsInput, cohort_id: uuid.nullable() }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const c = context as unknown as Ctx;
+    const c = ctx(context);
     await assertAdmin(c);
-    const { error } = await c.supabase
-      .from("profiles")
-      .update({ cohort_id: data.cohort_id })
-      .in("id", data.student_ids);
-    if (error) throw new Error(error.message);
+    unwrap(
+      await c.supabase
+        .from("profiles")
+        .update({ cohort_id: data.cohort_id })
+        .in("id", data.student_ids),
+    );
     await audit(c, "assign_cohort", "student", data.cohort_id, {
       cohort_id: data.cohort_id,
       count: data.student_ids.length,
@@ -214,41 +208,32 @@ export const assignCohort = createServerFn({ method: "POST" })
 export const listStudents = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const c = context as unknown as Ctx;
+    const c = ctx(context);
     await assertAdmin(c);
     const { data: adminRows } = await c.supabase
       .from("user_roles")
       .select("user_id")
       .eq("role", "admin");
     const adminIds = new Set((adminRows ?? []).map((r: any) => r.user_id));
-    const { data, error } = await c.supabase
-      .from("profiles")
-      .select("*")
-      .order("full_name", { ascending: true });
-    if (error) throw new Error(error.message);
-    return (data ?? []).filter((p: any) => !adminIds.has(p.id));
+    const rows = unwrap<{ id: string }[]>(
+      await c.supabase.from("profiles").select("*").order("full_name", { ascending: true }),
+    );
+    return (rows ?? []).filter((p: any) => !adminIds.has(p.id));
   });
 
 const studentInput = z.object({
-  full_name: z.string().trim().min(2).max(120),
-  student_number: z.string().trim().min(1).max(40),
+  ...studentProfileInput,
   email: z.string().trim().email().max(255),
   password: z.string().min(8).max(72),
-  cohort_id: z.string().uuid().nullable().optional(),
-  programme: z.string().trim().max(120).or(z.literal("")).optional(),
-  intake_year: z.number().int().min(2000).max(2100).nullable().optional(),
-  classification: z.enum(["meditator", "rising_siddha", "siddha"]).nullable().optional(),
-  gender: z.enum(["male", "female"]).nullable().optional(),
 });
-
 
 export const createStudent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => studentInput.parse(d))
   .handler(async ({ data, context }) => {
-    const c = context as unknown as Ctx;
+    const c = ctx(context);
     await assertAdmin(c);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await adminClient();
 
     const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
@@ -261,15 +246,8 @@ export const createStudent = createServerFn({ method: "POST" })
     const id = created.user.id;
     const { error: pErr } = await supabaseAdmin.from("profiles").insert({
       id,
-      full_name: data.full_name,
-      student_number: data.student_number,
       email: data.email,
-      cohort_id: data.cohort_id ?? null,
-      programme: data.programme || null,
-      intake_year: data.intake_year ?? null,
-      classification: data.classification ?? null,
-      gender: data.gender ?? null,
-      internal_email: internalEmail(data.student_number),
+      ...studentProfileRow(data),
     });
 
     if (pErr) {
@@ -277,7 +255,10 @@ export const createStudent = createServerFn({ method: "POST" })
       throw new Error(pErr.message);
     }
     await supabaseAdmin.from("user_roles").insert({ user_id: id, role: "student" });
-    await audit(c, "create", "student", id, { email: data.email, student_number: data.student_number });
+    await audit(c, "create", "student", id, {
+      email: data.email,
+      student_number: data.student_number,
+    });
     return { id };
   });
 
@@ -286,40 +267,19 @@ export const updateStudent = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
-        id: z.string().uuid(),
-        full_name: z.string().trim().min(2).max(120),
-        student_number: z.string().trim().min(1).max(40),
+        id: uuid,
+        ...studentProfileInput,
         password: z.string().min(8).max(72).or(z.literal("")).optional(),
-        cohort_id: z.string().uuid().nullable().optional(),
-        programme: z.string().trim().max(120).or(z.literal("")).optional(),
-        intake_year: z.number().int().min(2000).max(2100).nullable().optional(),
-        classification: z.enum(["meditator", "rising_siddha", "siddha"]).nullable().optional(),
-        gender: z.enum(["male", "female"]).nullable().optional(),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const c = context as unknown as Ctx;
+    const c = ctx(context);
     await assertAdmin(c);
-    const { error } = await c.supabase
-      .from("profiles")
-      .update({
-        full_name: data.full_name,
-        student_number: data.student_number,
-        cohort_id: data.cohort_id ?? null,
-        programme: data.programme || null,
-        intake_year: data.intake_year ?? null,
-        classification: data.classification ?? null,
-        gender: data.gender ?? null,
-        internal_email: internalEmail(data.student_number),
-      })
-      .eq("id", data.id);
-    if (error) throw new Error(error.message);
-
-
+    unwrap(await c.supabase.from("profiles").update(studentProfileRow(data)).eq("id", data.id));
 
     if (data.password) {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const supabaseAdmin = await adminClient();
       const { error: aErr } = await supabaseAdmin.auth.admin.updateUserById(data.id, {
         password: data.password,
       });
@@ -335,11 +295,11 @@ export const updateStudent = createServerFn({ method: "POST" })
 
 export const deleteStudent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) => idInput.parse(d))
   .handler(async ({ data, context }) => {
-    const c = context as unknown as Ctx;
+    const c = ctx(context);
     await assertAdmin(c);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await adminClient();
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.id);
     if (error) throw new Error(error.message);
     await audit(c, "delete", "student", data.id, {});
@@ -350,57 +310,51 @@ export const deleteStudent = createServerFn({ method: "POST" })
 
 export const listAttendance = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ block_id: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) => blockIdInput.parse(d))
   .handler(async ({ data, context }) => {
-    const c = context as unknown as Ctx;
-    const { data: rows, error } = await c.supabase
-      .from("attendance")
-      .select("*")
-      .eq("block_id", data.block_id)
-      .order("session_date", { ascending: true });
-    if (error) throw new Error(error.message);
-    return rows ?? [];
+    const c = ctx(context);
+    return (
+      unwrap(
+        await c.supabase
+          .from("attendance")
+          .select("*")
+          .eq("block_id", data.block_id)
+          .order("session_date", { ascending: true }),
+      ) ?? []
+    );
   });
 
-const POINTS = z.union([
-  z.literal(0),
-  z.literal(0.5),
-  z.literal(1),
-  z.literal(1.5),
-  z.literal(2),
-]);
+const POINTS = z.union([z.literal(0), z.literal(0.5), z.literal(1), z.literal(1.5), z.literal(2)]);
 
 export const markAttendance = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
-        block_id: z.string().uuid(),
-        student_id: z.string().uuid(),
-        session_date: z.string().min(10).max(10),
-        slot: z.enum(["morning", "afternoon"]),
+        block_id: uuid,
+        student_id: uuid,
+        session_date: isoDate,
+        slot: slotInput,
         points: POINTS.nullable(),
-        absence_reason: z
-          .enum(["sick_leave", "approved_leave", "late_arrival", "unexcused", "other"])
-          .nullable()
-          .optional(),
-        absence_note: z.string().trim().max(400).or(z.literal("")).optional(),
+        absence_reason: absenceReasonInput.nullable().optional(),
+        absence_note: optionalText(400),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const c = context as unknown as Ctx;
+    const c = ctx(context);
     await assertAdmin(c);
 
     if (data.points === null) {
-      const { error } = await c.supabase
-        .from("attendance")
-        .delete()
-        .eq("block_id", data.block_id)
-        .eq("student_id", data.student_id)
-        .eq("session_date", data.session_date)
-        .eq("slot", data.slot);
-      if (error) throw new Error(error.message);
+      unwrap(
+        await c.supabase
+          .from("attendance")
+          .delete()
+          .eq("block_id", data.block_id)
+          .eq("student_id", data.student_id)
+          .eq("session_date", data.session_date)
+          .eq("slot", data.slot),
+      );
       await audit(c, "clear", "attendance", data.student_id, data as any);
       return { ok: true };
     }
@@ -408,22 +362,23 @@ export const markAttendance = createServerFn({ method: "POST" })
     const status = statusFromPoints(data.points, data.absence_reason ?? null);
     const full = data.points === 2;
 
-    const { error } = await c.supabase.from("attendance").upsert(
-      {
-        block_id: data.block_id,
-        student_id: data.student_id,
-        session_date: data.session_date,
-        slot: data.slot,
-        points: data.points,
-        status,
-        absence_reason: full ? null : (data.absence_reason ?? null),
-        absence_note: full ? null : data.absence_note || null,
-        recorded_by: c.userId,
-      },
-      { onConflict: "block_id,student_id,session_date,slot" },
+    unwrap(
+      await c.supabase.from("attendance").upsert(
+        {
+          block_id: data.block_id,
+          student_id: data.student_id,
+          session_date: data.session_date,
+          slot: data.slot,
+          points: data.points,
+          status,
+          absence_reason: full ? null : (data.absence_reason ?? null),
+          absence_note: full ? null : data.absence_note || null,
+          recorded_by: c.userId,
+        },
+        { onConflict: "block_id,student_id,session_date,slot" },
+      ),
     );
 
-    if (error) throw new Error(error.message);
     await audit(c, "mark", "attendance", data.student_id, data as any);
     return { ok: true };
   });
@@ -433,16 +388,16 @@ export const markDayForAll = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
-        block_id: z.string().uuid(),
-        session_date: z.string().min(10).max(10),
-        slot: z.enum(["morning", "afternoon"]),
+        block_id: uuid,
+        session_date: isoDate,
+        slot: slotInput,
         points: POINTS,
-        student_ids: z.array(z.string().uuid()).min(1).max(2000),
+        student_ids: studentIdsInput,
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const c = context as unknown as Ctx;
+    const c = ctx(context);
     await assertAdmin(c);
     const status = statusFromPoints(data.points, null);
     const rows = data.student_ids.map((student_id) => ({
@@ -454,10 +409,11 @@ export const markDayForAll = createServerFn({ method: "POST" })
       status,
       recorded_by: c.userId,
     }));
-    const { error } = await c.supabase
-      .from("attendance")
-      .upsert(rows, { onConflict: "block_id,student_id,session_date,slot" });
-    if (error) throw new Error(error.message);
+    unwrap(
+      await c.supabase
+        .from("attendance")
+        .upsert(rows, { onConflict: "block_id,student_id,session_date,slot" }),
+    );
     await audit(c, "bulk_mark", "attendance", data.block_id, {
       session_date: data.session_date,
       slot: data.slot,
@@ -467,15 +423,14 @@ export const markDayForAll = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-
 /* --------------------------- student self-service ------------------------ */
 
 export const getMyAttendance = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const c = context as unknown as Ctx;
+    const c = ctx(context);
     const [{ data: profile }, { data: blocks }, { data: records }] = await Promise.all([
-      c.supabase.from("profiles").select("*, cohort:cohorts(id,name,programme,intake_year)").eq("id", c.userId).maybeSingle(),
+      c.supabase.from("profiles").select(PROFILE_WITH_COHORT).eq("id", c.userId).maybeSingle(),
       c.supabase.from("blocks").select("*").order("start_date", { ascending: false }),
       c.supabase
         .from("attendance")
@@ -490,19 +445,18 @@ export const getMyAttendance = createServerFn({ method: "GET" })
     };
   });
 
-
-
-
 export const getAuditLogs = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const c = context as unknown as Ctx;
+    const c = ctx(context);
     await assertAdmin(c);
-    const { data, error } = await c.supabase
-      .from("audit_logs")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(300);
-    if (error) throw new Error(error.message);
-    return data ?? [];
+    return (
+      unwrap(
+        await c.supabase
+          .from("audit_logs")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(300),
+      ) ?? []
+    );
   });

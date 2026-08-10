@@ -19,6 +19,7 @@ import {
   blockProgress,
   buildCalendar,
   formatDate,
+  pickActive,
   reasonLabel,
   statusTone,
   summarise,
@@ -52,7 +53,7 @@ function StudentDashboard() {
 
   const blocks = (data?.blocks ?? []) as Block[];
   const records = (data?.records ?? []) as AttendanceRecord[];
-  const activeBlock = blocks.find((b) => b.status === "active") ?? blocks[0] ?? null;
+  const activeBlock = pickActive(blocks);
   const selected = blocks.find((b) => b.id === (blockId ?? activeBlock?.id)) ?? null;
 
   const blockRecords = useMemo(
@@ -172,11 +173,19 @@ function StudentDashboard() {
         <>
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_1.4fr]">
             <Card className="animate-rise flex flex-col items-center text-center">
-              <CircularProgress value={summary.percentage} color={tone.stroke} caption="attendance" />
+              <CircularProgress
+                value={summary.percentage}
+                color={tone.stroke}
+                caption="attendance"
+              />
               <div className="mt-4">
                 <Badge
                   tone={
-                    summary.status === "met" ? "green" : summary.status === "warning" ? "amber" : "red"
+                    summary.status === "met"
+                      ? "green"
+                      : summary.status === "warning"
+                        ? "amber"
+                        : "red"
                   }
                 >
                   {summary.statusLabel}
@@ -197,7 +206,12 @@ function StudentDashboard() {
               <StatCard label="Afternoon attended" value={summary.afternoonPresent} tone="green" />
               <StatCard label="Sessions missed" value={summary.absent} tone="red" />
               <StatCard label="Sessions remaining" value={summary.remainingSessions} tone="gold" />
-              <StatCard label="Excused" value={summary.excused} hint="Excluded from %" tone="neutral" />
+              <StatCard
+                label="Excused"
+                value={summary.excused}
+                hint="Excluded from %"
+                tone="neutral"
+              />
               <StatCard
                 label="Max possible"
                 value={`${summary.maxPossible}%`}
@@ -226,7 +240,10 @@ function StudentDashboard() {
               <SectionTitle title="Current block" />
               <dl className="space-y-2 text-sm">
                 <Row label="Block" value={selected.name} />
-                <Row label="Dates" value={`${formatDate(selected.start_date)} → ${formatDate(selected.end_date)}`} />
+                <Row
+                  label="Dates"
+                  value={`${formatDate(selected.start_date)} → ${formatDate(selected.end_date)}`}
+                />
                 <Row label="Weeks" value={String(selected.weeks)} />
                 <Row label="Meditation days" value={String(selected.meditation_days)} />
                 <Row label="Total sessions" value={String(summary.totalSessions)} />
@@ -258,12 +275,12 @@ function StudentDashboard() {
             <Leaderboard />
           </div>
 
-
-
           <Card className="mt-6">
             <SectionTitle title="Attendance history" subtitle="Read-only record of your sessions" />
             {blockRecords.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No sessions recorded yet for this block.</p>
+              <p className="text-sm text-muted-foreground">
+                No sessions recorded yet for this block.
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[420px] text-sm">
@@ -284,7 +301,11 @@ function StudentDashboard() {
                         <td className="py-2">
                           <Badge
                             tone={
-                              r.status === "present" ? "green" : r.status === "excused" ? "gold" : "red"
+                              r.status === "present"
+                                ? "green"
+                                : r.status === "excused"
+                                  ? "gold"
+                                  : "red"
                             }
                           >
                             {r.status}

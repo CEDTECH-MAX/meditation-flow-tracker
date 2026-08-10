@@ -3,10 +3,16 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge, Button, Card, Field, SectionTitle, Select, Spinner } from "@/components/ui-kit";
 import { useAttendance, useBlocks, useCohorts, useStudents, pickActive } from "@/lib/admin-hooks";
-import { GENDERS, formatDate, summarise, type Gender } from "@/lib/attendance";
+import {
+  GENDERS,
+  formatDate,
+  statusBadgeTone,
+  summariseStudents,
+  todayIso,
+  type Gender,
+} from "@/lib/attendance";
 import { exportRegisterPdf } from "@/lib/exporters";
 import { buildRegisterRows, exportRegisterWorkbook } from "@/lib/register-export";
-
 
 export const Route = createFileRoute("/_authenticated/admin/reports")({
   head: () => ({
@@ -42,16 +48,13 @@ function AdminReports() {
   const [gender, setGender] = useState<"all" | Gender>("all");
 
   const rows = useMemo(() => {
-    const all = (students ?? [])
-      .filter((s) => cohortId === "all" || s.cohort_id === cohortId)
-      .filter((s) => gender === "all" || s.gender === gender)
-      .map((s) => {
-        const summary = summarise(
-          block,
-          (records ?? []).filter((r) => r.student_id === s.id),
-        );
-        return { student: s, summary };
-      });
+    const all = summariseStudents(
+      block,
+      records,
+      (students ?? [])
+        .filter((s) => cohortId === "all" || s.cohort_id === cohortId)
+        .filter((s) => gender === "all" || s.gender === gender),
+    );
     if (kind === "below") return all.filter((r) => !r.summary.met);
     if (kind === "met") return all.filter((r) => r.summary.met);
     return all;
@@ -70,16 +73,22 @@ function AdminReports() {
   ];
 
   const title =
-    kind === "below" ? "Students below 80%" : kind === "met" ? "Students meeting 80%" : "Full attendance report";
+    kind === "below"
+      ? "Students below 80%"
+      : kind === "met"
+        ? "Students meeting 80%"
+        : "Full attendance report";
   const subtitle = block
-    ? `${block.name} · ${formatDate(block.start_date)} → ${formatDate(block.end_date)} · ${block.weeks} week${block.weeks === 1 ? "" : "s"} · ${block.meditation_days * 2} sessions · generated ${formatDate(new Date().toISOString().slice(0, 10))}`
+    ? `${block.name} · ${formatDate(block.start_date)} → ${formatDate(block.end_date)} · ${block.weeks} week${block.weeks === 1 ? "" : "s"} · ${block.meditation_days * 2} sessions · generated ${formatDate(todayIso())}`
     : "No block selected";
   const genderLabelText = gender === "male" ? "Boys" : gender === "female" ? "Girls" : "All";
   const filename = `attendance-register-${(block?.name ?? "block").toLowerCase().replace(/\s+/g, "-")}-${gender === "all" ? "" : gender + "-"}${kind}`;
 
   const cohortName =
     cohortId === "all"
-      ? (cohorts?.length === 1 ? cohorts[0]!.name : "All Cohorts")
+      ? cohorts?.length === 1
+        ? cohorts[0]!.name
+        : "All Cohorts"
       : (cohorts?.find((c) => c.id === cohortId)?.name ?? "All Cohorts");
 
   const registerLabel = gender === "all" ? cohortName : `${cohortName} · ${genderLabelText}`;
@@ -173,12 +182,11 @@ function AdminReports() {
           </Field>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          The register renders one 15-column week section per block week — a{" "}
-          {block?.weeks ?? 0}-week block exports exactly {block?.weeks ?? 0} week
+          The register renders one 15-column week section per block week — a {block?.weeks ?? 0}
+          -week block exports exactly {block?.weeks ?? 0} week
           {block?.weeks === 1 ? "" : "s"}, with block cumulative and final points columns.
         </p>
       </Card>
-
 
       <Card>
         <SectionTitle title={title} subtitle={subtitle} />
@@ -210,17 +218,7 @@ function AdminReports() {
                     <td className="py-2">{summary.excused}</td>
                     <td className="py-2">{summary.percentage}%</td>
                     <td className="py-2">
-                      <Badge
-                        tone={
-                          summary.status === "met"
-                            ? "green"
-                            : summary.status === "warning"
-                              ? "amber"
-                              : "red"
-                        }
-                      >
-                        {summary.statusLabel}
-                      </Badge>
+                      <Badge tone={statusBadgeTone(summary.status)}>{summary.statusLabel}</Badge>
                     </td>
                   </tr>
                 ))}

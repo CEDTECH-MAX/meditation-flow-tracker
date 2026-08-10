@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type { Ctx } from "./data.helpers";
+import { adminClient, ctx } from "./data.helpers";
 
 export type LeaderboardEntry = {
   rank: number;
@@ -32,7 +32,7 @@ export type LeaderboardResult = {
 export const getLeaderboard = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<LeaderboardResult> => {
-    const c = context as unknown as Ctx;
+    const c = ctx(context);
     const empty = {
       available: false,
       group: { cohort: null, classification: null, gender: null, block: null, peers: 0 },
@@ -71,7 +71,7 @@ export const getLeaderboard = createServerFn({ method: "GET" })
 
     if (!block) return { ...empty, group, reason: "There is no active block right now." };
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await adminClient();
 
     const { data: peers } = await supabaseAdmin
       .from("profiles")
@@ -94,7 +94,8 @@ export const getLeaderboard = createServerFn({ method: "GET" })
       );
 
     const totals = new Map<string, { present: number; counted: number }>();
-    for (const p of peerList) totals.set(p.id, { present: 0, counted: (block.meditation_days ?? 0) * 2 });
+    for (const p of peerList)
+      totals.set(p.id, { present: 0, counted: (block.meditation_days ?? 0) * 2 });
     for (const r of rows ?? []) {
       const t = totals.get(r.student_id as string);
       if (!t) continue;
@@ -109,11 +110,15 @@ export const getLeaderboard = createServerFn({ method: "GET" })
           student_id: p.id,
           full_name: p.full_name as string,
           present: t.present,
-          percentage:
-            t.counted > 0 ? Math.round((t.present / t.counted) * 1000) / 10 : 0,
+          percentage: t.counted > 0 ? Math.round((t.present / t.counted) * 1000) / 10 : 0,
         };
       })
-      .sort((a, b) => b.present - a.present || b.percentage - a.percentage || a.full_name.localeCompare(b.full_name))
+      .sort(
+        (a, b) =>
+          b.present - a.present ||
+          b.percentage - a.percentage ||
+          a.full_name.localeCompare(b.full_name),
+      )
       .map((e, i) => ({ ...e, rank: i + 1, isMe: e.student_id === c.userId }));
 
     return {
