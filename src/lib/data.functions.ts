@@ -353,6 +353,7 @@ export const listAttendance = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ block_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const c = context as unknown as Ctx;
+    await assertAdmin(c);
     const { data: rows, error } = await c.supabase
       .from("attendance")
       .select("*")

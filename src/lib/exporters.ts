@@ -1,6 +1,5 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
 
 export function exportPdf(
   title: string,
@@ -29,17 +28,32 @@ export function exportPdf(
   doc.save(`${filename}.pdf`);
 }
 
-export function exportExcel(
+export async function exportExcel(
   sheetName: string,
   head: string[],
   body: (string | number)[][],
   filename: string,
 ) {
-  const ws = XLSX.utils.aoa_to_sheet([head, ...body]);
-  ws["!cols"] = head.map(() => ({ wch: 20 }));
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 30));
-  XLSX.writeFile(wb, `${filename}.xlsx`);
+  const ExcelJS = (await import("exceljs")).default;
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet(sheetName.slice(0, 30));
+  ws.addRow(head);
+  for (const row of body) ws.addRow(row);
+  ws.columns.forEach((c) => {
+    c.width = 20;
+  });
+  ws.getRow(1).font = { bold: true };
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${filename}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 import type { RegisterRow } from "@/lib/register-export";
