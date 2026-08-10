@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
-import { Button, Card, SectionTitle, Spinner } from "@/components/ui-kit";
+import { Button, Card, ErrorState, SectionTitle, Spinner } from "@/components/ui-kit";
 import { askAdvisor, listAdvisorMessages, type AdvisorMessage } from "@/lib/advisor.functions";
 
 export const Route = createFileRoute("/_authenticated/advisor")({
@@ -42,7 +42,12 @@ function AdvisorPage() {
   const boxRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const { data: messages, isLoading } = useQuery({
+  const {
+    data: messages,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["advisor-messages"],
     queryFn: () => listFn() as Promise<AdvisorMessage[]>,
   });
@@ -81,7 +86,13 @@ function AdvisorPage() {
 
       <Card className="flex h-[62vh] min-h-[420px] flex-col p-0">
         <div ref={boxRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-5">
-          {isLoading ? (
+          {error ? (
+            <ErrorState
+              title="Your conversation could not be loaded"
+              error={error}
+              onRetry={() => void refetch()}
+            />
+          ) : isLoading ? (
             <Spinner label="Loading your conversation" />
           ) : (messages ?? []).length === 0 ? (
             <div className="glass-muted rounded-2xl px-4 py-5 text-sm text-muted-foreground">

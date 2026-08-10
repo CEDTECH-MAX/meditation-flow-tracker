@@ -7,6 +7,7 @@ import {
   Badge,
   Button,
   Card,
+  ErrorState,
   Field,
   Input,
   Modal,
@@ -79,7 +80,8 @@ const empty: FormState = {
 
 function AdminStudents() {
   const qc = useQueryClient();
-  const { data: students, isLoading } = useStudents();
+  const studentsQuery = useStudents();
+  const { data: students, isLoading } = studentsQuery;
   const { data: cohorts } = useCohorts();
   const { data: blocks } = useBlocks();
   const block = pickActive(blocks);
@@ -169,6 +171,15 @@ function AdminStudents() {
         ),
       }));
   }, [students, search, cohortFilter, classFilter, block, records]);
+
+  if (studentsQuery.error)
+    return (
+      <ErrorState
+        title="Students could not be loaded"
+        error={studentsQuery.error}
+        onRetry={() => void studentsQuery.refetch()}
+      />
+    );
 
   if (isLoading) return <Spinner label="Loading students" />;
 

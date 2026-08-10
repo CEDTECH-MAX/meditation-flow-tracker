@@ -26,7 +26,7 @@ export const listAdvisorMessages = createServerFn({ method: "GET" })
   });
 
 async function studentContext(c: Ctx) {
-  const [{ data: profile }, { data: blocks }] = await Promise.all([
+  const [profileRes, blocksRes] = await Promise.all([
     c.supabase
       .from("profiles")
       .select("full_name, student_number, programme, classification, gender, cohort:cohorts(name)")
@@ -35,16 +35,23 @@ async function studentContext(c: Ctx) {
     c.supabase.from("blocks").select("*").order("start_date", { ascending: false }),
   ]);
 
-  const list = (blocks ?? []) as Block[];
+  // The advisor is told never to invent numbers, so it must not be handed
+  // silently-empty attendance either.
+  const failure = profileRes.error ?? blocksRes.error;
+  if (failure) throw new Error(`Could not read your attendance: ${failure.message}`);
+
+  const profile = profileRes.data;
+  const list = (blocksRes.data ?? []) as Block[];
   const block = list.find((b) => b.status === "active") ?? list[0] ?? null;
 
   let records: { slot: "morning" | "afternoon"; status: any; points: number }[] = [];
   if (block) {
-    const { data } = await c.supabase
+    const { data, error } = await c.supabase
       .from("attendance")
       .select("slot, status, points")
       .eq("student_id", c.userId)
       .eq("block_id", block.id);
+    if (error) throw new Error(`Could not read your attendance: ${error.message}`);
     records = (data ?? []) as typeof records;
   }
 
@@ -89,7 +96,7 @@ export const askAdvisor = createServerFn({ method: "POST" })
       .insert({ user_id: c.userId, role: "user", content: data.message });
     if (insErr) throw new Error(insErr.message);
 
-    const [{ data: history }, facts] = await Promise.all([
+    const [historyRes, facts] = await Promise.all([
       c.supabase
         .from("advisor_messages")
         .select("role, content")
@@ -98,32 +105,46 @@ export const askAdvisor = createServerFn({ method: "POST" })
         .limit(60),
       studentContext(c),
     ]);
+    if (historyRes.error) throw new Error(historyRes.error.message);
+    const history = historyRes.data;
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Lovable-API-Key": key,
-        "X-Lovable-AIG-SDK": "fetch",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3.6-flash",
-        messages: [
-          { role: "system", content: SYSTEM },
-          { role: "system", content: `Current attendance facts:\n${facts}` },
-          ...(history ?? []).map((m: any) => ({ role: m.role, content: m.content })),
-        ],
-      }),
-    });
+    let res: Response;
+    try {
+      res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Lovable-API-Key": key,
+          "X-Lovable-AIG-SDK": "fetch",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3.6-flash",
+          messages: [
+            { role: "system", content: SYSTEM },
+            { role: "system", content: `Current attendance facts:\n${facts}` },
+            ...(history ?? []).map((m: any) => ({ role: m.role, content: m.content })),
+          ],
+        }),
+      });
+    } catch (cause) {
+      throw new Error("The advisor could not be reached right now. Please try again shortly.", {
+        cause,
+      });
+    }
 
     if (!res.ok) {
-      const body = await res.text();
+      const body = await res.text().catch(() => "");
       if (res.status === 429) throw new Error("The advisor is busy right now — please try again shortly.");
       if (res.status === 402) throw new Error("The advisor is temporarily unavailable. Please tell your administrator.");
       throw new Error(`The advisor could not answer right now. (${res.status}) ${body.slice(0, 200)}`);
     }
 
-    const json = (await res.json()) as any;
+    let json: any;
+    try {
+      json = await res.json();
+    } catch (cause) {
+      throw new Error("The advisor sent back an unreadable answer. Please try again.", { cause });
+    }
     const reply: string =
       json?.choices?.[0]?.message?.content?.trim() ||
       "I could not work that out just now. Please try asking again.";

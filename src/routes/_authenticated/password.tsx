@@ -39,8 +39,13 @@ function ChangePassword() {
       return;
     }
     setBusy(true);
-    const { data: userData } = await supabase.auth.getUser();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
     const email = userData.user?.email ?? "";
+    if (userError || !email) {
+      setBusy(false);
+      toast.error(userError?.message ?? "We could not confirm who you are signed in as.");
+      return;
+    }
     const { error: verifyError } = await supabase.auth.signInWithPassword({
       email,
       password: current,

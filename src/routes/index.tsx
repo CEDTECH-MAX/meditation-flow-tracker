@@ -32,9 +32,18 @@ function SignIn() {
 
   useEffect(() => {
     let active = true;
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!active || !data.session) return;
-      await routeByRole(data.session.user.id, navigate);
+    supabase.auth.getSession().then(async ({ data, error: sessionError }) => {
+      if (!active) return;
+      if (sessionError) {
+        setError(`We could not restore your session: ${sessionError.message}`);
+        return;
+      }
+      if (!data.session) return;
+      try {
+        await routeByRole(data.session.user.id, navigate);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : "Sign-in failed.");
+      }
     });
     return () => {
       active = false;
@@ -54,7 +63,11 @@ function SignIn() {
       setBusy(false);
       return;
     }
-    await routeByRole(data.user.id, navigate);
+    try {
+      await routeByRole(data.user.id, navigate);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Sign-in failed.");
+    }
     setBusy(false);
   }
 
@@ -126,7 +139,9 @@ function SignIn() {
 }
 
 async function routeByRole(userId: string, navigate: ReturnType<typeof useNavigate>) {
-  const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+  const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+  // Falling back to the student area would hide the admin area from admins.
+  if (error) throw new Error(`We could not load your account permissions: ${error.message}`);
   const isAdmin = (data ?? []).some((r) => r.role === "admin");
   navigate({ to: isAdmin ? "/admin" : "/dashboard", replace: true });
 }

@@ -5,9 +5,17 @@ export async function assertAdmin(context: Ctx) {
     _user_id: context.userId,
     _role: "admin",
   });
-  if (error || !data) throw new Error("Forbidden: administrators only");
+  // A failed lookup is not the same as a denied role: report it as such so an
+  // outage is not reported to the administrator as a permission problem.
+  if (error) throw new Error(`Could not verify your permissions: ${error.message}`);
+  if (!data) throw new Error("Forbidden: administrators only");
 }
 
+/**
+ * Writes the audit trail entry for a change that has already been committed.
+ * The write cannot be rolled back, so a logging failure is reported to the
+ * server log with full context instead of failing the caller's request.
+ */
 export async function audit(
   context: Ctx,
   action: string,
@@ -15,7 +23,7 @@ export async function audit(
   entityId: string | null,
   details: Record<string, unknown>,
 ) {
-  await context.supabase.from("audit_logs").insert({
+  const { error } = await context.supabase.from("audit_logs").insert({
     actor_id: context.userId,
     actor_email: (context.claims?.["email"] as string) ?? null,
     action,
@@ -23,6 +31,14 @@ export async function audit(
     entity_id: entityId,
     details,
   });
+  if (error) {
+    console.error(
+      new Error(
+        `Audit log write failed for ${action} on ${entity} ${entityId ?? "(no id)"} by ${context.userId}: ${error.message}`,
+        { cause: error },
+      ),
+    );
+  }
 }
 
 /** Internal institute inbox address derived from the student number. */

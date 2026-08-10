@@ -7,6 +7,7 @@ import {
   Badge,
   Button,
   Card,
+  ErrorState,
   Field,
   Input,
   Modal,
@@ -43,8 +44,10 @@ const empty: FormState = { name: "", programme: "", intake_year: "" };
 
 function AdminCohorts() {
   const qc = useQueryClient();
-  const { data: cohorts, isLoading: lc } = useCohorts();
-  const { data: students, isLoading: ls } = useStudents();
+  const cohortsQuery = useCohorts();
+  const studentsQuery = useStudents();
+  const { data: cohorts, isLoading: lc } = cohortsQuery;
+  const { data: students, isLoading: ls } = studentsQuery;
   const { data: blocks } = useBlocks();
   const block = pickActive(blocks);
   const { data: records } = useAttendance(block?.id ?? null);
@@ -135,6 +138,19 @@ function AdminCohorts() {
   }, [students, filter]);
 
   const pickedIds = Object.keys(picked).filter((k) => picked[k]);
+
+  const failed = cohortsQuery.error ?? studentsQuery.error;
+  if (failed)
+    return (
+      <ErrorState
+        title="Cohorts could not be loaded"
+        error={failed}
+        onRetry={() => {
+          void cohortsQuery.refetch();
+          void studentsQuery.refetch();
+        }}
+      />
+    );
 
   if (lc || ls) return <Spinner label="Loading cohorts" />;
 

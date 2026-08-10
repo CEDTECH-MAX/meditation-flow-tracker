@@ -8,6 +8,7 @@ import {
   Badge,
   Card,
   CircularProgress,
+  ErrorState,
   Select,
   SectionTitle,
   Spinner,
@@ -47,7 +48,10 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function StudentDashboard() {
   const fn = useServerFn(getMyAttendance);
-  const { data, isLoading } = useQuery({ queryKey: ["my-attendance"], queryFn: () => fn() });
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["my-attendance"],
+    queryFn: () => fn(),
+  });
   const [blockId, setBlockId] = useState<string | null>(null);
 
   const blocks = (data?.blocks ?? []) as Block[];
@@ -102,6 +106,18 @@ function StudentDashboard() {
       });
     return items;
   }, [selected, summary, blockRecords.length]);
+
+  // A failed load previously rendered as a genuine 0% record.
+  if (error)
+    return (
+      <AppShell>
+        <ErrorState
+          title="Your attendance could not be loaded"
+          error={error}
+          onRetry={() => void refetch()}
+        />
+      </AppShell>
+    );
 
   if (isLoading)
     return (

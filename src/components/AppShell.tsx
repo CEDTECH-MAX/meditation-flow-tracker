@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Menu, X } from "lucide-react";
 import { getMe } from "@/lib/data.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { Button } from "@/components/ui-kit";
 
 
@@ -50,7 +51,12 @@ export function AppShell({
   async function signOut() {
     await queryClient.cancelQueries();
     queryClient.clear();
-    await supabase.auth.signOut();
+    // Navigating away from a failed sign-out would leave a live session behind.
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast.error(`Could not sign you out: ${error.message}`);
+      return;
+    }
     navigate({ to: "/", replace: true });
   }
 

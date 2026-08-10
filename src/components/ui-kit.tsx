@@ -158,6 +158,29 @@ export function Spinner({ label = "Loading" }: { label?: string }) {
   );
 }
 
+export function ErrorState({
+  title = "This didn't load",
+  error,
+  onRetry,
+}: {
+  title?: string;
+  error?: unknown;
+  onRetry?: () => void;
+}) {
+  const detail = error instanceof Error ? error.message : error ? String(error) : null;
+  return (
+    <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-4 text-sm">
+      <p className="font-semibold text-destructive">{title}</p>
+      {detail ? <p className="mt-1 text-destructive/90">{detail}</p> : null}
+      {onRetry ? (
+        <Button variant="outline" size="sm" className="mt-3" onClick={onRetry}>
+          Try again
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
 export function CircularProgress({
   value,
   size = 168,

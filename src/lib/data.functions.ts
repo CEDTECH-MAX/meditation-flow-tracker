@@ -9,11 +9,16 @@ export const getMe = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const c = context as unknown as Ctx;
-    const [{ data: profile }, { data: roles }] = await Promise.all([
+    const [profileRes, rolesRes] = await Promise.all([
       c.supabase.from("profiles").select("*, cohort:cohorts(id,name,programme,intake_year)").eq("id", c.userId).maybeSingle(),
       c.supabase.from("user_roles").select("role").eq("user_id", c.userId),
     ]);
-    const isAdmin = (roles ?? []).some((r: any) => r.role === "admin");
+    if (profileRes.error) throw new Error(profileRes.error.message);
+    // A failed role lookup must not silently downgrade an administrator to a
+    // student view; fail loudly instead.
+    if (rolesRes.error) throw new Error(rolesRes.error.message);
+    const profile = profileRes.data;
+    const isAdmin = (rolesRes.data ?? []).some((r: any) => r.role === "admin");
     return {
       userId: c.userId,
       email: (c.claims?.["email"] as string) ?? null,
@@ -57,7 +62,11 @@ export const saveBlock = createServerFn({ method: "POST" })
     delete (payload as any).id;
 
     if (data.status === "active") {
-      await c.supabase.from("blocks").update({ status: "closed" }).eq("status", "active");
+      const { error: closeErr } = await c.supabase
+        .from("blocks")
+        .update({ status: "closed" })
+        .eq("status", "active");
+      if (closeErr) throw new Error(closeErr.message);
     }
 
     if (data.id) {
@@ -85,11 +94,12 @@ export const setBlockStatus = createServerFn({ method: "POST" })
     const c = context as unknown as Ctx;
     await assertAdmin(c);
     if (data.status === "active") {
-      await c.supabase
+      const { error: closeErr } = await c.supabase
         .from("blocks")
         .update({ status: "closed" })
         .eq("status", "active")
         .neq("id", data.id);
+      if (closeErr) throw new Error(closeErr.message);
     }
     const { error } = await c.supabase
       .from("blocks")
@@ -216,10 +226,13 @@ export const listStudents = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const c = context as unknown as Ctx;
     await assertAdmin(c);
-    const { data: adminRows } = await c.supabase
+    const { data: adminRows, error: rolesError } = await c.supabase
       .from("user_roles")
       .select("user_id")
       .eq("role", "admin");
+    // Without the admin list the administrators themselves would be listed as
+    // students, so this cannot be treated as an empty result.
+    if (rolesError) throw new Error(rolesError.message);
     const adminIds = new Set((adminRows ?? []).map((r: any) => r.user_id));
     const { data, error } = await c.supabase
       .from("profiles")
@@ -241,6 +254,23 @@ const studentInput = z.object({
   gender: z.enum(["male", "female"]).nullable().optional(),
 });
 
+
+/**
+ * Undoes a partially created student. The original failure is what the caller
+ * reports, so a failed rollback is logged with it rather than replacing it.
+ */
+async function rollbackStudent(id: string, cause: { message: string }) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
+  if (error) {
+    console.error(
+      new Error(
+        `Could not roll back partially created student ${id} after: ${cause.message}. Rollback failed with: ${error.message}`,
+        { cause: error },
+      ),
+    );
+  }
+}
 
 export const createStudent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -273,10 +303,20 @@ export const createStudent = createServerFn({ method: "POST" })
     });
 
     if (pErr) {
-      await supabaseAdmin.auth.admin.deleteUser(id);
+      await rollbackStudent(id, pErr);
       throw new Error(pErr.message);
     }
-    await supabaseAdmin.from("user_roles").insert({ user_id: id, role: "student" });
+
+    // Without the student role the new account can sign in but sees nothing, so
+    // roll the whole creation back rather than leaving a half-made student.
+    const { error: rErr } = await supabaseAdmin
+      .from("user_roles")
+      .insert({ user_id: id, role: "student" });
+    if (rErr) {
+      await rollbackStudent(id, rErr);
+      throw new Error(rErr.message);
+    }
+
     await audit(c, "create", "student", id, { email: data.email, student_number: data.student_number });
     return { id };
   });
@@ -474,7 +514,7 @@ export const getMyAttendance = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const c = context as unknown as Ctx;
-    const [{ data: profile }, { data: blocks }, { data: records }] = await Promise.all([
+    const [profileRes, blocksRes, recordsRes] = await Promise.all([
       c.supabase.from("profiles").select("*, cohort:cohorts(id,name,programme,intake_year)").eq("id", c.userId).maybeSingle(),
       c.supabase.from("blocks").select("*").order("start_date", { ascending: false }),
       c.supabase
@@ -483,10 +523,14 @@ export const getMyAttendance = createServerFn({ method: "GET" })
         .eq("student_id", c.userId)
         .order("session_date", { ascending: false }),
     ]);
+    // Falling back to empty data here would show the student a confident 0%
+    // instead of telling them their attendance could not be loaded.
+    const failure = profileRes.error ?? blocksRes.error ?? recordsRes.error;
+    if (failure) throw new Error(failure.message);
     return {
-      profile: profile ?? null,
-      blocks: blocks ?? [],
-      records: records ?? [],
+      profile: profileRes.data ?? null,
+      blocks: blocksRes.data ?? [],
+      records: recordsRes.data ?? [],
     };
   });
 
