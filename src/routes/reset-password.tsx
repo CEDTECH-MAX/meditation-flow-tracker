@@ -35,7 +35,13 @@ function ResetPassword() {
   useEffect(() => {
     const hash = window.location.hash;
     const recovery = hash.includes("type=recovery");
-    supabase.auth.getSession().then(({ data }) => setReady(recovery || Boolean(data.session)));
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error && !recovery) {
+        setError(`We could not confirm your reset link: ${error.message}`);
+        return;
+      }
+      setReady(recovery || Boolean(data.session));
+    });
   }, []);
 
   async function onSubmit(e: React.FormEvent) {

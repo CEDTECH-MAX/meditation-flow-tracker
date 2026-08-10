@@ -1,7 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Badge, Button, Card, Field, SectionTitle, Select, Spinner } from "@/components/ui-kit";
+import {
+  Badge,
+  Button,
+  Card,
+  ErrorState,
+  Field,
+  SectionTitle,
+  Select,
+  Spinner,
+} from "@/components/ui-kit";
 import { useAttendance, useBlocks, useCohorts, useStudents, pickActive } from "@/lib/admin-hooks";
 import { GENDERS, formatDate, summarise, type Gender } from "@/lib/attendance";
 import { exportRegisterPdf } from "@/lib/exporters";
@@ -30,13 +39,16 @@ export const Route = createFileRoute("/_authenticated/admin/reports")({
 type ReportKind = "all" | "below" | "met";
 
 function AdminReports() {
-  const { data: blocks, isLoading: lb } = useBlocks();
-  const { data: students, isLoading: ls } = useStudents();
+  const blocksQuery = useBlocks();
+  const studentsQuery = useStudents();
+  const { data: blocks, isLoading: lb } = blocksQuery;
+  const { data: students, isLoading: ls } = studentsQuery;
   const { data: cohorts } = useCohorts();
   const active = pickActive(blocks);
   const [blockId, setBlockId] = useState<string | null>(null);
   const block = blocks?.find((b) => b.id === (blockId ?? active?.id)) ?? null;
-  const { data: records, isLoading: la } = useAttendance(block?.id ?? null);
+  const recordsQuery = useAttendance(block?.id ?? null);
+  const { data: records, isLoading: la } = recordsQuery;
   const [kind, setKind] = useState<ReportKind>("all");
   const [cohortId, setCohortId] = useState<string>("all");
   const [gender, setGender] = useState<"all" | Gender>("all");
@@ -106,13 +118,31 @@ function AdminReports() {
 
   function handlePdf() {
     if (!block) return;
-    exportRegisterPdf(
-      block.name,
-      registerLabel,
-      buildRegisterRows(block, registerStudents, records ?? []),
-      filename,
-    );
+    try {
+      exportRegisterPdf(
+        block.name,
+        registerLabel,
+        buildRegisterRows(block, registerStudents, records ?? []),
+        filename,
+      );
+      toast.success("Register exported to PDF");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Export failed");
+    }
   }
+
+  const failed = blocksQuery.error ?? studentsQuery.error;
+  if (failed)
+    return (
+      <ErrorState
+        title="Reports could not be loaded"
+        error={failed}
+        onRetry={() => {
+          void blocksQuery.refetch();
+          void studentsQuery.refetch();
+        }}
+      />
+    );
 
   if (lb || ls) return <Spinner label="Loading" />;
 
@@ -182,7 +212,13 @@ function AdminReports() {
 
       <Card>
         <SectionTitle title={title} subtitle={subtitle} />
-        {la ? (
+        {recordsQuery.error ? (
+          <ErrorState
+            title="Attendance could not be loaded — this report is incomplete"
+            error={recordsQuery.error}
+            onRetry={() => void recordsQuery.refetch()}
+          />
+        ) : la ? (
           <Spinner label="Loading attendance" />
         ) : rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">No students match this report.</p>

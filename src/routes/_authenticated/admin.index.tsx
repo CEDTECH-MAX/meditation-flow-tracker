@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Card, SectionTitle, Spinner, StatCard, Badge } from "@/components/ui-kit";
+import { Card, ErrorState, SectionTitle, Spinner, StatCard, Badge } from "@/components/ui-kit";
 import { pickActive, useAttendance, useBlocks, useStudents } from "@/lib/admin-hooks";
 import { blockProgress, formatDate, summarise, type AttendanceRecord } from "@/lib/attendance";
 
@@ -35,10 +35,14 @@ export const Route = createFileRoute("/_authenticated/admin/")({
 });
 
 function AdminOverview() {
-  const { data: blocks, isLoading: lb } = useBlocks();
-  const { data: students, isLoading: ls } = useStudents();
+  const blocksQuery = useBlocks();
+  const studentsQuery = useStudents();
+  const { data: blocks, isLoading: lb } = blocksQuery;
+  const { data: students, isLoading: ls } = studentsQuery;
   const block = pickActive(blocks);
-  const { data: records, isLoading: la } = useAttendance(block?.id ?? null);
+  const recordsQuery = useAttendance(block?.id ?? null);
+  const { data: records, isLoading: la } = recordsQuery;
+  const failed = blocksQuery.error ?? studentsQuery.error ?? recordsQuery.error;
 
   const perStudent = useMemo(() => {
     if (!students || !records) return [];
@@ -60,6 +64,21 @@ function AdminOverview() {
 
   const daily = useMemo(() => byDate(records ?? [], students?.length ?? 0), [records, students]);
   const weekly = useMemo(() => byWeek(daily), [daily]);
+
+  // Reporting zeroes for a failed load would misrepresent the institution's
+  // attendance, so the failure is shown instead.
+  if (failed)
+    return (
+      <ErrorState
+        title="The overview could not be loaded"
+        error={failed}
+        onRetry={() => {
+          void blocksQuery.refetch();
+          void studentsQuery.refetch();
+          void recordsQuery.refetch();
+        }}
+      />
+    );
 
   if (lb || ls || la)
     return <Spinner label="Loading dashboard" />;

@@ -7,6 +7,7 @@ import {
   Badge,
   Button,
   Card,
+  ErrorState,
   Field,
   Input,
   Modal,
@@ -54,13 +55,16 @@ type Points = 0 | 0.5 | 1 | 1.5 | 2;
 
 function AdminAttendance() {
   const qc = useQueryClient();
-  const { data: blocks, isLoading: lb } = useBlocks();
-  const { data: students, isLoading: ls } = useStudents();
+  const blocksQuery = useBlocks();
+  const studentsQuery = useStudents();
+  const { data: blocks, isLoading: lb } = blocksQuery;
+  const { data: students, isLoading: ls } = studentsQuery;
   const { data: cohorts } = useCohorts();
   const active = pickActive(blocks);
   const [blockId, setBlockId] = useState<string | null>(null);
   const block = blocks?.find((b) => b.id === (blockId ?? active?.id)) ?? null;
-  const { data: records, isLoading: la } = useAttendance(block?.id ?? null);
+  const recordsQuery = useAttendance(block?.id ?? null);
+  const { data: records, isLoading: la } = recordsQuery;
 
   const [date, setDate] = useState(today());
   const [search, setSearch] = useState("");
@@ -205,6 +209,19 @@ function AdminAttendance() {
     return index >= Math.min(drag.from, drag.to) && index <= Math.max(drag.from, drag.to);
   }
 
+  const failed = blocksQuery.error ?? studentsQuery.error;
+  if (failed)
+    return (
+      <ErrorState
+        title="Attendance marking is unavailable"
+        error={failed}
+        onRetry={() => {
+          void blocksQuery.refetch();
+          void studentsQuery.refetch();
+        }}
+      />
+    );
+
   if (lb || ls) return <Spinner label="Loading" />;
 
   return (
@@ -321,7 +338,13 @@ function AdminAttendance() {
               title={formatDate(date)}
               subtitle={`${rows.length} student${rows.length === 1 ? "" : "s"} · a full meditation day is 4.0 points (2.0 morning + 2.0 afternoon)`}
             />
-            {la ? (
+            {recordsQuery.error ? (
+              <ErrorState
+                title="Existing marks could not be loaded — marking now could overwrite them"
+                error={recordsQuery.error}
+                onRetry={() => void recordsQuery.refetch()}
+              />
+            ) : la ? (
               <Spinner label="Loading attendance" />
             ) : (
               <div className="overflow-x-auto select-none">

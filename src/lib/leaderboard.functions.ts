@@ -40,11 +40,14 @@ export const getLeaderboard = createServerFn({ method: "GET" })
       me: null,
     } satisfies LeaderboardResult;
 
-    const { data: profile } = await c.supabase
+    // Every read below is required for a correct ranking: a swallowed error
+    // would show the student a leaderboard that quietly omits their peers.
+    const { data: profile, error: profileError } = await c.supabase
       .from("profiles")
       .select("id, cohort_id, classification, gender, cohort:cohorts(name)")
       .eq("id", c.userId)
       .maybeSingle();
+    if (profileError) throw new Error(profileError.message);
 
     if (!profile?.cohort_id || !profile.classification || !profile.gender) {
       return {
@@ -53,13 +56,14 @@ export const getLeaderboard = createServerFn({ method: "GET" })
       };
     }
 
-    const { data: block } = await c.supabase
+    const { data: block, error: blockError } = await c.supabase
       .from("blocks")
       .select("id, name, meditation_days")
       .eq("status", "active")
       .order("start_date", { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (blockError) throw new Error(blockError.message);
 
     const group = {
       cohort: (profile as any).cohort?.name ?? null,
@@ -73,18 +77,19 @@ export const getLeaderboard = createServerFn({ method: "GET" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const { data: peers } = await supabaseAdmin
+    const { data: peers, error: peersError } = await supabaseAdmin
       .from("profiles")
       .select("id, full_name")
       .eq("cohort_id", profile.cohort_id)
       .eq("classification", profile.classification)
       .eq("gender", profile.gender);
+    if (peersError) throw new Error(peersError.message);
 
     const peerList = peers ?? [];
     group.peers = peerList.length;
     if (peerList.length === 0) return { ...empty, group, reason: "No peers in your group yet." };
 
-    const { data: rows } = await supabaseAdmin
+    const { data: rows, error: rowsError } = await supabaseAdmin
       .from("attendance")
       .select("student_id, status")
       .eq("block_id", block.id)
@@ -92,6 +97,7 @@ export const getLeaderboard = createServerFn({ method: "GET" })
         "student_id",
         peerList.map((p) => p.id),
       );
+    if (rowsError) throw new Error(rowsError.message);
 
     const totals = new Map<string, { present: number; counted: number }>();
     for (const p of peerList) totals.set(p.id, { present: 0, counted: (block.meditation_days ?? 0) * 2 });

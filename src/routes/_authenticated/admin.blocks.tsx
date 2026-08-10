@@ -7,6 +7,7 @@ import {
   Badge,
   Button,
   Card,
+  ErrorState,
   Field,
   Input,
   Modal,
@@ -60,7 +61,8 @@ const empty: FormState = {
 
 function AdminBlocks() {
   const qc = useQueryClient();
-  const { data: blocks, isLoading } = useBlocks();
+  const blocksQuery = useBlocks();
+  const { data: blocks, isLoading } = blocksQuery;
   const { data: cohorts } = useCohorts();
   const cohortName = (id: string | null | undefined) =>
     (cohorts ?? []).find((c) => c.id === id)?.name ?? null;
@@ -115,6 +117,15 @@ function AdminBlocks() {
     onSuccess: () => refresh("Attendance reset for block"),
     onError: (e: Error) => toast.error(e.message),
   });
+
+  if (blocksQuery.error)
+    return (
+      <ErrorState
+        title="Blocks could not be loaded"
+        error={blocksQuery.error}
+        onRetry={() => void blocksQuery.refetch()}
+      />
+    );
 
   if (isLoading) return <Spinner label="Loading blocks" />;
 

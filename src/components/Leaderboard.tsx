@@ -1,14 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getLeaderboard, type LeaderboardResult } from "@/lib/leaderboard.functions";
-import { Badge, Card, SectionTitle } from "@/components/ui-kit";
+import { Badge, Card, ErrorState, SectionTitle } from "@/components/ui-kit";
 import { classificationLabel, genderLabel, type Classification, type Gender } from "@/lib/attendance";
 
 const medal = ["🥇", "🥈", "🥉"];
 
 export function Leaderboard() {
   const fn = useServerFn(getLeaderboard);
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["leaderboard"],
     queryFn: () => fn() as Promise<LeaderboardResult>,
   });
@@ -34,7 +34,13 @@ export function Leaderboard() {
         }
       />
 
-      {isLoading ? (
+      {error ? (
+        <ErrorState
+          title="Rankings could not be loaded"
+          error={error}
+          onRetry={() => void refetch()}
+        />
+      ) : isLoading ? (
         <p className="text-sm text-muted-foreground">Loading rankings…</p>
       ) : !data?.available ? (
         <p className="text-sm text-muted-foreground">{data?.reason ?? "Leaderboard not available yet."}</p>
