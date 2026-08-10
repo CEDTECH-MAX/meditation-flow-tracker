@@ -45,11 +45,7 @@ Students must never be able to edit attendance or student information.
 
 Administrator Login
 
-Email:
-rifumokanye@gmail.com
-
-Password:
-Sollyndlovu1
+The administrator account is provisioned directly in Supabase Auth. Credentials are never stored in this repository or in any committed file.
 
 No public registration is allowed. Only the administrator can create student accounts.
 
