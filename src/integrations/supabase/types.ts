@@ -45,13 +45,18 @@ export type Database = {
           block_id: string
           created_at: string
           id: string
+          is_compulsory: boolean
+          marked_at: string
+          marking_session_id: string | null
           points: number
           recorded_by: string | null
           session_date: string
+          session_point_value: number
           slot: Database["public"]["Enums"]["session_slot"]
           status: Database["public"]["Enums"]["attendance_status"]
           student_id: string
           updated_at: string
+          week_index: number | null
         }
         Insert: {
           absence_note?: string | null
@@ -59,13 +64,18 @@ export type Database = {
           block_id: string
           created_at?: string
           id?: string
+          is_compulsory?: boolean
+          marked_at?: string
+          marking_session_id?: string | null
           points?: number
           recorded_by?: string | null
           session_date: string
+          session_point_value?: number
           slot: Database["public"]["Enums"]["session_slot"]
           status: Database["public"]["Enums"]["attendance_status"]
           student_id: string
           updated_at?: string
+          week_index?: number | null
         }
         Update: {
           absence_note?: string | null
@@ -73,13 +83,18 @@ export type Database = {
           block_id?: string
           created_at?: string
           id?: string
+          is_compulsory?: boolean
+          marked_at?: string
+          marking_session_id?: string | null
           points?: number
           recorded_by?: string | null
           session_date?: string
+          session_point_value?: number
           slot?: Database["public"]["Enums"]["session_slot"]
           status?: Database["public"]["Enums"]["attendance_status"]
           student_id?: string
           updated_at?: string
+          week_index?: number | null
         }
         Relationships: [
           {
@@ -87,6 +102,13 @@ export type Database = {
             columns: ["block_id"]
             isOneToOne: false
             referencedRelation: "blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_marking_session_fkey"
+            columns: ["marking_session_id"]
+            isOneToOne: false
+            referencedRelation: "marking_sessions"
             referencedColumns: ["id"]
           },
           {
@@ -136,36 +158,60 @@ export type Database = {
           cohort_id: string | null
           created_at: string
           end_date: string
+          friday_pm_compulsory: boolean
           id: string
           meditation_days: number
           name: string
+          precision_digits: number
+          saturday_mode: string
+          schedule: Json | null
+          schedule_source: string | null
+          session_point_value: number
           start_date: string
           status: Database["public"]["Enums"]["block_status"]
           updated_at: string
+          weekly_reference_points: number
+          weekly_required_points: number
           weeks: number
         }
         Insert: {
           cohort_id?: string | null
           created_at?: string
           end_date: string
+          friday_pm_compulsory?: boolean
           id?: string
           meditation_days?: number
           name: string
+          precision_digits?: number
+          saturday_mode?: string
+          schedule?: Json | null
+          schedule_source?: string | null
+          session_point_value?: number
           start_date: string
           status?: Database["public"]["Enums"]["block_status"]
           updated_at?: string
+          weekly_reference_points?: number
+          weekly_required_points?: number
           weeks?: number
         }
         Update: {
           cohort_id?: string | null
           created_at?: string
           end_date?: string
+          friday_pm_compulsory?: boolean
           id?: string
           meditation_days?: number
           name?: string
+          precision_digits?: number
+          saturday_mode?: string
+          schedule?: Json | null
+          schedule_source?: string | null
+          session_point_value?: number
           start_date?: string
           status?: Database["public"]["Enums"]["block_status"]
           updated_at?: string
+          weekly_reference_points?: number
+          weekly_required_points?: number
           weeks?: number
         }
         Relationships: [
@@ -205,6 +251,168 @@ export type Database = {
         }
         Relationships: []
       }
+      marker_assignments: {
+        Row: {
+          block_id: string | null
+          classification:
+            | Database["public"]["Enums"]["student_classification"]
+            | null
+          cohort_id: string | null
+          created_at: string
+          gender: Database["public"]["Enums"]["student_gender"] | null
+          id: string
+          is_active: boolean
+          marker_id: string
+          updated_at: string
+        }
+        Insert: {
+          block_id?: string | null
+          classification?:
+            | Database["public"]["Enums"]["student_classification"]
+            | null
+          cohort_id?: string | null
+          created_at?: string
+          gender?: Database["public"]["Enums"]["student_gender"] | null
+          id?: string
+          is_active?: boolean
+          marker_id: string
+          updated_at?: string
+        }
+        Update: {
+          block_id?: string | null
+          classification?:
+            | Database["public"]["Enums"]["student_classification"]
+            | null
+          cohort_id?: string | null
+          created_at?: string
+          gender?: Database["public"]["Enums"]["student_gender"] | null
+          id?: string
+          is_active?: boolean
+          marker_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marker_assignments_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marker_assignments_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marker_presence: {
+        Row: {
+          activity: string
+          current_block_id: string | null
+          current_cohort_id: string | null
+          last_seen_at: string
+          marker_id: string
+          updated_at: string
+        }
+        Insert: {
+          activity?: string
+          current_block_id?: string | null
+          current_cohort_id?: string | null
+          last_seen_at?: string
+          marker_id: string
+          updated_at?: string
+        }
+        Update: {
+          activity?: string
+          current_block_id?: string | null
+          current_cohort_id?: string | null
+          last_seen_at?: string
+          marker_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marker_presence_current_block_id_fkey"
+            columns: ["current_block_id"]
+            isOneToOne: false
+            referencedRelation: "blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marker_presence_current_cohort_id_fkey"
+            columns: ["current_cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marking_sessions: {
+        Row: {
+          block_id: string
+          cohort_id: string | null
+          completed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          locked_at: string | null
+          marker_id: string
+          session_date: string
+          slot: Database["public"]["Enums"]["session_slot"]
+          started_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          block_id: string
+          cohort_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          locked_at?: string | null
+          marker_id: string
+          session_date: string
+          slot: Database["public"]["Enums"]["session_slot"]
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          block_id?: string
+          cohort_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          locked_at?: string | null
+          marker_id?: string
+          session_date?: string
+          slot?: Database["public"]["Enums"]["session_slot"]
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marking_sessions_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marking_sessions_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           classification:
@@ -218,8 +426,11 @@ export type Database = {
           id: string
           intake_year: number | null
           internal_email: string | null
+          is_active: boolean
+          job_title: string | null
           photo_url: string | null
           programme: string | null
+          staff_id: string | null
           student_number: string | null
           updated_at: string
         }
@@ -235,8 +446,11 @@ export type Database = {
           id: string
           intake_year?: number | null
           internal_email?: string | null
+          is_active?: boolean
+          job_title?: string | null
           photo_url?: string | null
           programme?: string | null
+          staff_id?: string | null
           student_number?: string | null
           updated_at?: string
         }
@@ -252,8 +466,11 @@ export type Database = {
           id?: string
           intake_year?: number | null
           internal_email?: string | null
+          is_active?: boolean
+          job_title?: string | null
           photo_url?: string | null
           programme?: string | null
+          staff_id?: string | null
           student_number?: string | null
           updated_at?: string
         }
@@ -297,6 +514,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_role_text: {
+        Args: { _role: string; _user_id: string }
+        Returns: boolean
+      }
+      marker_can_mark_student: {
+        Args: { _block_id: string; _marker_id: string; _student_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       absence_reason:
@@ -305,7 +530,7 @@ export type Database = {
         | "late_arrival"
         | "unexcused"
         | "other"
-      app_role: "admin" | "student"
+      app_role: "admin" | "student" | "marker" | "head_of_meditation"
       attendance_status: "present" | "absent" | "excused"
       block_status: "upcoming" | "active" | "closed"
       session_slot: "morning" | "afternoon"
@@ -445,7 +670,7 @@ export const Constants = {
         "unexcused",
         "other",
       ],
-      app_role: ["admin", "student"],
+      app_role: ["admin", "student", "marker", "head_of_meditation"],
       attendance_status: ["present", "absent", "excused"],
       block_status: ["upcoming", "active", "closed"],
       session_slot: ["morning", "afternoon"],
