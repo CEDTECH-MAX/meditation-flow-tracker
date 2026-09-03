@@ -143,12 +143,16 @@ export type AttendanceSummary = {
   maxPossible: number;
   percentageNeeded: number;
   sessionsNeeded: number;
+  requiredPoints: number;
+  passPercentage: number;
+  rules: BlockRules;
   met: boolean;
   morningPresent: number;
   afternoonPresent: number;
   status: "met" | "warning" | "risk";
   statusLabel: string;
 };
+
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
