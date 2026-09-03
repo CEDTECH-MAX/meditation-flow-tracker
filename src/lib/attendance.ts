@@ -55,7 +55,63 @@ export type Block = {
   meditation_days: number;
   status: BlockStatus;
   cohort_id?: string | null;
+  /* admin-entered official calculation values */
+  session_point_value?: number | null;
+  weekly_required_points?: number | null;
+  standard_attendance_points?: number | null;
+  standard_attendance_percentage?: number | null;
+  max_attendance_points?: number | null;
+  max_attendance_percentage?: number | null;
+  rounding_day?: boolean | null;
+  rounding_day_points?: number | null;
 };
+
+/**
+ * The official calculation rules for a block. These are entered manually by an
+ * admin from the traditional spreadsheet — nothing here is inferred. When a
+ * value has not been captured yet we fall back to the legacy derivation so old
+ * blocks keep working.
+ */
+export type BlockRules = {
+  sessionPointValue: number;
+  weeklyRequiredPoints: number;
+  standardPoints: number;
+  standardPercentage: number;
+  maxPoints: number;
+  maxPercentage: number;
+  roundingDay: boolean;
+  roundingDayPoints: number;
+};
+
+const num = (v: unknown, fallback: number) => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+};
+
+export function blockRules(
+  block: Partial<Block> | null | undefined,
+): BlockRules {
+  const sessionPointValue = num(block?.session_point_value, MAX_SESSION_POINTS);
+  const legacyMax = Math.max(0, (block?.meditation_days ?? 0) * 2) * sessionPointValue;
+  const maxPoints = num(block?.max_attendance_points, legacyMax);
+  const maxPercentage = num(block?.max_attendance_percentage, 100);
+  const standardPoints = num(block?.standard_attendance_points, (PASS_MARK / 100) * maxPoints);
+  const standardPercentage = num(block?.standard_attendance_percentage, PASS_MARK);
+  const weeks = Math.max(1, block?.weeks ?? 1);
+  const weeklyRequiredPoints = num(block?.weekly_required_points, standardPoints / weeks);
+  const roundingDay = Boolean(block?.rounding_day);
+  return {
+    sessionPointValue,
+    weeklyRequiredPoints,
+    standardPoints,
+    standardPercentage,
+    maxPoints,
+    maxPercentage,
+    roundingDay,
+    roundingDayPoints: roundingDay ? num(block?.rounding_day_points, 0) : 0,
+  };
+}
+
 
 export type AttendanceRecord = {
   id: string;
