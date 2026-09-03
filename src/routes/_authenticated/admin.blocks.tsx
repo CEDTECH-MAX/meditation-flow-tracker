@@ -365,11 +365,114 @@ function AdminBlocks() {
                 <option value="closed">Closed (locked)</option>
               </Select>
             </Field>
-            <p className="text-xs text-muted-foreground">
-              {form.meditation_days * 2} total sessions ·{" "}
-              {Math.round((100 / Math.max(1, form.meditation_days * 2)) * 10) / 10}% per session ·
-              80% required to pass.
-            </p>
+
+            <div className="mt-2 rounded-2xl border border-border/60 bg-muted/30 p-3">
+              <p className="font-display text-sm font-semibold">Official calculation values</p>
+              <p className="mt-0.5 mb-3 text-xs text-muted-foreground">
+                Enter these exactly as calculated on the traditional spreadsheet. Nothing is
+                worked out automatically — these values become the block's official rules used by
+                the student dashboard, reports and the Excel register.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Points per session">
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    required
+                    value={form.session_point_value}
+                    onChange={(e) =>
+                      setForm({ ...form, session_point_value: Number(e.target.value) })
+                    }
+                  />
+                </Field>
+                <Field label="Weekly required points">
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    required
+                    value={form.weekly_required_points}
+                    onChange={(e) =>
+                      setForm({ ...form, weekly_required_points: Number(e.target.value) })
+                    }
+                  />
+                </Field>
+                <Field label="Standard attendance points">
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    required
+                    value={form.standard_attendance_points}
+                    onChange={(e) =>
+                      setForm({ ...form, standard_attendance_points: Number(e.target.value) })
+                    }
+                  />
+                </Field>
+                <Field label="Standard attendance percentage">
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    required
+                    value={form.standard_attendance_percentage}
+                    onChange={(e) =>
+                      setForm({ ...form, standard_attendance_percentage: Number(e.target.value) })
+                    }
+                  />
+                </Field>
+                <Field label="Maximum attendance points">
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    required
+                    value={form.max_attendance_points}
+                    onChange={(e) =>
+                      setForm({ ...form, max_attendance_points: Number(e.target.value) })
+                    }
+                  />
+                </Field>
+                <Field label="Maximum attendance percentage">
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    required
+                    value={form.max_attendance_percentage}
+                    onChange={(e) =>
+                      setForm({ ...form, max_attendance_percentage: Number(e.target.value) })
+                    }
+                  />
+                </Field>
+                <Field label="Rounding day">
+                  <Select
+                    value={form.rounding_day ? "yes" : "no"}
+                    onChange={(e) => setForm({ ...form, rounding_day: e.target.value === "yes" })}
+                  >
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </Select>
+                </Field>
+                <Field label="Rounding day points">
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    disabled={!form.rounding_day}
+                    value={form.rounding_day_points}
+                    onChange={(e) =>
+                      setForm({ ...form, rounding_day_points: Number(e.target.value) })
+                    }
+                  />
+                </Field>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Friday PM and Saturday sessions stay optional. Sundays are never scheduled.
+              </p>
+            </div>
+
             <div className="mt-2 flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setForm(null)}>
                 Cancel
