@@ -2,13 +2,11 @@ import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, subDays } from "date-fns";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Search, ShieldCheck } from "lucide-react";
+import { Search } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/attendance")({
@@ -24,7 +22,6 @@ function AdminAttendancePage() {
   
   const queryClient = useQueryClient();
 
-  // Fetch active blocks
   const { data: blocks = [] } = useQuery({
     queryKey: ["admin-blocks"],
     queryFn: async () => {
@@ -38,7 +35,6 @@ function AdminAttendancePage() {
     },
   });
 
-  // Fetch students and attendance for the selected block & date
   const { data: attendanceData, isLoading } = useQuery({
     queryKey: ["admin-attendance-grid", selectedBlockId, selectedDate, selectedCohort],
     queryFn: async () => {
@@ -62,9 +58,6 @@ function AdminAttendancePage() {
     enabled: !!selectedBlockId,
   });
 
-  const activeBlock = blocks.find(b => b.id === selectedBlockId);
-
-  // Mutation to save score
   const saveAttendanceMutation = useMutation({
     mutationFn: async ({ studentId, sessionType, points }: { studentId: string; sessionType: "morning" | "afternoon"; points: number }) => {
       const { error } = await supabase.from("attendance_records").upsert({
@@ -118,7 +111,6 @@ function AdminAttendancePage() {
         </p>
       </div>
 
-      {/* Control Bar */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
         <div>
           <label className="text-xs font-semibold text-gray-500 uppercase">Block</label>
@@ -175,7 +167,6 @@ function AdminAttendancePage() {
         </div>
       </div>
 
-      {/* Quick Actions & Legend */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-bold text-gray-700 uppercase">Quick Actions:</span>
@@ -202,7 +193,6 @@ function AdminAttendancePage() {
         </div>
       </div>
 
-      {/* Student Attendance Table */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
           <h3 className="font-semibold text-gray-800">
