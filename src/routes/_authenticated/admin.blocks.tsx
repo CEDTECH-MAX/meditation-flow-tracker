@@ -230,7 +230,18 @@ function AdminBlocks() {
                       meditation_days: b.meditation_days,
                       status: b.status,
                       cohort_id: b.cohort_id ?? "",
+                      session_point_value: Number(b.session_point_value ?? 0),
+                      standard_attendance_points: Number(b.standard_attendance_points ?? 0),
+                      standard_attendance_percentage: Number(
+                        b.standard_attendance_percentage ?? 0,
+                      ),
+                      max_attendance_points: Number(b.max_attendance_points ?? 0),
+                      max_attendance_percentage: Number(b.max_attendance_percentage ?? 0),
+                      weekly_required_points: Number(b.weekly_required_points ?? 0),
+                      rounding_day: Boolean(b.rounding_day),
+                      rounding_day_points: Number(b.rounding_day_points ?? 0),
                     })
+
                   }
                 >
                   Edit
