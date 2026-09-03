@@ -46,6 +46,14 @@ type FormState = {
   meditation_days: number;
   status: BlockStatus;
   cohort_id: string;
+  session_point_value: number;
+  standard_attendance_points: number;
+  standard_attendance_percentage: number;
+  max_attendance_points: number;
+  max_attendance_percentage: number;
+  weekly_required_points: number;
+  rounding_day: boolean;
+  rounding_day_points: number;
 };
 
 const empty: FormState = {
@@ -56,7 +64,16 @@ const empty: FormState = {
   meditation_days: 20,
   status: "upcoming",
   cohort_id: "",
+  session_point_value: 0,
+  standard_attendance_points: 0,
+  standard_attendance_percentage: 0,
+  max_attendance_points: 0,
+  max_attendance_percentage: 0,
+  weekly_required_points: 0,
+  rounding_day: false,
+  rounding_day_points: 0,
 };
+
 
 function AdminBlocks() {
   const qc = useQueryClient();
