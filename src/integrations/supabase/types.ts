@@ -160,13 +160,19 @@ export type Database = {
           end_date: string
           friday_pm_compulsory: boolean
           id: string
+          max_attendance_percentage: number
+          max_attendance_points: number
           meditation_days: number
           name: string
           precision_digits: number
+          rounding_day: boolean
+          rounding_day_points: number
           saturday_mode: string
           schedule: Json | null
           schedule_source: string | null
           session_point_value: number
+          standard_attendance_percentage: number
+          standard_attendance_points: number
           start_date: string
           status: Database["public"]["Enums"]["block_status"]
           updated_at: string
@@ -180,13 +186,19 @@ export type Database = {
           end_date: string
           friday_pm_compulsory?: boolean
           id?: string
+          max_attendance_percentage?: number
+          max_attendance_points?: number
           meditation_days?: number
           name: string
           precision_digits?: number
+          rounding_day?: boolean
+          rounding_day_points?: number
           saturday_mode?: string
           schedule?: Json | null
           schedule_source?: string | null
           session_point_value?: number
+          standard_attendance_percentage?: number
+          standard_attendance_points?: number
           start_date: string
           status?: Database["public"]["Enums"]["block_status"]
           updated_at?: string
@@ -200,13 +212,19 @@ export type Database = {
           end_date?: string
           friday_pm_compulsory?: boolean
           id?: string
+          max_attendance_percentage?: number
+          max_attendance_points?: number
           meditation_days?: number
           name?: string
           precision_digits?: number
+          rounding_day?: boolean
+          rounding_day_points?: number
           saturday_mode?: string
           schedule?: Json | null
           schedule_source?: string | null
           session_point_value?: number
+          standard_attendance_percentage?: number
+          standard_attendance_points?: number
           start_date?: string
           status?: Database["public"]["Enums"]["block_status"]
           updated_at?: string
