@@ -524,3 +524,17 @@ function Stat({ label, value }: { label: string; value: number }) {
     </div>
   );
 }
+
+function num(value: number | null | undefined) {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? (Math.round(n * 10) / 10).toString() : "—";
+}
+
+function Line({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <dt>{label}</dt>
+      <dd className="font-medium text-foreground">{value}</dd>
+    </div>
+  );
+}
