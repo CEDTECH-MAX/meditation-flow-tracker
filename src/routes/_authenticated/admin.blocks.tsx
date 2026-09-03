@@ -187,6 +187,25 @@ function AdminBlocks() {
                 <Stat label="Sessions" value={b.meditation_days * 2} />
               </div>
 
+              <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <Line label="Points / session" value={num(b.session_point_value)} />
+                <Line label="Weekly required" value={num(b.weekly_required_points)} />
+                <Line
+                  label="Standard"
+                  value={`${num(b.standard_attendance_points)} pts · ${num(b.standard_attendance_percentage)}%`}
+                />
+                <Line
+                  label="Maximum"
+                  value={`${num(b.max_attendance_points)} pts · ${num(b.max_attendance_percentage)}%`}
+                />
+                <Line
+                  label="Rounding day"
+                  value={b.rounding_day ? `Yes · ${num(b.rounding_day_points)} pts` : "No"}
+                />
+                <Line label="Fri PM / Sat" value="Optional" />
+              </dl>
+
+
               <div className="mt-4">
                 <p className="mb-1 text-xs text-muted-foreground">Progress · {blockProgress(b)}%</p>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
