@@ -1,532 +1,263 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import {
-  Badge,
-  Button,
-  Card,
-  Field,
-  Input,
-  Modal,
-  SectionTitle,
-  Select,
-  Spinner,
-} from "@/components/ui-kit";
-import { pickActive, useAttendance, useBlocks, useCohorts, useStudents } from "@/lib/admin-hooks";
-import { markAttendance, markDayForAll } from "@/lib/data.functions";
-import type { AbsenceReason, AttendanceRecord, SessionSlot } from "@/lib/attendance";
-import {
-  formatDate,
-  isSunday,
-  POINT_OPTIONS,
-  REASONS,
-  reasonLabel,
-  skipSunday,
-  summarise,
-} from "@/lib/attendance";
+import { Button, Input, Modal, SectionTitle } from "@/components/ui-kit";
 
-export const Route = createFileRoute("/_authenticated/admin/attendance")({
-  head: () => ({
-    meta: [
-      { title: "Mark Attendance · Meditation Attendance" },
-      {
-        name: "description",
-        content:
-          "Score morning and afternoon meditation sessions out of 2.0 points, fill a score down a whole cohort, and record reasons for absence.",
-      },
-      { property: "og:title", content: "Mark Attendance" },
-      {
-        property: "og:description",
-        content: "Record daily meditation points per student and session.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-    ],
-  }),
-  component: AdminAttendance,
+export const Route = createFileRoute("/_authenticated/admin/blocks")({
+  component: AdminBlocksPage,
 });
 
-const today = () => skipSunday(new Date().toISOString().slice(0, 10));
+function AdminBlocksPage() {
+  const queryClient = useQueryClient();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingBlock, setEditingBlock] = useState<any>(null);
 
-type Points = 0 | 0.5 | 1 | 1.5 | 2;
+  // Form states
+  const [name, setName] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [weeks, setWeeks] = useState(4);
+  const [cohort, setCohort] = useState("");
+  const [pointsPerSession, setPointsPerSession] = useState(2);
+  const [standardPoints, setStandardPoints] = useState(0);
+  const [standardPercentage, setStandardPercentage] = useState(0);
+  const [maxPoints, setMaxPoints] = useState(0);
+  const [maxPercentage, setMaxPercentage] = useState(100);
+  const [weeklyRequiredPoints, setWeeklyRequiredPoints] = useState(0);
+  const [enableRounding, setEnableRounding] = useState(false);
+  const [roundingPoints, setRoundingPoints] = useState(0);
+  const [fridayPmOptional, setFridayPmOptional] = useState(false);
+  const [saturdayOptional, setSaturdayOptional] = useState(false);
 
-function AdminAttendance() {
-  const qc = useQueryClient();
-  const { data: blocks, isLoading: lb } = useBlocks();
-  const { data: students, isLoading: ls } = useStudents();
-  const { data: cohorts } = useCohorts();
-  const active = pickActive(blocks);
-  const [blockId, setBlockId] = useState<string | null>(null);
-  const block = blocks?.find((b) => b.id === (blockId ?? active?.id)) ?? null;
-  const { data: records, isLoading: la } = useAttendance(block?.id ?? null);
-
-  const [date, setDate] = useState(today());
-  const [search, setSearch] = useState("");
-  const [cohortFilter, setCohortFilter] = useState("all");
-  const [reasonFor, setReasonFor] = useState<{
-    student_id: string;
-    name: string;
-    slot: SessionSlot;
-    points: Points;
-    absence_reason: AbsenceReason | "";
-    absence_note: string;
-  } | null>(null);
-  const [bulk, setBulk] = useState<{ slot: SessionSlot; points: Points } | null>(null);
-
-  /** Click-and-drag fill: source cell plus the row currently hovered. */
-  const [drag, setDrag] = useState<{
-    slot: SessionSlot;
-    from: number;
-    to: number;
-    points: Points;
-  } | null>(null);
-  const dragRef = useRef(drag);
-  dragRef.current = drag;
-
-  const markFn = useServerFn(markAttendance);
-  const bulkFn = useServerFn(markDayForAll);
-
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["attendance", block?.id] });
-
-  const mark = useMutation({
-    mutationFn: (v: {
-      student_id: string;
-      slot: SessionSlot;
-      points: Points | null;
-      absence_reason?: AbsenceReason | null;
-      absence_note?: string;
-    }) => markFn({ data: { block_id: block!.id, session_date: date, ...v } }),
-    onSuccess: invalidate,
-    onError: (e: Error) => toast.error(e.message),
+  // Fetch blocks
+  const { data: blocks = [], isLoading } = useQuery({
+    queryKey: ["admin-blocks"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("blocks")
+        .select("*")
+        .order("start_date", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
   });
 
-  const fill = useMutation({
-    mutationFn: async (v: { slot: SessionSlot; points: Points; student_ids: string[] }) => {
-      await bulkFn({
-        data: {
-          block_id: block!.id,
-          session_date: date,
-          slot: v.slot,
-          points: v.points,
-          student_ids: v.student_ids,
-        },
-      });
-      return v.student_ids.length;
+  const saveBlockMutation = useMutation({
+    mutationFn: async (blockData: any) => {
+      if (editingBlock) {
+        const { error } = await supabase
+          .from("blocks")
+          .update(blockData)
+          .eq("id", editingBlock.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("blocks").insert([blockData]);
+        if (error) throw error;
+      }
     },
-    onSuccess: (count) => {
-      invalidate();
-      toast.success(`${count} student${count === 1 ? "" : "s"} scored`);
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const bulkMark = useMutation({
-    mutationFn: (v: { slot: SessionSlot; points: Points }) =>
-      bulkFn({
-        data: {
-          block_id: block!.id,
-          session_date: date,
-          slot: v.slot,
-          points: v.points,
-          student_ids: rows.map((r) => r.student.id),
-        },
-      }),
     onSuccess: () => {
-      invalidate();
-      setBulk(null);
-      toast.success("Session scored for all students");
+      queryClient.invalidateQueries({ queryKey: ["admin-blocks"] });
+      toast.success(editingBlock ? "Block updated successfully" : "Block created successfully");
+      closeModal();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (err: any) => {
+      toast.error("Failed to save block: " + err.message);
+    },
   });
 
-  const dayMap = useMemo(() => {
-    const map = new Map<string, AttendanceRecord>();
-    for (const r of records ?? []) {
-      if (r.session_date === date) map.set(`${r.student_id}:${r.slot}`, r);
-    }
-    return map;
-  }, [records, date]);
+  const openCreateModal = () => {
+    setEditingBlock(null);
+    setName("");
+    setStartDate("");
+    setEndDate("");
+    setWeeks(4);
+    setCohort("");
+    setPointsPerSession(2);
+    setStandardPoints(0);
+    setStandardPercentage(0);
+    setMaxPoints(0);
+    setMaxPercentage(100);
+    setWeeklyRequiredPoints(0);
+    setEnableRounding(false);
+    setRoundingPoints(0);
+    setFridayPmOptional(false);
+    setSaturdayOptional(false);
+    setIsModalOpen(true);
+  };
 
-  const rows = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return (students ?? [])
-      .filter((s) =>
-        block?.cohort_id && s.cohort_id !== block.cohort_id
-          ? false
-          : cohortFilter === "all"
-          ? true
-          : cohortFilter === "none"
-            ? !s.cohort_id
-            : s.cohort_id === cohortFilter,
-      )
-      .filter(
-        (s) =>
-          !q ||
-          s.full_name.toLowerCase().includes(q) ||
-          (s.student_number ?? "").toLowerCase().includes(q),
-      )
-      .map((s) => ({
-        student: s,
-        morning: dayMap.get(`${s.id}:morning`) ?? null,
-        afternoon: dayMap.get(`${s.id}:afternoon`) ?? null,
-        summary: summarise(
-          block,
-          (records ?? []).filter((r) => r.student_id === s.id),
-        ),
-      }));
-  }, [students, search, cohortFilter, dayMap, records, block]);
+  const openEditModal = (block: any) => {
+    setEditingBlock(block);
+    setName(block.name || "");
+    setStartDate(block.start_date || "");
+    setEndDate(block.end_date || "");
+    setWeeks(block.weeks || 4);
+    setCohort(block.cohort || "");
+    setPointsPerSession(block.points_per_session ?? 2);
+    setStandardPoints(block.standard_attendance_points || 0);
+    setStandardPercentage(block.standard_attendance_percentage || 0);
+    setMaxPoints(block.max_attendance_points || 0);
+    setMaxPercentage(block.max_attendance_percentage || 100);
+    setWeeklyRequiredPoints(block.weekly_required_points || 0);
+    setEnableRounding(block.enable_rounding || false);
+    setRoundingPoints(block.rounding_points || 0);
+    setFridayPmOptional(block.friday_pm_optional || false);
+    setSaturdayOptional(block.saturday_optional || false);
+    setIsModalOpen(true);
+  };
 
-  const locked = !block || block.status === "closed";
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingBlock(null);
+  };
 
-  // Finish a drag-fill wherever the pointer is released.
-  useEffect(() => {
-    function end() {
-      const d = dragRef.current;
-      setDrag(null);
-      if (!d) return;
-      const lo = Math.min(d.from, d.to);
-      const hi = Math.max(d.from, d.to);
-      const ids = rows.slice(lo, hi + 1).map((r) => r.student.id);
-      if (ids.length < 2) return;
-      fill.mutate({ slot: d.slot, points: d.points, student_ids: ids });
-    }
-    window.addEventListener("mouseup", end);
-    window.addEventListener("touchend", end);
-    return () => {
-      window.removeEventListener("mouseup", end);
-      window.removeEventListener("touchend", end);
-    };
-  }, [rows, fill]);
-
-  function inDrag(slot: SessionSlot, index: number) {
-    if (!drag || drag.slot !== slot) return false;
-    return index >= Math.min(drag.from, drag.to) && index <= Math.max(drag.from, drag.to);
-  }
-
-  if (lb || ls) return <Spinner label="Loading" />;
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveBlockMutation.mutate({
+      name,
+      start_date: startDate,
+      end_date: endDate,
+      weeks: Number(weeks),
+      cohort,
+      points_per_session: Number(pointsPerSession),
+      standard_attendance_points: Number(standardPoints),
+      standard_attendance_percentage: Number(standardPercentage),
+      max_attendance_points: Number(maxPoints),
+      max_attendance_percentage: Number(maxPercentage),
+      weekly_required_points: Number(weeklyRequiredPoints),
+      enable_rounding: Boolean(enableRounding),
+      rounding_points: Number(roundingPoints),
+      friday_pm_optional: Boolean(fridayPmOptional),
+      saturday_optional: Boolean(saturdayOptional),
+      status: "upcoming",
+    });
+  };
 
   return (
-    <>
-      <SectionTitle
-        title="Mark attendance"
-        subtitle="Each session is scored out of 2.0 points · drag a score down to fill the rest of the list"
-        action={
-          block ? (
-            <Badge tone={block.status === "active" ? "green" : block.status === "closed" ? "red" : "gold"}>
-              {block.status}
-            </Badge>
-          ) : null
-        }
-      />
+    <div className="p-6 space-y-6 max-w-6xl mx-auto">
+      <div className="flex justify-between items-center">
+        <SectionTitle>Meditation Blocks Management</SectionTitle>
+        <Button onClick={openCreateModal}>Create New Block</Button>
+      </div>
 
-      {!block ? (
-        <Card>
-          <p className="text-sm text-muted-foreground">
-            Create a meditation block first on the Blocks page.
-          </p>
-        </Card>
+      {isLoading ? (
+        <p>Loading blocks...</p>
       ) : (
-        <>
-          <Card className="mb-4">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="Block">
-                <Select value={block.id} onChange={(e) => setBlockId(e.target.value)}>
-                  {(blocks ?? []).map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name} · {b.status}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Session date (no Sundays)">
-                <Input
-                  type="date"
-                  value={date}
-                  min={block.start_date}
-                  max={block.end_date}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (!value) return;
-                    if (isSunday(value)) {
-                      toast.error("Sundays are not meditation days.");
-                      setDate(skipSunday(value));
-                      return;
-                    }
-                    setDate(value);
-                  }}
-                />
-              </Field>
-              <Field label="Cohort">
-                <Select value={cohortFilter} onChange={(e) => setCohortFilter(e.target.value)}>
-                  <option value="all">All cohorts</option>
-                  <option value="none">Unassigned</option>
-                  {(cohorts ?? []).map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Search student">
-                <Input
-                  placeholder="Name or student number"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </Field>
-            </div>
-
-            {locked ? (
-              <p className="mt-3 rounded-2xl bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                This block is closed. Attendance is locked and cannot be edited.
-              </p>
-            ) : (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {(["morning", "afternoon"] as SessionSlot[]).map((slot) => (
-                  <Button
-                    key={slot}
-                    size="sm"
-                    variant="soft"
-                    onClick={() => setBulk({ slot, points: 2 })}
-                  >
-                    All {slot} 2.0
-                  </Button>
-                ))}
-                {(["morning", "afternoon"] as SessionSlot[]).map((slot) => (
-                  <Button
-                    key={`${slot}-zero`}
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setBulk({ slot, points: 0 })}
-                  >
-                    All {slot} 0
-                  </Button>
-                ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {blocks.map((block: any) => (
+            <div key={block.id} className="p-4 border rounded-xl bg-card shadow-sm space-y-2">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-bold text-lg">{block.name}</h3>
+                  <p className="text-sm text-muted-foreground">Cohort: {block.cohort || "General"}</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => openEditModal(block)}>
+                  Edit Block
+                </Button>
               </div>
-            )}
-
-            <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground">
-              {POINT_OPTIONS.map((o) => (
-                <span key={o.value} className="glass-muted rounded-full px-3 py-1">
-                  <strong className="text-foreground">{o.label}</strong> · {o.hint}
-                </span>
-              ))}
-            </div>
-          </Card>
-
-          <Card>
-            <SectionTitle
-              title={formatDate(date)}
-              subtitle={`${rows.length} student${rows.length === 1 ? "" : "s"} · a full meditation day is 4.0 points (2.0 morning + 2.0 afternoon)`}
-            />
-            {la ? (
-              <Spinner label="Loading attendance" />
-            ) : (
-              <div className="overflow-x-auto select-none">
-                <table className="w-full min-w-[760px] text-sm">
-                  <thead>
-                    <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
-                      <th className="pb-2">Student</th>
-                      <th className="pb-2">Morning</th>
-                      <th className="pb-2">Afternoon</th>
-                      <th className="pb-2 text-right">Block %</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map(({ student, morning, afternoon, summary }, index) => (
-                      <tr key={student.id} className="border-t border-border/60">
-                        <td className="py-2">
-                          <span className="block font-medium">{student.full_name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {student.student_number ?? "—"}
-                          </span>
-                        </td>
-                        {(["morning", "afternoon"] as SessionSlot[]).map((slot) => {
-                          const rec = slot === "morning" ? morning : afternoon;
-                          const value = rec ? (Number(rec.points) as Points) : null;
-                          return (
-                            <td
-                              key={slot}
-                              onMouseEnter={() =>
-                                setDrag((d) => (d && d.slot === slot ? { ...d, to: index } : d))
-                              }
-                              className={[
-                                "py-2 pr-4",
-                                inDrag(slot, index) ? "bg-primary-soft/60" : "",
-                              ].join(" ")}
-                            >
-                              <div className="relative inline-flex items-center gap-2">
-                                <Select
-                                  aria-label={`${slot} points for ${student.full_name}`}
-                                  className="w-24"
-                                  disabled={locked || mark.isPending || fill.isPending}
-                                  value={value === null ? "" : String(value)}
-                                  onChange={(e) => {
-                                    const raw = e.target.value;
-                                    if (raw === "") {
-                                      mark.mutate({ student_id: student.id, slot, points: null });
-                                      return;
-                                    }
-                                    const points = Number(raw) as Points;
-                                    if (points < 2) {
-                                      setReasonFor({
-                                        student_id: student.id,
-                                        name: student.full_name,
-                                        slot,
-                                        points,
-                                        absence_reason: (rec?.absence_reason ?? "") as
-                                          | AbsenceReason
-                                          | "",
-                                        absence_note: rec?.absence_note ?? "",
-                                      });
-                                      return;
-                                    }
-                                    mark.mutate({ student_id: student.id, slot, points });
-                                  }}
-                                >
-                                  <option value="">—</option>
-                                  {POINT_OPTIONS.map((o) => (
-                                    <option key={o.value} value={o.value}>
-                                      {o.label}
-                                    </option>
-                                  ))}
-                                </Select>
-                                {value !== null && !locked ? (
-                                  <button
-                                    type="button"
-                                    title="Drag down to give the students below the same score"
-                                    aria-label="Fill score down"
-                                    onMouseDown={() =>
-                                      setDrag({ slot, from: index, to: index, points: value })
-                                    }
-                                    className="h-3 w-3 cursor-crosshair rounded-sm bg-primary ring-2 ring-card"
-                                  />
-                                ) : null}
-                              </div>
-                              {rec && Number(rec.points) < 2 ? (
-                                <button
-                                  type="button"
-                                  disabled={locked}
-                                  onClick={() =>
-                                    setReasonFor({
-                                      student_id: student.id,
-                                      name: student.full_name,
-                                      slot,
-                                      points: Number(rec.points) as Points,
-                                      absence_reason: (rec.absence_reason ?? "") as
-                                        | AbsenceReason
-                                        | "",
-                                      absence_note: rec.absence_note ?? "",
-                                    })
-                                  }
-                                  className="mt-1 block text-xs text-muted-foreground underline decoration-dotted hover:text-foreground"
-                                >
-                                  {reasonLabel(rec.absence_reason)}
-                                </button>
-                              ) : null}
-                            </td>
-                          );
-                        })}
-                        <td className="py-2 text-right">
-                          <Badge
-                            tone={
-                              summary.status === "met"
-                                ? "green"
-                                : summary.status === "warning"
-                                  ? "amber"
-                                  : "red"
-                            }
-                          >
-                            {summary.percentage}%
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="text-xs space-y-1 pt-2 border-t">
+                <p>Dates: {block.start_date} to {block.end_date} ({block.weeks} weeks)</p>
+                <p>Points per Session: {block.points_per_session}</p>
+                <p>Weekly Required Points: {block.weekly_required_points}</p>
+                <p>Rounding: {block.enable_rounding ? `Enabled (${block.rounding_points} pts)` : "Disabled"}</p>
+                <p>Optional: Friday PM ({block.friday_pm_optional ? "Yes" : "No"}), Saturday ({block.saturday_optional ? "Yes" : "No"})</p>
               </div>
-            )}
-          </Card>
-        </>
+            </div>
+          ))}
+        </div>
       )}
 
-      <Modal
-        open={Boolean(reasonFor)}
-        onClose={() => setReasonFor(null)}
-        title={`Reason · ${reasonFor?.name ?? ""}`}
-      >
-        {reasonFor ? (
-          <form
-            className="grid gap-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              mark.mutate({
-                student_id: reasonFor.student_id,
-                slot: reasonFor.slot,
-                points: reasonFor.points,
-                absence_reason: reasonFor.absence_reason || null,
-                absence_note: reasonFor.absence_note,
-              });
-              setReasonFor(null);
-            }}
-          >
-            <p className="text-sm text-muted-foreground">
-              Scoring the {reasonFor.slot} session on {formatDate(date)} as{" "}
-              <strong>{reasonFor.points.toFixed(1)} points</strong>. Sick leave and approved leave are
-              excluded from the percentage.
-            </p>
-            <Field label="Reason">
-              <Select
-                value={reasonFor.absence_reason}
-                onChange={(e) =>
-                  setReasonFor({ ...reasonFor, absence_reason: e.target.value as AbsenceReason | "" })
-                }
-              >
-                <option value="">No reason given</option>
-                {REASONS.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Note (optional)">
-              <Input
-                maxLength={400}
-                placeholder="Doctor's note received"
-                value={reasonFor.absence_note}
-                onChange={(e) => setReasonFor({ ...reasonFor, absence_note: e.target.value })}
-              />
-            </Field>
-            <div className="mt-2 flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setReasonFor(null)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={mark.isPending}>
-                Save record
-              </Button>
-            </div>
-          </form>
-        ) : null}
-      </Modal>
+      <Modal isOpen={isModalOpen} onClose={closeModal}>
+        <form onSubmit={handleSubmit} className="space-y-4 p-2 max-h-[80vh] overflow-y-auto">
+          <h2 className="text-xl font-bold">{editingBlock ? "Edit Block" : "Create Block"}</h2>
 
-      <Modal open={Boolean(bulk)} onClose={() => setBulk(null)} title="Confirm bulk update">
-        <p className="text-sm text-muted-foreground">
-          Score <strong>all {rows.length} students</strong> {bulk?.points.toFixed(1)} points for the{" "}
-          {bulk?.slot} session on {formatDate(date)}? Existing scores for that session will be
-          overwritten.
-        </p>
-        <div className="mt-5 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setBulk(null)}>
-            Cancel
-          </Button>
-          <Button disabled={bulkMark.isPending} onClick={() => bulk && bulkMark.mutate(bulk)}>
-            {bulkMark.isPending ? "Saving…" : "Confirm"}
-          </Button>
-        </div>
+          <div>
+            <label className="text-sm font-medium">Block Name</label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} required />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">Cohort</label>
+            <Input value={cohort} onChange={(e) => setCohort(e.target.value)} placeholder="e.g. Cohort A" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-sm font-medium">Start Date</label>
+              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+            </div>
+            <div>
+              <label className="text-sm font-medium">End Date</label>
+              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-sm font-medium">Weeks</label>
+              <Input type="number" value={weeks} onChange={(e) => setWeeks(Number(e.target.value))} required />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Points Per Session</label>
+              <Input type="number" step="0.5" value={pointsPerSession} onChange={(e) => setPointsPerSession(Number(e.target.value))} required />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 border-t pt-3">
+            <div>
+              <label className="text-sm font-medium">Standard Attendance Points</label>
+              <Input type="number" value={standardPoints} onChange={(e) => setStandardPoints(Number(e.target.value))} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Standard Attendance %</label>
+              <Input type="number" value={standardPercentage} onChange={(e) => setStandardPercentage(Number(e.target.value))} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Max Attendance Points</label>
+              <Input type="number" value={maxPoints} onChange={(e) => setMaxPoints(Number(e.target.value))} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Max Attendance %</label>
+              <Input type="number" value={maxPercentage} onChange={(e) => setMaxPercentage(Number(e.target.value))} />
+            </div>
+          </div>
+
+          <div className="border-t pt-3">
+            <label className="text-sm font-medium">Weekly Required Points</label>
+            <Input type="number" value={weeklyRequiredPoints} onChange={(e) => setWeeklyRequiredPoints(Number(e.target.value))} />
+          </div>
+
+          <div className="border-t pt-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Enable Rounding (Yes/No)</label>
+              <input type="checkbox" checked={enableRounding} onChange={(e) => setEnableRounding(e.target.checked)} className="w-4 h-4" />
+            </div>
+
+            {enableRounding && (
+              <div>
+                <label className="text-sm font-medium">Rounding Points</label>
+                <Input type="number" value={roundingPoints} onChange={(e) => setRoundingPoints(Number(e.target.value))} />
+              </div>
+            )}
+
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Friday PM Optional</label>
+              <input type="checkbox" checked={fridayPmOptional} onChange={(e) => setFridayPmOptional(e.target.checked)} className="w-4 h-4" />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Saturday Optional</label>
+              <input type="checkbox" checked={saturdayOptional} onChange={(e) => setSaturdayOptional(e.target.checked)} className="w-4 h-4" />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button type="button" variant="outline" onClick={closeModal}>Cancel</Button>
+            <Button type="submit">Save Block</Button>
+          </div>
+        </form>
       </Modal>
-    </>
+    </div>
   );
 }
