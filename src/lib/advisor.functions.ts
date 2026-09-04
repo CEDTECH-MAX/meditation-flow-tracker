@@ -38,11 +38,11 @@ async function studentContext(c: Ctx) {
   const list = (blocks ?? []) as Block[];
   const block = list.find((b) => b.status === "active") ?? list[0] ?? null;
 
-  let records: { slot: "morning" | "afternoon"; status: any; points: number }[] = [];
+  let records: { slot: "morning" | "afternoon"; status: any; points: number; session_date: string }[] = [];
   if (block) {
     const { data } = await c.supabase
       .from("attendance")
-      .select("slot, status, points")
+      .select("slot, status, points, session_date")
       .eq("student_id", c.userId)
       .eq("block_id", block.id);
     records = (data ?? []) as typeof records;
@@ -56,6 +56,8 @@ Cohort: ${(profile as any)?.cohort?.name ?? "unassigned"} · Classification: ${p
 Today: ${today}
 Block: ${block?.name ?? "none"} (${block?.start_date ?? "?"} to ${block?.end_date ?? "?"}, ${block?.meditation_days ?? 0} meditation days, status ${block?.status ?? "n/a"})
 Points earned: ${s.pointsEarned} of a possible ${s.pointsPossible} (each session is worth up to 2.0; a full day is 4.0)
+Compulsory sessions: Monday-Friday mornings and Monday-Thursday afternoons. Friday afternoon and Saturday sessions are optional and earn bonus points, so attending every day except Sunday can take the total above 100%.
+Optional bonus points earned so far: ${s.optionalPoints}
 Current attendance: ${s.percentage}% (pass mark 80%) · best achievable now: ${s.maxPossible}%
 Sessions recorded: ${s.recorded} of ${s.totalSessions} · remaining sessions: ${s.remainingSessions}
 Excused sessions (excluded from the calculation): ${s.excused}
