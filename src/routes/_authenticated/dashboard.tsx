@@ -188,8 +188,16 @@ function StudentDashboard() {
                   : `${summary.percentageNeeded}% more needed to reach 80%.`}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Each session is worth {summary.sessionWeight}% of this block.
+                Each compulsory session is worth {summary.sessionWeight}% of this block. Friday
+                afternoon and Saturday sessions are optional — attending them earns bonus points and
+                can take you above 100%.
               </p>
+              {summary.optionalPoints > 0 ? (
+                <p className="mt-1 text-xs text-success">
+                  +{summary.optionalPoints.toFixed(1)} bonus points from optional sessions
+                </p>
+              ) : null}
+
             </Card>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
