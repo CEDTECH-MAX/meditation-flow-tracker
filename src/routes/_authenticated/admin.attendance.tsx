@@ -325,7 +325,7 @@ function AdminAttendance() {
           <Card>
             <SectionTitle
               title={formatDate(date)}
-              subtitle={`${rows.length} student${rows.length === 1 ? "" : "s"} · a full meditation day is 4.0 points (2.0 morning + 2.0 afternoon)`}
+              subtitle={`${rows.length} student${rows.length === 1 ? "" : "s"} · a full day is 4.0 points · Mon–Fri mornings and Mon–Thu afternoons are compulsory; Friday afternoon and Saturday are optional bonus points`}
             />
             {la ? (
               <Spinner label="Loading attendance" />
@@ -335,8 +335,12 @@ function AdminAttendance() {
                   <thead>
                     <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                       <th className="pb-2">Student</th>
-                      <th className="pb-2">Morning</th>
-                      <th className="pb-2">Afternoon</th>
+                      <th className="pb-2">
+                        Morning{sessionKind(date, "morning") === "optional" ? " (optional)" : ""}
+                      </th>
+                      <th className="pb-2">
+                        Afternoon{sessionKind(date, "afternoon") === "optional" ? " (optional)" : ""}
+                      </th>
                       <th className="pb-2 text-right">Block %</th>
                     </tr>
                   </thead>
