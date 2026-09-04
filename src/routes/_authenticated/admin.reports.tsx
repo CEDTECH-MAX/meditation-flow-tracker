@@ -72,7 +72,7 @@ function AdminReports() {
   const title =
     kind === "below" ? "Students below 80%" : kind === "met" ? "Students meeting 80%" : "Full attendance report";
   const subtitle = block
-    ? `${block.name} · ${formatDate(block.start_date)} → ${formatDate(block.end_date)} · ${block.weeks} week${block.weeks === 1 ? "" : "s"} · ${block.meditation_days * 2} sessions · generated ${formatDate(new Date().toISOString().slice(0, 10))}`
+    ? `${block.name} · ${formatDate(block.start_date)} → ${formatDate(block.end_date)} · ${block.weeks} week${block.weeks === 1 ? "" : "s"} · ${summarise(block, []).totalSessions} compulsory sessions · generated ${formatDate(new Date().toISOString().slice(0, 10))}`
     : "No block selected";
   const genderLabelText = gender === "male" ? "Boys" : gender === "female" ? "Girls" : "All";
   const filename = `attendance-register-${(block?.name ?? "block").toLowerCase().replace(/\s+/g, "-")}-${gender === "all" ? "" : gender + "-"}${kind}`;

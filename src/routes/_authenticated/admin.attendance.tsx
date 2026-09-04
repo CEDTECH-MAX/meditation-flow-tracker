@@ -19,10 +19,11 @@ import { markAttendance, markDayForAll } from "@/lib/data.functions";
 import type { AbsenceReason, AttendanceRecord, SessionSlot } from "@/lib/attendance";
 import {
   formatDate,
-  isSunday,
+  blockDates,
   POINT_OPTIONS,
   REASONS,
   reasonLabel,
+  sessionKind,
   skipSunday,
   summarise,
 } from "@/lib/attendance";
@@ -61,6 +62,8 @@ function AdminAttendance() {
   const [blockId, setBlockId] = useState<string | null>(null);
   const block = blocks?.find((b) => b.id === (blockId ?? active?.id)) ?? null;
   const { data: records, isLoading: la } = useAttendance(block?.id ?? null);
+
+  const sessionDates = useMemo(() => (block ? blockDates(block) : []), [block]);
 
   const [date, setDate] = useState(today());
   const [search, setSearch] = useState("");
@@ -178,6 +181,15 @@ function AdminAttendance() {
       }));
   }, [students, search, cohortFilter, dayMap, records, block]);
 
+  // Keep the selected day inside the block and never on a Sunday.
+  useEffect(() => {
+    if (sessionDates.length === 0) return;
+    if (!sessionDates.includes(date)) {
+      const next = sessionDates.find((d) => d >= date) ?? sessionDates[sessionDates.length - 1]!;
+      setDate(next);
+    }
+  }, [sessionDates, date]);
+
   const locked = !block || block.status === "closed";
 
   // Finish a drag-fill wherever the pointer is released.
@@ -240,24 +252,18 @@ function AdminAttendance() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Session date (no Sundays)">
-                <Input
-                  type="date"
-                  value={date}
-                  min={block.start_date}
-                  max={block.end_date}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (!value) return;
-                    if (isSunday(value)) {
-                      toast.error("Sundays are not meditation days.");
-                      setDate(skipSunday(value));
-                      return;
-                    }
-                    setDate(value);
-                  }}
-                />
+              <Field label="Session date (Mon–Sat only)">
+                <Select value={date} onChange={(e) => setDate(e.target.value)}>
+                  {sessionDates.length === 0 ? <option value={date}>{formatDate(date)}</option> : null}
+                  {sessionDates.map((d) => (
+                    <option key={d} value={d}>
+                      {formatDate(d)}
+                      {sessionKind(d, "afternoon") === "optional" ? " · PM optional" : ""}
+                    </option>
+                  ))}
+                </Select>
               </Field>
+
               <Field label="Cohort">
                 <Select value={cohortFilter} onChange={(e) => setCohortFilter(e.target.value)}>
                   <option value="all">All cohorts</option>
@@ -319,7 +325,7 @@ function AdminAttendance() {
           <Card>
             <SectionTitle
               title={formatDate(date)}
-              subtitle={`${rows.length} student${rows.length === 1 ? "" : "s"} · a full meditation day is 4.0 points (2.0 morning + 2.0 afternoon)`}
+              subtitle={`${rows.length} student${rows.length === 1 ? "" : "s"} · a full day is 4.0 points · Mon–Fri mornings and Mon–Thu afternoons are compulsory; Friday afternoon and Saturday are optional bonus points`}
             />
             {la ? (
               <Spinner label="Loading attendance" />
@@ -329,8 +335,12 @@ function AdminAttendance() {
                   <thead>
                     <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                       <th className="pb-2">Student</th>
-                      <th className="pb-2">Morning</th>
-                      <th className="pb-2">Afternoon</th>
+                      <th className="pb-2">
+                        Morning{sessionKind(date, "morning") === "optional" ? " (optional)" : ""}
+                      </th>
+                      <th className="pb-2">
+                        Afternoon{sessionKind(date, "afternoon") === "optional" ? " (optional)" : ""}
+                      </th>
                       <th className="pb-2 text-right">Block %</th>
                     </tr>
                   </thead>

@@ -83,6 +83,8 @@ export type AttendanceSummary = {
   pointsEarned: number;
   pointsPossible: number;
   pointsNeeded: number;
+  optionalPoints: number;
+  optionalSessions: number;
   percentage: number;
   maxPossible: number;
   percentageNeeded: number;
@@ -96,33 +98,77 @@ export type AttendanceSummary = {
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
+export type SessionKind = "compulsory" | "optional" | "none";
+
 /**
- * Points-based scoring: each session is worth up to 2.0 points (so a full
- * meditation day is 4.0). Percentages scale to the specific block — 100% =
- * every required point earned. Excused sessions are removed from the
- * denominator so they never penalise the student.
+ * Monday–Friday mornings and Monday–Thursday afternoons are compulsory.
+ * Friday afternoon and both Saturday sessions are optional bonus sessions.
+ * Sundays do not exist in this system.
+ */
+export function sessionKind(date: string, slot: SessionSlot): SessionKind {
+  const day = new Date(date + "T00:00:00").getDay(); // 0 = Sun … 6 = Sat
+  if (day === 0) return "none";
+  if (day === 6) return "optional";
+  if (day === 5) return slot === "morning" ? "compulsory" : "optional";
+  return "compulsory";
+}
+
+/** Every compulsory / optional session in a block. */
+export function blockSessions(block: Pick<Block, "start_date" | "end_date">) {
+  const compulsory: { date: string; slot: SessionSlot }[] = [];
+  const optional: { date: string; slot: SessionSlot }[] = [];
+  for (const date of blockDates(block)) {
+    for (const slot of ["morning", "afternoon"] as SessionSlot[]) {
+      const kind = sessionKind(date, slot);
+      if (kind === "compulsory") compulsory.push({ date, slot });
+      else if (kind === "optional") optional.push({ date, slot });
+    }
+  }
+  return { compulsory, optional };
+}
+
+/**
+ * Points-based scoring. Each session is worth up to 2.0 points. The
+ * denominator is the block's COMPULSORY sessions only (Mon–Fri AM plus
+ * Mon–Thu PM), so a student who also attends the optional Friday afternoon
+ * and Saturday sessions can finish above 100%. Excused compulsory sessions
+ * leave the denominator so they never penalise the student.
  */
 export function summarise(
-  block: Pick<Block, "meditation_days"> | null,
-  records: Pick<AttendanceRecord, "slot" | "status" | "points">[],
+  block: Pick<Block, "start_date" | "end_date" | "meditation_days"> | null,
+  records: Pick<AttendanceRecord, "slot" | "status" | "points" | "session_date">[],
 ): AttendanceSummary {
-  const totalSessions = Math.max(0, (block?.meditation_days ?? 0) * 2);
+  const sessions = block
+    ? blockSessions(block)
+    : { compulsory: [], optional: [] };
+  const totalSessions = sessions.compulsory.length;
   const sessionWeight = totalSessions > 0 ? 100 / totalSessions : 0;
 
   let present = 0;
   let absent = 0;
   let excused = 0;
+  let excusedCompulsory = 0;
   let morningPresent = 0;
   let afternoonPresent = 0;
   let pointsEarned = 0;
+  let optionalPoints = 0;
+  let recordedCompulsory = 0;
 
   for (const r of records) {
+    const kind = sessionKind(r.session_date, r.slot);
+    if (kind === "none") continue;
     const pts = Number(r.points ?? 0);
     if (r.status === "excused") {
       excused += 1;
+      if (kind === "compulsory") {
+        excusedCompulsory += 1;
+        recordedCompulsory += 1;
+      }
       continue;
     }
+    if (kind === "compulsory") recordedCompulsory += 1;
     pointsEarned += pts;
+    if (kind === "optional") optionalPoints += pts;
     if (pts > 0) {
       present += 1;
       if (r.slot === "morning") morningPresent += 1;
@@ -131,19 +177,16 @@ export function summarise(
   }
 
   pointsEarned = round1(pointsEarned);
+  optionalPoints = round1(optionalPoints);
   const recorded = present + absent + excused;
-  const remainingSessions = Math.max(0, totalSessions - recorded);
-  const countedSessions = Math.max(0, totalSessions - excused);
+  const remainingSessions = Math.max(0, totalSessions - recordedCompulsory);
+  const countedSessions = Math.max(0, totalSessions - excusedCompulsory);
   const pointsPossible = round1(countedSessions * MAX_SESSION_POINTS);
 
   const percentage = pointsPossible > 0 ? round1((pointsEarned / pointsPossible) * 100) : 0;
   const maxPossible =
     pointsPossible > 0
-      ? round1(
-          (Math.min(pointsEarned + remainingSessions * MAX_SESSION_POINTS, pointsPossible) /
-            pointsPossible) *
-            100,
-        )
+      ? round1(((pointsEarned + remainingSessions * MAX_SESSION_POINTS) / pointsPossible) * 100)
       : 0;
 
   const percentageNeeded = round1(Math.max(0, PASS_MARK - percentage));
@@ -166,6 +209,8 @@ export function summarise(
     pointsEarned,
     pointsPossible,
     pointsNeeded,
+    optionalPoints,
+    optionalSessions: sessions.optional.length,
     percentage,
     maxPossible,
     percentageNeeded,
@@ -178,6 +223,7 @@ export function summarise(
       status === "met" ? "Requirement Met" : status === "warning" ? "Warning" : "At Risk",
   };
 }
+
 
 
 export function statusTone(status: AttendanceSummary["status"]) {

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Ctx } from "./data.helpers";
+import { summarise } from "./attendance";
 
 export type LeaderboardEntry = {
   rank: number;
@@ -86,31 +87,27 @@ export const getLeaderboard = createServerFn({ method: "GET" })
 
     const { data: rows } = await supabaseAdmin
       .from("attendance")
-      .select("student_id, status")
+      .select("student_id, status, slot, points, session_date")
       .eq("block_id", block.id)
       .in(
         "student_id",
         peerList.map((p) => p.id),
       );
 
-    const totals = new Map<string, { present: number; counted: number }>();
-    for (const p of peerList) totals.set(p.id, { present: 0, counted: (block.meditation_days ?? 0) * 2 });
+    const byStudent = new Map<string, any[]>();
+    for (const p of peerList) byStudent.set(p.id, []);
     for (const r of rows ?? []) {
-      const t = totals.get(r.student_id as string);
-      if (!t) continue;
-      if (r.status === "present") t.present += 1;
-      if (r.status === "excused") t.counted -= 1;
+      byStudent.get(r.student_id as string)?.push(r);
     }
 
     const ranked = peerList
       .map((p) => {
-        const t = totals.get(p.id)!;
+        const s = summarise(block, byStudent.get(p.id) ?? []);
         return {
           student_id: p.id,
           full_name: p.full_name as string,
-          present: t.present,
-          percentage:
-            t.counted > 0 ? Math.round((t.present / t.counted) * 1000) / 10 : 0,
+          present: s.pointsEarned,
+          percentage: s.percentage,
         };
       })
       .sort((a, b) => b.present - a.present || b.percentage - a.percentage || a.full_name.localeCompare(b.full_name))
