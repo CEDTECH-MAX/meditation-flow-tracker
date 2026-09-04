@@ -46,14 +46,6 @@ type FormState = {
   meditation_days: number;
   status: BlockStatus;
   cohort_id: string;
-  session_point_value: number;
-  standard_attendance_points: number;
-  standard_attendance_percentage: number;
-  max_attendance_points: number;
-  max_attendance_percentage: number;
-  weekly_required_points: number;
-  rounding_day: boolean;
-  rounding_day_points: number;
 };
 
 const empty: FormState = {
@@ -64,16 +56,7 @@ const empty: FormState = {
   meditation_days: 20,
   status: "upcoming",
   cohort_id: "",
-  session_point_value: 0,
-  standard_attendance_points: 0,
-  standard_attendance_percentage: 0,
-  max_attendance_points: 0,
-  max_attendance_percentage: 0,
-  weekly_required_points: 0,
-  rounding_day: false,
-  rounding_day_points: 0,
 };
-
 
 function AdminBlocks() {
   const qc = useQueryClient();
@@ -109,19 +92,8 @@ function AdminBlocks() {
           meditation_days: Number(v.meditation_days),
           status: v.status,
           cohort_id: v.cohort_id || null,
-          session_point_value: Number(v.session_point_value),
-          standard_attendance_points: Number(v.standard_attendance_points),
-          standard_attendance_percentage: Number(v.standard_attendance_percentage),
-          max_attendance_points: Number(v.max_attendance_points),
-          max_attendance_percentage: Number(v.max_attendance_percentage),
-          weekly_required_points: Number(v.weekly_required_points),
-          rounding_day: v.rounding_day,
-          rounding_day_points: v.rounding_day ? Number(v.rounding_day_points) : 0,
-          friday_pm_compulsory: false,
-          saturday_mode: "optional" as const,
         },
       }),
-
     onSuccess: () => refresh("Block saved"),
     onError: (e: Error) => toast.error(e.message),
   });
@@ -187,25 +159,6 @@ function AdminBlocks() {
                 <Stat label="Sessions" value={b.meditation_days * 2} />
               </div>
 
-              <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                <Line label="Points / session" value={num(b.session_point_value)} />
-                <Line label="Weekly required" value={num(b.weekly_required_points)} />
-                <Line
-                  label="Standard"
-                  value={`${num(b.standard_attendance_points)} pts · ${num(b.standard_attendance_percentage)}%`}
-                />
-                <Line
-                  label="Maximum"
-                  value={`${num(b.max_attendance_points)} pts · ${num(b.max_attendance_percentage)}%`}
-                />
-                <Line
-                  label="Rounding day"
-                  value={b.rounding_day ? `Yes · ${num(b.rounding_day_points)} pts` : "No"}
-                />
-                <Line label="Fri PM / Sat" value="Optional" />
-              </dl>
-
-
               <div className="mt-4">
                 <p className="mb-1 text-xs text-muted-foreground">Progress · {blockProgress(b)}%</p>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -230,18 +183,7 @@ function AdminBlocks() {
                       meditation_days: b.meditation_days,
                       status: b.status,
                       cohort_id: b.cohort_id ?? "",
-                      session_point_value: Number(b.session_point_value ?? 0),
-                      standard_attendance_points: Number(b.standard_attendance_points ?? 0),
-                      standard_attendance_percentage: Number(
-                        b.standard_attendance_percentage ?? 0,
-                      ),
-                      max_attendance_points: Number(b.max_attendance_points ?? 0),
-                      max_attendance_percentage: Number(b.max_attendance_percentage ?? 0),
-                      weekly_required_points: Number(b.weekly_required_points ?? 0),
-                      rounding_day: Boolean(b.rounding_day),
-                      rounding_day_points: Number(b.rounding_day_points ?? 0),
                     })
-
                   }
                 >
                   Edit
@@ -365,114 +307,11 @@ function AdminBlocks() {
                 <option value="closed">Closed (locked)</option>
               </Select>
             </Field>
-
-            <div className="mt-2 rounded-2xl border border-border/60 bg-muted/30 p-3">
-              <p className="font-display text-sm font-semibold">Official calculation values</p>
-              <p className="mt-0.5 mb-3 text-xs text-muted-foreground">
-                Enter these exactly as calculated on the traditional spreadsheet. Nothing is
-                worked out automatically — these values become the block's official rules used by
-                the student dashboard, reports and the Excel register.
-              </p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Points per session">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min={0}
-                    required
-                    value={form.session_point_value}
-                    onChange={(e) =>
-                      setForm({ ...form, session_point_value: Number(e.target.value) })
-                    }
-                  />
-                </Field>
-                <Field label="Weekly required points">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min={0}
-                    required
-                    value={form.weekly_required_points}
-                    onChange={(e) =>
-                      setForm({ ...form, weekly_required_points: Number(e.target.value) })
-                    }
-                  />
-                </Field>
-                <Field label="Standard attendance points">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min={0}
-                    required
-                    value={form.standard_attendance_points}
-                    onChange={(e) =>
-                      setForm({ ...form, standard_attendance_points: Number(e.target.value) })
-                    }
-                  />
-                </Field>
-                <Field label="Standard attendance percentage">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min={0}
-                    required
-                    value={form.standard_attendance_percentage}
-                    onChange={(e) =>
-                      setForm({ ...form, standard_attendance_percentage: Number(e.target.value) })
-                    }
-                  />
-                </Field>
-                <Field label="Maximum attendance points">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min={0}
-                    required
-                    value={form.max_attendance_points}
-                    onChange={(e) =>
-                      setForm({ ...form, max_attendance_points: Number(e.target.value) })
-                    }
-                  />
-                </Field>
-                <Field label="Maximum attendance percentage">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min={0}
-                    required
-                    value={form.max_attendance_percentage}
-                    onChange={(e) =>
-                      setForm({ ...form, max_attendance_percentage: Number(e.target.value) })
-                    }
-                  />
-                </Field>
-                <Field label="Rounding day">
-                  <Select
-                    value={form.rounding_day ? "yes" : "no"}
-                    onChange={(e) => setForm({ ...form, rounding_day: e.target.value === "yes" })}
-                  >
-                    <option value="no">No</option>
-                    <option value="yes">Yes</option>
-                  </Select>
-                </Field>
-                <Field label="Rounding day points">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min={0}
-                    disabled={!form.rounding_day}
-                    value={form.rounding_day_points}
-                    onChange={(e) =>
-                      setForm({ ...form, rounding_day_points: Number(e.target.value) })
-                    }
-                  />
-                </Field>
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Friday PM and Saturday sessions stay optional. Sundays are never scheduled.
-              </p>
-            </div>
-
+            <p className="text-xs text-muted-foreground">
+              {form.meditation_days * 2} total sessions ·{" "}
+              {Math.round((100 / Math.max(1, form.meditation_days * 2)) * 10) / 10}% per session ·
+              80% required to pass.
+            </p>
             <div className="mt-2 flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setForm(null)}>
                 Cancel
@@ -521,20 +360,6 @@ function Stat({ label, value }: { label: string; value: number }) {
     <div className="rounded-2xl bg-muted/50 px-2 py-3">
       <p className="font-display text-lg font-semibold">{value}</p>
       <p className="text-[11px] text-muted-foreground">{label}</p>
-    </div>
-  );
-}
-
-function num(value: number | null | undefined) {
-  const n = Number(value ?? 0);
-  return Number.isFinite(n) ? (Math.round(n * 10) / 10).toString() : "—";
-}
-
-function Line({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-2">
-      <dt>{label}</dt>
-      <dd className="font-medium text-foreground">{value}</dd>
     </div>
   );
 }

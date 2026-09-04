@@ -45,19 +45,7 @@ const blockInput = z.object({
   meditation_days: z.number().int().min(1).max(400),
   status: z.enum(["upcoming", "active", "closed"]),
   cohort_id: z.string().uuid().nullable().optional(),
-  /* admin-entered official calculation values */
-  session_point_value: z.number().min(0).max(100),
-  standard_attendance_points: z.number().min(0).max(100000),
-  standard_attendance_percentage: z.number().min(0).max(1000),
-  max_attendance_points: z.number().min(0).max(100000),
-  max_attendance_percentage: z.number().min(0).max(1000),
-  weekly_required_points: z.number().min(0).max(100000),
-  rounding_day: z.boolean(),
-  rounding_day_points: z.number().min(0).max(100000),
-  friday_pm_compulsory: z.boolean().optional(),
-  saturday_mode: z.enum(["optional", "compulsory", "excluded"]).optional(),
 });
-
 
 export const saveBlock = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

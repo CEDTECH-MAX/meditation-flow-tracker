@@ -55,63 +55,7 @@ export type Block = {
   meditation_days: number;
   status: BlockStatus;
   cohort_id?: string | null;
-  /* admin-entered official calculation values */
-  session_point_value?: number | null;
-  weekly_required_points?: number | null;
-  standard_attendance_points?: number | null;
-  standard_attendance_percentage?: number | null;
-  max_attendance_points?: number | null;
-  max_attendance_percentage?: number | null;
-  rounding_day?: boolean | null;
-  rounding_day_points?: number | null;
 };
-
-/**
- * The official calculation rules for a block. These are entered manually by an
- * admin from the traditional spreadsheet — nothing here is inferred. When a
- * value has not been captured yet we fall back to the legacy derivation so old
- * blocks keep working.
- */
-export type BlockRules = {
-  sessionPointValue: number;
-  weeklyRequiredPoints: number;
-  standardPoints: number;
-  standardPercentage: number;
-  maxPoints: number;
-  maxPercentage: number;
-  roundingDay: boolean;
-  roundingDayPoints: number;
-};
-
-const num = (v: unknown, fallback: number) => {
-  const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? n : fallback;
-};
-
-export function blockRules(
-  block: Partial<Block> | null | undefined,
-): BlockRules {
-  const sessionPointValue = num(block?.session_point_value, MAX_SESSION_POINTS);
-  const legacyMax = Math.max(0, (block?.meditation_days ?? 0) * 2) * sessionPointValue;
-  const maxPoints = num(block?.max_attendance_points, legacyMax);
-  const maxPercentage = num(block?.max_attendance_percentage, 100);
-  const standardPoints = num(block?.standard_attendance_points, (PASS_MARK / 100) * maxPoints);
-  const standardPercentage = num(block?.standard_attendance_percentage, PASS_MARK);
-  const weeks = Math.max(1, block?.weeks ?? 1);
-  const weeklyRequiredPoints = num(block?.weekly_required_points, standardPoints / weeks);
-  const roundingDay = Boolean(block?.rounding_day);
-  return {
-    sessionPointValue,
-    weeklyRequiredPoints,
-    standardPoints,
-    standardPercentage,
-    maxPoints,
-    maxPercentage,
-    roundingDay,
-    roundingDayPoints: roundingDay ? num(block?.rounding_day_points, 0) : 0,
-  };
-}
-
 
 export type AttendanceRecord = {
   id: string;
@@ -143,9 +87,6 @@ export type AttendanceSummary = {
   maxPossible: number;
   percentageNeeded: number;
   sessionsNeeded: number;
-  requiredPoints: number;
-  passPercentage: number;
-  rules: BlockRules;
   met: boolean;
   morningPresent: number;
   afternoonPresent: number;
@@ -153,24 +94,20 @@ export type AttendanceSummary = {
   statusLabel: string;
 };
 
-
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
 /**
- * Points-based scoring driven entirely by the admin-entered block rules
- * (points per session, standard/maximum points and percentages, rounding day).
- * Nothing is assumed: the numbers captured on the block are the official
- * calculation rules. Excused sessions shrink the denominator so they never
- * penalise the student.
+ * Points-based scoring: each session is worth up to 2.0 points (so a full
+ * meditation day is 4.0). Percentages scale to the specific block — 100% =
+ * every required point earned. Excused sessions are removed from the
+ * denominator so they never penalise the student.
  */
 export function summarise(
-  block: Partial<Block> | null,
+  block: Pick<Block, "meditation_days"> | null,
   records: Pick<AttendanceRecord, "slot" | "status" | "points">[],
 ): AttendanceSummary {
-  const rules = blockRules(block);
   const totalSessions = Math.max(0, (block?.meditation_days ?? 0) * 2);
-  const sessionWeight =
-    rules.maxPoints > 0 ? (rules.sessionPointValue / rules.maxPoints) * rules.maxPercentage : 0;
+  const sessionWeight = totalSessions > 0 ? 100 / totalSessions : 0;
 
   let present = 0;
   let absent = 0;
@@ -193,40 +130,29 @@ export function summarise(
     } else absent += 1;
   }
 
-  pointsEarned = round1(pointsEarned + rules.roundingDayPoints);
+  pointsEarned = round1(pointsEarned);
   const recorded = present + absent + excused;
   const remainingSessions = Math.max(0, totalSessions - recorded);
   const countedSessions = Math.max(0, totalSessions - excused);
-  const pointsPossible = round1(
-    Math.max(0, rules.maxPoints - excused * rules.sessionPointValue),
-  );
-  const scale = rules.maxPoints > 0 ? pointsPossible / rules.maxPoints : 0;
-  const requiredPoints = round1(rules.standardPoints * scale);
+  const pointsPossible = round1(countedSessions * MAX_SESSION_POINTS);
 
-  const percentage =
-    pointsPossible > 0 ? round1((pointsEarned / pointsPossible) * rules.maxPercentage) : 0;
+  const percentage = pointsPossible > 0 ? round1((pointsEarned / pointsPossible) * 100) : 0;
   const maxPossible =
     pointsPossible > 0
       ? round1(
-          (Math.min(
-            pointsEarned + remainingSessions * rules.sessionPointValue,
-            pointsPossible,
-          ) /
+          (Math.min(pointsEarned + remainingSessions * MAX_SESSION_POINTS, pointsPossible) /
             pointsPossible) *
-            rules.maxPercentage,
+            100,
         )
       : 0;
 
-  const pass = rules.standardPercentage;
-  const percentageNeeded = round1(Math.max(0, pass - percentage));
-  const pointsNeeded = round1(Math.max(0, requiredPoints - pointsEarned));
-  const sessionsNeeded = Math.max(
-    0,
-    Math.ceil(pointsNeeded / Math.max(0.1, rules.sessionPointValue) - 1e-9),
+  const percentageNeeded = round1(Math.max(0, PASS_MARK - percentage));
+  const pointsNeeded = round1(
+    Math.max(0, (PASS_MARK / 100) * pointsPossible - pointsEarned),
   );
+  const sessionsNeeded = Math.max(0, Math.ceil(pointsNeeded / MAX_SESSION_POINTS - 1e-9));
 
-  const status =
-    percentage >= pass ? "met" : percentage >= pass * 0.875 ? "warning" : "risk";
+  const status = percentage >= PASS_MARK ? "met" : percentage >= 70 ? "warning" : "risk";
 
   return {
     totalSessions,
@@ -240,21 +166,17 @@ export function summarise(
     pointsEarned,
     pointsPossible,
     pointsNeeded,
-    requiredPoints,
     percentage,
     maxPossible,
     percentageNeeded,
     sessionsNeeded,
-    passPercentage: pass,
-    rules,
-    met: percentage >= pass,
+    met: percentage >= PASS_MARK,
     morningPresent,
     afternoonPresent,
     status,
     statusLabel:
       status === "met" ? "Requirement Met" : status === "warning" ? "Warning" : "At Risk",
   };
-
 }
 
 
