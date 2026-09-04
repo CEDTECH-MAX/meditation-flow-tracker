@@ -240,24 +240,18 @@ function AdminAttendance() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Session date (no Sundays)">
-                <Input
-                  type="date"
-                  value={date}
-                  min={block.start_date}
-                  max={block.end_date}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (!value) return;
-                    if (isSunday(value)) {
-                      toast.error("Sundays are not meditation days.");
-                      setDate(skipSunday(value));
-                      return;
-                    }
-                    setDate(value);
-                  }}
-                />
+              <Field label="Session date (Mon–Sat only)">
+                <Select value={date} onChange={(e) => setDate(e.target.value)}>
+                  {sessionDates.length === 0 ? <option value={date}>{formatDate(date)}</option> : null}
+                  {sessionDates.map((d) => (
+                    <option key={d} value={d}>
+                      {formatDate(d)}
+                      {sessionKind(d, "afternoon") === "optional" ? " · PM optional" : ""}
+                    </option>
+                  ))}
+                </Select>
               </Field>
+
               <Field label="Cohort">
                 <Select value={cohortFilter} onChange={(e) => setCohortFilter(e.target.value)}>
                   <option value="all">All cohorts</option>
