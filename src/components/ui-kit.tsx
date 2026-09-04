@@ -192,7 +192,7 @@ export function CircularProgress({
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-display text-3xl font-semibold">{pct.toFixed(1)}%</span>
+        <span className="font-display text-3xl font-semibold">{Math.max(0, value).toFixed(1)}%</span>
         {caption ? <span className="mt-1 text-xs text-muted-foreground">{caption}</span> : null}
       </div>
     </div>
