@@ -248,6 +248,21 @@ export function blockProgress(block: Block) {
   return Math.round(((now - start) / Math.max(1, end - start)) * 100);
 }
 
+/**
+ * Local-calendar date key (YYYY-MM-DD). Never use toISOString() for this:
+ * it converts to UTC and shifts the date by a day in non-UTC timezones.
+ */
+export function dateKey(d: Date) {
+  const m = `${d.getMonth() + 1}`.padStart(2, "0");
+  const day = `${d.getDate()}`.padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+/** Today's date in the viewer's own timezone. */
+export function todayKey() {
+  return dateKey(new Date());
+}
+
 /** Sundays do not exist in this system — no meditation sessions are ever held. */
 export function isSunday(date: string) {
   return new Date(date + "T00:00:00").getDay() === 0;
