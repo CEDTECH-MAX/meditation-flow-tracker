@@ -19,10 +19,11 @@ import { markAttendance, markDayForAll } from "@/lib/data.functions";
 import type { AbsenceReason, AttendanceRecord, SessionSlot } from "@/lib/attendance";
 import {
   formatDate,
-  isSunday,
+  blockDates,
   POINT_OPTIONS,
   REASONS,
   reasonLabel,
+  sessionKind,
   skipSunday,
   summarise,
 } from "@/lib/attendance";
@@ -61,6 +62,8 @@ function AdminAttendance() {
   const [blockId, setBlockId] = useState<string | null>(null);
   const block = blocks?.find((b) => b.id === (blockId ?? active?.id)) ?? null;
   const { data: records, isLoading: la } = useAttendance(block?.id ?? null);
+
+  const sessionDates = useMemo(() => (block ? blockDates(block) : []), [block]);
 
   const [date, setDate] = useState(today());
   const [search, setSearch] = useState("");
@@ -177,6 +180,15 @@ function AdminAttendance() {
         ),
       }));
   }, [students, search, cohortFilter, dayMap, records, block]);
+
+  // Keep the selected day inside the block and never on a Sunday.
+  useEffect(() => {
+    if (sessionDates.length === 0) return;
+    if (!sessionDates.includes(date)) {
+      const next = sessionDates.find((d) => d >= date) ?? sessionDates[sessionDates.length - 1]!;
+      setDate(next);
+    }
+  }, [sessionDates, date]);
 
   const locked = !block || block.status === "closed";
 
