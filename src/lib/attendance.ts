@@ -273,7 +273,7 @@ export function skipSunday(date: string) {
   if (!isSunday(date)) return date;
   const d = new Date(date + "T00:00:00");
   d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+  return dateKey(d);
 }
 
 /** Every session date inside a block, inclusive, excluding Sundays. */
@@ -282,7 +282,7 @@ export function blockDates(block: Pick<Block, "start_date" | "end_date">) {
   const cur = new Date(block.start_date + "T00:00:00");
   const end = new Date(block.end_date + "T00:00:00");
   while (cur <= end && out.length < 400) {
-    if (cur.getDay() !== 0) out.push(cur.toISOString().slice(0, 10));
+    if (cur.getDay() !== 0) out.push(dateKey(cur));
     cur.setDate(cur.getDate() + 1);
   }
   return out;
@@ -301,7 +301,7 @@ export function buildCalendar(
   records: AttendanceRecord[],
 ): DayCell[] {
   if (!block) return [];
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayKey();
   const map = new Map<string, AttendanceRecord>();
   for (const r of records) map.set(`${r.session_date}:${r.slot}`, r);
   return blockDates(block).map((date) => ({
