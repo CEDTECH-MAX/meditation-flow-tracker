@@ -160,6 +160,7 @@ export type Database = {
           end_date: string
           friday_pm_compulsory: boolean
           id: string
+          institution: Database["public"]["Enums"]["institution"]
           max_attendance_percentage: number
           max_attendance_points: number
           meditation_days: number
@@ -186,6 +187,7 @@ export type Database = {
           end_date: string
           friday_pm_compulsory?: boolean
           id?: string
+          institution?: Database["public"]["Enums"]["institution"]
           max_attendance_percentage?: number
           max_attendance_points?: number
           meditation_days?: number
@@ -212,6 +214,7 @@ export type Database = {
           end_date?: string
           friday_pm_compulsory?: boolean
           id?: string
+          institution?: Database["public"]["Enums"]["institution"]
           max_attendance_percentage?: number
           max_attendance_points?: number
           meditation_days?: number
@@ -242,10 +245,106 @@ export type Database = {
           },
         ]
       }
+      class_attendance: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          mode: string
+          points: number
+          recorded_by: string | null
+          session_id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          mode?: string
+          points?: number
+          recorded_by?: string | null
+          session_id: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          mode?: string
+          points?: number
+          recorded_by?: string | null
+          session_id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_attendance_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "class_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_sessions: {
+        Row: {
+          block_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          lecturer: string | null
+          max_points: number
+          session_date: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          block_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lecturer?: string | null
+          max_points?: number
+          session_date: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          block_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lecturer?: string | null
+          max_points?: number
+          session_date?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_sessions_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cohorts: {
         Row: {
           created_at: string
           id: string
+          institution: Database["public"]["Enums"]["institution"]
           intake_year: number | null
           name: string
           programme: string | null
@@ -254,6 +353,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          institution?: Database["public"]["Enums"]["institution"]
           intake_year?: number | null
           name: string
           programme?: string | null
@@ -262,6 +362,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          institution?: Database["public"]["Enums"]["institution"]
           intake_year?: number | null
           name?: string
           programme?: string | null
@@ -442,6 +543,7 @@ export type Database = {
           full_name: string
           gender: Database["public"]["Enums"]["student_gender"] | null
           id: string
+          institution: Database["public"]["Enums"]["institution"]
           intake_year: number | null
           internal_email: string | null
           is_active: boolean
@@ -462,6 +564,7 @@ export type Database = {
           full_name?: string
           gender?: Database["public"]["Enums"]["student_gender"] | null
           id: string
+          institution?: Database["public"]["Enums"]["institution"]
           intake_year?: number | null
           internal_email?: string | null
           is_active?: boolean
@@ -482,6 +585,7 @@ export type Database = {
           full_name?: string
           gender?: Database["public"]["Enums"]["student_gender"] | null
           id?: string
+          institution?: Database["public"]["Enums"]["institution"]
           intake_year?: number | null
           internal_email?: string | null
           is_active?: boolean
@@ -551,6 +655,7 @@ export type Database = {
       app_role: "admin" | "student" | "marker" | "head_of_meditation"
       attendance_status: "present" | "absent" | "excused"
       block_status: "upcoming" | "active" | "closed"
+      institution: "MII" | "MIU"
       session_slot: "morning" | "afternoon"
       student_classification: "meditator" | "rising_siddha" | "siddha"
       student_gender: "male" | "female"
@@ -691,6 +796,7 @@ export const Constants = {
       app_role: ["admin", "student", "marker", "head_of_meditation"],
       attendance_status: ["present", "absent", "excused"],
       block_status: ["upcoming", "active", "closed"],
+      institution: ["MII", "MIU"],
       session_slot: ["morning", "afternoon"],
       student_classification: ["meditator", "rising_siddha", "siddha"],
       student_gender: ["male", "female"],
