@@ -7,7 +7,14 @@ import {
   listStudents,
   getAuditLogs,
 } from "@/lib/data.functions";
-import type { AttendanceRecord, Block, Cohort } from "@/lib/attendance";
+import { listClassAttendance, listClassSessions } from "@/lib/class.functions";
+import type {
+  AttendanceRecord,
+  Block,
+  ClassRecord,
+  ClassSession,
+  Cohort,
+} from "@/lib/attendance";
 
 export type Student = {
   id: string;
@@ -56,4 +63,24 @@ export function useAuditLogs() {
 export function pickActive(blocks: Block[] | undefined) {
   if (!blocks || blocks.length === 0) return null;
   return blocks.find((b) => b.status === "active") ?? blocks[0]!;
+}
+
+/* ----------------------------- class register ---------------------------- */
+
+export function useClassSessions(blockId: string | null) {
+  const fn = useServerFn(listClassSessions);
+  return useQuery<ClassSession[]>({
+    queryKey: ["class-sessions", blockId],
+    enabled: Boolean(blockId),
+    queryFn: () => fn({ data: { block_id: blockId! } }) as Promise<ClassSession[]>,
+  });
+}
+
+export function useClassAttendance(blockId: string | null) {
+  const fn = useServerFn(listClassAttendance);
+  return useQuery<ClassRecord[]>({
+    queryKey: ["class-attendance", blockId],
+    enabled: Boolean(blockId),
+    queryFn: () => fn({ data: { block_id: blockId! } }) as Promise<ClassRecord[]>,
+  });
 }
