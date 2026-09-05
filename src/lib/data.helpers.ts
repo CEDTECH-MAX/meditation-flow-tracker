@@ -43,3 +43,13 @@ export function statusFromPoints(
   return reason === "sick_leave" || reason === "approved_leave" ? "excused" : "absent";
 }
 
+
+/** The institution (MII / MIU) the signed-in account belongs to. */
+export async function myInstitution(context: Ctx): Promise<"MII" | "MIU"> {
+  const { data } = await context.supabase
+    .from("profiles")
+    .select("institution")
+    .eq("id", context.userId)
+    .maybeSingle();
+  return (data?.institution as "MII" | "MIU") ?? "MII";
+}
