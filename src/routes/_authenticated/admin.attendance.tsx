@@ -26,6 +26,7 @@ import {
   sessionKind,
   skipSunday,
   summarise,
+  todayKey,
 } from "@/lib/attendance";
 
 export const Route = createFileRoute("/_authenticated/admin/attendance")({
@@ -49,7 +50,7 @@ export const Route = createFileRoute("/_authenticated/admin/attendance")({
   component: AdminAttendance,
 });
 
-const today = () => skipSunday(new Date().toISOString().slice(0, 10));
+const today = () => skipSunday(todayKey());
 
 type Points = 0 | 0.5 | 1 | 1.5 | 2;
 

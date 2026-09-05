@@ -16,7 +16,7 @@ import {
 } from "@/components/ui-kit";
 import { useBlocks, useCohorts } from "@/lib/admin-hooks";
 import { deleteBlock, resetBlockAttendance, saveBlock, setBlockStatus } from "@/lib/data.functions";
-import { blockProgress, formatDate, type Block, type BlockStatus } from "@/lib/attendance";
+import { blockProgress, dateKey, formatDate, todayKey, type Block, type BlockStatus } from "@/lib/attendance";
 
 export const Route = createFileRoute("/_authenticated/admin/blocks")({
   head: () => ({
@@ -50,8 +50,8 @@ type FormState = {
 
 const empty: FormState = {
   name: "",
-  start_date: new Date().toISOString().slice(0, 10),
-  end_date: new Date(Date.now() + 27 * 864e5).toISOString().slice(0, 10),
+  start_date: todayKey(),
+  end_date: dateKey(new Date(Date.now() + 27 * 864e5)),
   weeks: 4,
   meditation_days: 20,
   status: "upcoming",

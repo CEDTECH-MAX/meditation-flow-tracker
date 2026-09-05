@@ -273,7 +273,7 @@ export function skipSunday(date: string) {
   if (!isSunday(date)) return date;
   const d = new Date(date + "T00:00:00");
   d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+  return dateKey(d);
 }
 
 /** Every session date inside a block, inclusive, excluding Sundays. */
@@ -282,7 +282,7 @@ export function blockDates(block: Pick<Block, "start_date" | "end_date">) {
   const cur = new Date(block.start_date + "T00:00:00");
   const end = new Date(block.end_date + "T00:00:00");
   while (cur <= end && out.length < 400) {
-    if (cur.getDay() !== 0) out.push(cur.toISOString().slice(0, 10));
+    if (cur.getDay() !== 0) out.push(dateKey(cur));
     cur.setDate(cur.getDate() + 1);
   }
   return out;
@@ -301,7 +301,7 @@ export function buildCalendar(
   records: AttendanceRecord[],
 ): DayCell[] {
   if (!block) return [];
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayKey();
   const map = new Map<string, AttendanceRecord>();
   for (const r of records) map.set(`${r.session_date}:${r.slot}`, r);
   return blockDates(block).map((date) => ({
@@ -334,4 +334,132 @@ export function classificationLabel(value: Classification | null | undefined) {
 
 export function genderLabel(value: Gender | null | undefined) {
   return GENDERS.find((g) => g.value === value)?.label ?? "—";
+}
+
+/* ------------------------------ institutions ------------------------------ */
+
+export type Institution = "MII" | "MIU";
+
+export const INSTITUTIONS: {
+  value: Institution;
+  short: string;
+  name: string;
+  tagline: string;
+  path: string;
+}[] = [
+  {
+    value: "MII",
+    short: "MII",
+    name: "Maharishi Invincibility Institute",
+    tagline: "Meditation Attendance Management",
+    path: "/mii",
+  },
+  {
+    value: "MIU",
+    short: "MIU",
+    name: "Maharishi Invincibility University",
+    tagline: "Meditation & Class Attendance Management",
+    path: "/miu",
+  },
+];
+
+export function institutionInfo(value: Institution | null | undefined) {
+  return INSTITUTIONS.find((i) => i.value === value) ?? INSTITUTIONS[0]!;
+}
+
+/* --------------------------- class attendance ---------------------------- */
+
+export const CLASS_MODES: { value: ClassMode; label: string }[] = [
+  { value: "physical", label: "Physical" },
+  { value: "online", label: "Online" },
+];
+
+export type ClassMode = "online" | "physical";
+
+export type ClassSession = {
+  id: string;
+  block_id: string;
+  session_date: string;
+  title: string;
+  lecturer: string | null;
+  max_points: number;
+};
+
+export type ClassRecord = {
+  id: string;
+  session_id: string;
+  student_id: string;
+  points: number;
+  mode: ClassMode;
+  comment: string | null;
+};
+
+export type ClassSummary = {
+  sessions: number;
+  marked: number;
+  pointsEarned: number;
+  pointsPossible: number;
+  /** Capped at 100 — class attendance never exceeds full marks. */
+  percentage: number;
+  met: boolean;
+  /** Points still owed to reach the 80% minimum. */
+  pointsOwed: number;
+  percentageOwed: number;
+  online: number;
+  physical: number;
+  status: "met" | "warning" | "risk";
+  statusLabel: string;
+};
+
+/**
+ * Class attendance is scored out of every class session in the block.
+ * The minimum requirement is 80% and the maximum is 100% — attending more
+ * cannot push a student past full marks. Below 80% we report the points
+ * (credits) still owed against the block's rules.
+ */
+export function summariseClass(
+  sessions: Pick<ClassSession, "id" | "max_points">[],
+  records: Pick<ClassRecord, "session_id" | "points" | "mode">[],
+): ClassSummary {
+  const byId = new Map(sessions.map((s) => [s.id, Number(s.max_points ?? MAX_SESSION_POINTS)]));
+  const pointsPossible = round1(
+    sessions.reduce((sum, s) => sum + Number(s.max_points ?? MAX_SESSION_POINTS), 0),
+  );
+
+  let pointsEarned = 0;
+  let marked = 0;
+  let online = 0;
+  let physical = 0;
+
+  for (const r of records) {
+    const cap = byId.get(r.session_id);
+    if (cap === undefined) continue;
+    marked += 1;
+    pointsEarned += Math.min(cap, Number(r.points ?? 0));
+    if (r.mode === "online") online += 1;
+    else physical += 1;
+  }
+
+  pointsEarned = round1(pointsEarned);
+  const raw = pointsPossible > 0 ? (pointsEarned / pointsPossible) * 100 : 0;
+  const percentage = round1(Math.min(100, raw));
+  const required = round1((PASS_MARK / 100) * pointsPossible);
+  const pointsOwed = round1(Math.max(0, required - pointsEarned));
+  const met = percentage >= PASS_MARK;
+  const status = met ? "met" : percentage >= 70 ? "warning" : "risk";
+
+  return {
+    sessions: sessions.length,
+    marked,
+    pointsEarned,
+    pointsPossible,
+    percentage,
+    met,
+    pointsOwed,
+    percentageOwed: round1(Math.max(0, PASS_MARK - percentage)),
+    online,
+    physical,
+    status,
+    statusLabel: met ? "Requirement Met" : "Requirement Not Met",
+  };
 }

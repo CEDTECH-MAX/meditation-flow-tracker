@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge, Button, Card, Field, SectionTitle, Select, Spinner } from "@/components/ui-kit";
 import { useAttendance, useBlocks, useCohorts, useStudents, pickActive } from "@/lib/admin-hooks";
-import { GENDERS, formatDate, summarise, type Gender } from "@/lib/attendance";
+import { GENDERS, formatDate, summarise, todayKey, type Gender } from "@/lib/attendance";
 import { exportRegisterPdf } from "@/lib/exporters";
 import { buildRegisterRows, exportRegisterWorkbook } from "@/lib/register-export";
 
@@ -72,7 +72,7 @@ function AdminReports() {
   const title =
     kind === "below" ? "Students below 80%" : kind === "met" ? "Students meeting 80%" : "Full attendance report";
   const subtitle = block
-    ? `${block.name} · ${formatDate(block.start_date)} → ${formatDate(block.end_date)} · ${block.weeks} week${block.weeks === 1 ? "" : "s"} · ${summarise(block, []).totalSessions} compulsory sessions · generated ${formatDate(new Date().toISOString().slice(0, 10))}`
+    ? `${block.name} · ${formatDate(block.start_date)} → ${formatDate(block.end_date)} · ${block.weeks} week${block.weeks === 1 ? "" : "s"} · ${summarise(block, []).totalSessions} compulsory sessions · generated ${formatDate(todayKey())}`
     : "No block selected";
   const genderLabelText = gender === "male" ? "Boys" : gender === "female" ? "Girls" : "All";
   const filename = `attendance-register-${(block?.name ?? "block").toLowerCase().replace(/\s+/g, "-")}-${gender === "all" ? "" : gender + "-"}${kind}`;

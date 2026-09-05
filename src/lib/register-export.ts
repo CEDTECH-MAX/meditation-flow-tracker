@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { dateKey } from "@/lib/attendance";
 import type { AttendanceRecord, Block } from "@/lib/attendance";
 
 /**
@@ -58,7 +59,7 @@ function weekMonday(startDate: string, weekIndex: number) {
 }
 
 function iso(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return dateKey(d);
 }
 
 function points(record: AttendanceRecord | undefined) {
