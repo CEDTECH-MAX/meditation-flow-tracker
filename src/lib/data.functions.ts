@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { assertAdmin, audit, internalEmail, statusFromPoints, type Ctx } from "./data.helpers";
+import { assertAdmin, audit, internalEmail, myInstitution, statusFromPoints, type Ctx } from "./data.helpers";
 
 /* ---------------------------------- me ---------------------------------- */
 
@@ -18,6 +18,7 @@ export const getMe = createServerFn({ method: "GET" })
       userId: c.userId,
       email: (c.claims?.["email"] as string) ?? null,
       profile: profile ?? null,
+      institution: ((profile as any)?.institution as "MII" | "MIU") ?? "MII",
       isAdmin,
     };
   });
@@ -28,9 +29,11 @@ export const listBlocks = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const c = context as unknown as Ctx;
+    const inst = await myInstitution(c);
     const { data, error } = await c.supabase
       .from("blocks")
       .select("*")
+      .eq("institution", inst)
       .order("start_date", { ascending: false });
     if (error) throw new Error(error.message);
     return data ?? [];
@@ -53,11 +56,16 @@ export const saveBlock = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const c = context as unknown as Ctx;
     await assertAdmin(c);
-    const payload = { ...data, cohort_id: data.cohort_id ?? null };
+    const inst = await myInstitution(c);
+    const payload = { ...data, cohort_id: data.cohort_id ?? null, institution: inst };
     delete (payload as any).id;
 
     if (data.status === "active") {
-      await c.supabase.from("blocks").update({ status: "closed" }).eq("status", "active");
+      await c.supabase
+        .from("blocks")
+        .update({ status: "closed" })
+        .eq("status", "active")
+        .eq("institution", inst);
     }
 
     if (data.id) {
@@ -85,10 +93,12 @@ export const setBlockStatus = createServerFn({ method: "POST" })
     const c = context as unknown as Ctx;
     await assertAdmin(c);
     if (data.status === "active") {
+      const inst = await myInstitution(c);
       await c.supabase
         .from("blocks")
         .update({ status: "closed" })
         .eq("status", "active")
+        .eq("institution", inst)
         .neq("id", data.id);
     }
     const { error } = await c.supabase
@@ -130,9 +140,11 @@ export const listCohorts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const c = context as unknown as Ctx;
+    const inst = await myInstitution(c);
     const { data, error } = await c.supabase
       .from("cohorts")
       .select("*")
+      .eq("institution", inst)
       .order("name", { ascending: true });
     if (error) throw new Error(error.message);
     return data ?? [];
@@ -155,6 +167,7 @@ export const saveCohort = createServerFn({ method: "POST" })
       name: data.name,
       programme: data.programme || null,
       intake_year: data.intake_year ?? null,
+      institution: await myInstitution(c),
     };
     if (data.id) {
       const { error } = await c.supabase.from("cohorts").update(payload).eq("id", data.id);
@@ -221,9 +234,11 @@ export const listStudents = createServerFn({ method: "GET" })
       .select("user_id")
       .eq("role", "admin");
     const adminIds = new Set((adminRows ?? []).map((r: any) => r.user_id));
+    const inst = await myInstitution(c);
     const { data, error } = await c.supabase
       .from("profiles")
       .select("*")
+      .eq("institution", inst)
       .order("full_name", { ascending: true });
     if (error) throw new Error(error.message);
     return (data ?? []).filter((p: any) => !adminIds.has(p.id));
@@ -270,6 +285,7 @@ export const createStudent = createServerFn({ method: "POST" })
       classification: data.classification ?? null,
       gender: data.gender ?? null,
       internal_email: internalEmail(data.student_number),
+      institution: await myInstitution(c),
     });
 
     if (pErr) {
