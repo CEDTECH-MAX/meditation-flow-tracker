@@ -16,7 +16,7 @@ import {
 } from "@/components/ui-kit";
 import { useBlocks, useCohorts } from "@/lib/admin-hooks";
 import { deleteBlock, resetBlockAttendance, saveBlock, setBlockStatus } from "@/lib/data.functions";
-import { blockProgress, formatDate, type Block, type BlockStatus } from "@/lib/attendance";
+import { blockProgress, dateKey, formatDate, todayKey, type Block, type BlockStatus } from "@/lib/attendance";
 
 export const Route = createFileRoute("/_authenticated/admin/blocks")({
   head: () => ({

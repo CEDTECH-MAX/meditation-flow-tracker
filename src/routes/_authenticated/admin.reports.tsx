@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge, Button, Card, Field, SectionTitle, Select, Spinner } from "@/components/ui-kit";
 import { useAttendance, useBlocks, useCohorts, useStudents, pickActive } from "@/lib/admin-hooks";
-import { GENDERS, formatDate, summarise, type Gender } from "@/lib/attendance";
+import { GENDERS, formatDate, summarise, todayKey, type Gender } from "@/lib/attendance";
 import { exportRegisterPdf } from "@/lib/exporters";
 import { buildRegisterRows, exportRegisterWorkbook } from "@/lib/register-export";
 

@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { summarise, type Block } from "./attendance";
+import { summarise, todayKey, type Block } from "./attendance";
 import type { Ctx } from "./data.helpers";
 
 export type AdvisorMessage = {
