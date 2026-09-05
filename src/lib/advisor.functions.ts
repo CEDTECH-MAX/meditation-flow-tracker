@@ -49,7 +49,7 @@ async function studentContext(c: Ctx) {
   }
 
   const s = summarise(block, records);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayKey();
 
   return `Student: ${profile?.full_name ?? "Unknown"} (${profile?.student_number ?? "no number"})
 Cohort: ${(profile as any)?.cohort?.name ?? "unassigned"} · Classification: ${profile?.classification ?? "unknown"} · Gender: ${profile?.gender ?? "unknown"}

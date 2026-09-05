@@ -58,7 +58,7 @@ function weekMonday(startDate: string, weekIndex: number) {
 }
 
 function iso(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return dateKey(d);
 }
 
 function points(record: AttendanceRecord | undefined) {

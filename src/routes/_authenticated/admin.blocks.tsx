@@ -50,8 +50,8 @@ type FormState = {
 
 const empty: FormState = {
   name: "",
-  start_date: new Date().toISOString().slice(0, 10),
-  end_date: new Date(Date.now() + 27 * 864e5).toISOString().slice(0, 10),
+  start_date: todayKey(),
+  end_date: dateKey(new Date(Date.now() + 27 * 864e5)),
   weeks: 4,
   meditation_days: 20,
   status: "upcoming",
