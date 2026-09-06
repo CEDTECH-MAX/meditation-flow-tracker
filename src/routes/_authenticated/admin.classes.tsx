@@ -281,7 +281,7 @@ function AdminClasses() {
                       Edit
                     </Button>
                     <Button
-                      variant="destructive"
+                      variant="danger"
                       onClick={() => removeSession.mutate(session.id)}
                     >
                       Delete
