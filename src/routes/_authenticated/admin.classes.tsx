@@ -373,10 +373,10 @@ function AdminClasses() {
                     <td className="px-4 py-3 font-semibold">{sum.percentage.toFixed(1)}%</td>
                     <td className="px-4 py-3">
                       {sum.met ? (
-                        <Badge tone="success">Requirement met</Badge>
+                        <Badge tone="green">Requirement met</Badge>
                       ) : (
                         <div className="space-y-1">
-                          <Badge tone="danger">Requirement not met</Badge>
+                          <Badge tone="red">Requirement not met</Badge>
                           <span className="block text-xs text-destructive">
                             Owes {sum.pointsOwed.toFixed(1)} points ({sum.percentageOwed.toFixed(1)}%
                             short of 80%)
