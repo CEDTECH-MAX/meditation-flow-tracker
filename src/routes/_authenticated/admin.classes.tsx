@@ -56,7 +56,7 @@ export const Route = createFileRoute("/_authenticated/admin/classes")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: AdminClasses;
+  component: AdminClasses,
 });
 
 type Draft = {
