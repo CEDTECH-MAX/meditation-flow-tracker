@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Menu, X } from "lucide-react";
 import { getMe } from "@/lib/data.functions";
+import { institutionInfo, type Institution } from "@/lib/attendance";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui-kit";
 
@@ -15,7 +16,8 @@ export function useMe() {
 
 const adminNav: { to: string; label: string; exact?: boolean }[] = [
   { to: "/admin", label: "Overview", exact: true },
-  { to: "/admin/attendance", label: "Attendance" },
+  { to: "/admin/attendance", label: "Meditation register" },
+  { to: "/admin/classes", label: "Class register" },
   { to: "/admin/students", label: "Students" },
   { to: "/admin/cohorts", label: "Cohorts" },
   { to: "/admin/blocks", label: "Blocks" },
@@ -24,6 +26,7 @@ const adminNav: { to: string; label: string; exact?: boolean }[] = [
 
 const studentNav: { to: string; label: string; exact?: boolean }[] = [
   { to: "/dashboard", label: "My attendance", exact: true },
+  { to: "/classes", label: "My class attendance" },
   { to: "/advisor", label: "AI Advisor" },
   { to: "/password", label: "Password" },
 ];
@@ -47,11 +50,14 @@ export function AppShell({
     setOpen(false);
   }, [pathname]);
 
+  const info = institutionInfo((me as any)?.institution as Institution | undefined);
+
   async function signOut() {
+    const path = info.path;
     await queryClient.cancelQueries();
     queryClient.clear();
     await supabase.auth.signOut();
-    navigate({ to: "/", replace: true });
+    navigate({ to: path, replace: true });
   }
 
   return (
@@ -70,12 +76,12 @@ export function AppShell({
             </button>
             <Link to={admin ? "/admin" : "/dashboard"} className="flex items-center gap-3">
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-sm font-bold text-primary-foreground">
-                MI
+                {info.short}
               </span>
               <span className="leading-tight">
-                <span className="block text-sm font-semibold">Maharishi Institute</span>
+                <span className="block text-sm font-semibold">{info.name}</span>
                 <span className="block text-[11px] text-muted-foreground">
-                  Meditation Attendance{admin ? " · Admin" : ""}
+                  {info.tagline}{admin ? " · Admin" : ""}
                 </span>
               </span>
             </Link>
@@ -119,7 +125,7 @@ export function AppShell({
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:py-8">{children}</main>
       <footer className="mx-auto max-w-6xl px-4 pb-8 pt-2 text-center text-xs text-muted-foreground">
-        Minimum requirement: 80% attendance per meditation block.
+        Minimum requirement: 80% attendance per block · {info.name}
       </footer>
     </div>
   );
