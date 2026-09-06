@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as MiiRouteImport } from './routes/mii'
+import { Route as MiuRouteImport } from './routes/miu'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAdvisorRouteImport } from './routes/_authenticated/advisor'
@@ -37,6 +39,16 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MiiRoute = MiiRouteImport.update({
+  id: '/mii',
+  path: '/mii',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MiuRoute = MiuRouteImport.update({
+  id: '/miu',
+  path: '/miu',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -109,6 +121,8 @@ const AuthenticatedAdminStudentsRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/mii': typeof MiiRoute
+  '/miu': typeof MiuRoute
   '/reset-password': typeof ResetPasswordRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/advisor': typeof AuthenticatedAdvisorRoute
@@ -125,6 +139,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/mii': typeof MiiRoute
+  '/miu': typeof MiuRoute
   '/reset-password': typeof ResetPasswordRoute
   '/advisor': typeof AuthenticatedAdvisorRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -142,6 +158,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
+  '/mii': typeof MiiRoute
+  '/miu': typeof MiuRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/advisor': typeof AuthenticatedAdvisorRoute
@@ -160,6 +178,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/forgot-password'
+    | '/mii'
+    | '/miu'
     | '/reset-password'
     | '/admin'
     | '/advisor'
@@ -176,6 +196,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/forgot-password'
+    | '/mii'
+    | '/miu'
     | '/reset-password'
     | '/advisor'
     | '/dashboard'
@@ -192,6 +214,8 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/forgot-password'
+    | '/mii'
+    | '/miu'
     | '/reset-password'
     | '/_authenticated/admin'
     | '/_authenticated/advisor'
@@ -210,6 +234,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   ForgotPasswordRoute: typeof ForgotPasswordRoute
+  MiiRoute: typeof MiiRoute
+  MiuRoute: typeof MiuRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
 }
 
@@ -234,6 +260,20 @@ declare module '@tanstack/react-router' {
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mii': {
+      id: '/mii'
+      path: '/mii'
+      fullPath: '/mii'
+      preLoaderRoute: typeof MiiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/miu': {
+      id: '/miu'
+      path: '/miu'
+      fullPath: '/miu'
+      preLoaderRoute: typeof MiuRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -367,6 +407,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   ForgotPasswordRoute: ForgotPasswordRoute,
+  MiiRoute: MiiRoute,
+  MiuRoute: MiuRoute,
   ResetPasswordRoute: ResetPasswordRoute,
 }
 export const routeTree = rootRouteImport
