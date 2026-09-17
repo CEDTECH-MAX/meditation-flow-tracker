@@ -88,6 +88,55 @@ async function touchPresence(
   );
 }
 
+/** Today's date in the institutions' timezone (South Africa). */
+function localToday(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Johannesburg",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+/**
+ * Past days are locked for markers. An administrator may unlock a specific day
+ * for a marker (or their whole cohort); those grants live in marking_unlocks.
+ */
+async function unlockedDates(scope: MarkerScope, blockId: string): Promise<string[]> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const nowIso = new Date().toISOString();
+  const { data } = await supabaseAdmin
+    .from("marking_unlocks")
+    .select("session_date, marker_id, cohort_id, expires_at")
+    .eq("block_id", blockId);
+  return [
+    ...new Set(
+      (data ?? [])
+        .filter((u: any) => !u.expires_at || u.expires_at > nowIso)
+        .filter(
+          (u: any) =>
+            u.marker_id === scope.markerId ||
+            (u.cohort_id && scope.cohortIds.includes(u.cohort_id)) ||
+            (!u.marker_id && !u.cohort_id),
+        )
+        .map((u: any) => u.session_date as string),
+    ),
+  ];
+}
+
+/** Which session dates this marker may still write to, for one block. */
+export const getMarkerDayAccess = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ block_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const c = context as unknown as Ctx;
+    const scope = await markerScope(c);
+    const blocks = await scopedBlocks(scope);
+    if (!blocks.some((b: any) => b.id === data.block_id))
+      throw new Error("Forbidden: this block is outside your assigned cohort");
+    return { today: localToday(), unlocked: await unlockedDates(scope, data.block_id) };
+  });
+
 /* ------------------------------ marker portal ----------------------------- */
 
 export const getMarkerScope = createServerFn({ method: "GET" })
@@ -192,6 +241,23 @@ export const markAsMarker = createServerFn({ method: "POST" })
       throw new Error("Forbidden: this block is outside your assigned cohort");
     }
     if ((block as any).status === "closed") throw new Error("This block is closed");
+
+    const today = localToday();
+    if (data.session_date !== today) {
+      const open = await unlockedDates(scope, data.block_id);
+      if (!open.includes(data.session_date)) {
+        await audit(c, "denied", "attendance", data.student_id, {
+          reason: data.session_date > today ? "future day" : "day locked",
+          block_id: data.block_id,
+          session_date: data.session_date,
+        });
+        throw new Error(
+          data.session_date > today
+            ? "You can only mark today's sessions."
+            : "That day is closed. Ask your administrator to unlock it before marking again.",
+        );
+      }
+    }
 
     const { data: allowed } = await c.supabase.rpc("marker_can_mark_student", {
       _marker_id: c.userId,
@@ -560,4 +626,80 @@ export const markerProgress = createServerFn({ method: "POST" })
         last_marked_at: (lastMark as string | undefined) ?? null,
       };
     });
+  });
+
+/* --------------------------- admin: day unlocking -------------------------- */
+
+export const listMarkingUnlocks = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ block_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const c = context as unknown as Ctx;
+    await assertAdmin(c);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin
+      .from("marking_unlocks")
+      .select("id, session_date, marker_id, cohort_id, expires_at, note, created_at")
+      .eq("block_id", data.block_id)
+      .order("session_date", { ascending: false });
+    if (error) throw new Error(error.message);
+
+    const markerIds = [...new Set((rows ?? []).map((r: any) => r.marker_id).filter(Boolean))];
+    const names = new Map<string, string>();
+    if (markerIds.length > 0) {
+      const { data: profiles } = await supabaseAdmin
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", markerIds as string[]);
+      for (const p of profiles ?? []) names.set((p as any).id, (p as any).full_name);
+    }
+    return (rows ?? []).map((r: any) => ({
+      ...r,
+      marker_name: r.marker_id ? (names.get(r.marker_id) ?? "Marker") : null,
+      expired: Boolean(r.expires_at && r.expires_at < new Date().toISOString()),
+    }));
+  });
+
+export const grantMarkingUnlock = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        block_id: z.string().uuid(),
+        session_date: z.string().min(10).max(10),
+        marker_id: z.string().uuid().nullable().optional(),
+        hours: z.number().int().min(1).max(168).default(24),
+        note: z.string().trim().max(300).or(z.literal("")).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const c = context as unknown as Ctx;
+    await assertAdmin(c);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const expires = new Date(Date.now() + data.hours * 3600_000).toISOString();
+    const { error } = await supabaseAdmin.from("marking_unlocks").insert({
+      block_id: data.block_id,
+      session_date: data.session_date,
+      marker_id: data.marker_id ?? null,
+      expires_at: expires,
+      note: data.note || null,
+      granted_by: c.userId,
+    });
+    if (error) throw new Error(error.message);
+    await audit(c, "unlock", "attendance", data.block_id, data as any);
+    return { ok: true, expires_at: expires };
+  });
+
+export const revokeMarkingUnlock = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const c = context as unknown as Ctx;
+    await assertAdmin(c);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("marking_unlocks").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    await audit(c, "lock", "attendance", data.id, {});
+    return { ok: true };
   });

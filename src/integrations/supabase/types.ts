@@ -532,6 +532,60 @@ export type Database = {
           },
         ]
       }
+      marking_unlocks: {
+        Row: {
+          block_id: string
+          cohort_id: string | null
+          created_at: string
+          expires_at: string | null
+          granted_by: string | null
+          id: string
+          marker_id: string | null
+          note: string | null
+          session_date: string
+          updated_at: string
+        }
+        Insert: {
+          block_id: string
+          cohort_id?: string | null
+          created_at?: string
+          expires_at?: string | null
+          granted_by?: string | null
+          id?: string
+          marker_id?: string | null
+          note?: string | null
+          session_date: string
+          updated_at?: string
+        }
+        Update: {
+          block_id?: string
+          cohort_id?: string | null
+          created_at?: string
+          expires_at?: string | null
+          granted_by?: string | null
+          id?: string
+          marker_id?: string | null
+          note?: string | null
+          session_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marking_unlocks_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marking_unlocks_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           classification:

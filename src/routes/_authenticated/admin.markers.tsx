@@ -19,9 +19,12 @@ import { pickActive, useBlocks } from "@/lib/admin-hooks";
 import {
   createMarker,
   deleteMarker,
+  grantMarkingUnlock,
   listAllCohorts,
   listMarkers,
+  listMarkingUnlocks,
   markerProgress,
+  revokeMarkingUnlock,
   setMarkerActive,
   updateMarker,
 } from "@/lib/marker.functions";
@@ -126,6 +129,56 @@ function AdminMarkers() {
     qc.invalidateQueries({ queryKey: ["markers"] });
     qc.invalidateQueries({ queryKey: ["marker-progress"] });
   };
+
+  /* ------------------------- unlocking a closed day ------------------------ */
+  type UnlockRow = {
+    id: string;
+    session_date: string;
+    marker_id: string | null;
+    marker_name: string | null;
+    expires_at: string | null;
+    note: string | null;
+    expired: boolean;
+  };
+  const unlocksFn = useServerFn(listMarkingUnlocks);
+  const grantFn = useServerFn(grantMarkingUnlock);
+  const revokeFn = useServerFn(revokeMarkingUnlock);
+  const [unlockMarker, setUnlockMarker] = useState("");
+  const [unlockHours, setUnlockHours] = useState("24");
+
+  const { data: unlocks } = useQuery<UnlockRow[]>({
+    queryKey: ["marking-unlocks", block?.id],
+    enabled: Boolean(block?.id),
+    queryFn: () =>
+      unlocksFn({ data: { block_id: block!.id } }) as unknown as Promise<UnlockRow[]>,
+  });
+  const refreshUnlocks = () => qc.invalidateQueries({ queryKey: ["marking-unlocks"] });
+
+  const grant = useMutation({
+    mutationFn: () =>
+      grantFn({
+        data: {
+          block_id: block!.id,
+          session_date: date,
+          marker_id: unlockMarker || null,
+          hours: Number(unlockHours),
+        },
+      }),
+    onSuccess: () => {
+      refreshUnlocks();
+      toast.success("Day unlocked");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const revoke = useMutation({
+    mutationFn: (id: string) => revokeFn({ data: { id } }),
+    onSuccess: () => {
+      refreshUnlocks();
+      toast.success("Day locked again");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const save = useMutation({
     mutationFn: async () => {
@@ -248,6 +301,77 @@ function AdminMarkers() {
           <StatCard label="Marked" value={totalMarked} tone="green" />
           <StatCard label="Outstanding" value={Math.max(0, totalAssigned - totalMarked)} tone="red" />
         </div>
+      </Card>
+
+      <Card className="mb-4">
+        <SectionTitle
+          title="Locked days"
+          subtitle="Markers can only mark the current day. Once the day ends it locks automatically — unlock a past day here when a marker needs to finish it."
+        />
+        <div className="grid gap-3 sm:grid-cols-4">
+          <Field label="Day to unlock">
+            <Input value={formatDate(date)} readOnly />
+          </Field>
+          <Field label="Marker">
+            <Select value={unlockMarker} onChange={(e) => setUnlockMarker(e.target.value)}>
+              <option value="">All markers on this block</option>
+              {(markers ?? []).map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.full_name} · {m.cohort_names.join(", ") || "—"}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Unlock for">
+            <Select value={unlockHours} onChange={(e) => setUnlockHours(e.target.value)}>
+              <option value="2">2 hours</option>
+              <option value="24">24 hours</option>
+              <option value="72">3 days</option>
+              <option value="168">1 week</option>
+            </Select>
+          </Field>
+          <div className="flex items-end">
+            <Button
+              className="w-full"
+              disabled={!block || grant.isPending}
+              onClick={() => grant.mutate()}
+            >
+              Unlock this day
+            </Button>
+          </div>
+        </div>
+
+        {(unlocks ?? []).length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">
+            No day is unlocked. Markers can only work on today's sessions.
+          </p>
+        ) : (
+          <ul className="mt-4 space-y-2">
+            {(unlocks ?? []).map((u) => (
+              <li
+                key={u.id}
+                className="glass-muted flex flex-wrap items-center justify-between gap-2 rounded-2xl px-3 py-2 text-sm"
+              >
+                <span>
+                  <strong>{formatDate(u.session_date)}</strong> ·{" "}
+                  {u.marker_name ?? "All markers"}
+                  {u.expires_at ? (
+                    <span className="text-xs text-muted-foreground">
+                      {" "}
+                      · {u.expired ? "expired" : `until ${new Date(u.expires_at).toLocaleString()}`}
+                    </span>
+                  ) : null}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Badge tone={u.expired ? "red" : "green"}>{u.expired ? "Locked" : "Open"}</Badge>
+                  <Button size="sm" variant="outline" onClick={() => revoke.mutate(u.id)}>
+                    Lock again
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
 
       <Card>
