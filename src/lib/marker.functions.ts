@@ -52,14 +52,18 @@ async function markerScope(c: Ctx): Promise<MarkerScope> {
   };
 }
 
-/** Blocks the marker is allowed to work in: own institution, own cohort(s). */
+/**
+ * Blocks the marker is allowed to work in: own institution, and either one of
+ * their assigned cohorts or an institution-wide block (no cohort attached).
+ */
 async function scopedBlocks(scope: MarkerScope) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const cohortList = `(${scope.cohortIds.join(",")})`;
   const { data } = await supabaseAdmin
     .from("blocks")
     .select("*")
     .eq("institution", scope.institution)
-    .in("cohort_id", scope.cohortIds)
+    .or(`cohort_id.is.null,cohort_id.in.${cohortList}`)
     .order("start_date", { ascending: false });
   return data ?? [];
 }
