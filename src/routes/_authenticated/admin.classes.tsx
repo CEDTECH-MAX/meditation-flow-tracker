@@ -31,11 +31,15 @@ import {
   CLASS_MODES,
   formatDate,
   summariseClass,
+  summariseClassAbsence,
   todayKey,
+  weekEnd,
+  weekStart,
   type ClassMode,
   type ClassRecord,
   type ClassSession,
 } from "@/lib/attendance";
+
 
 export const Route = createFileRoute("/_authenticated/admin/classes")({
   head: () => ({
@@ -99,7 +103,7 @@ function AdminClasses() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [search, setSearch] = useState("");
   const [cohortFilter, setCohortFilter] = useState("all");
-  const [tab, setTab] = useState<"mark" | "results">("mark");
+  const [tab, setTab] = useState<"mark" | "results" | "absence">("mark");
 
   const saveFn = useServerFn(saveClassSession);
   const deleteFn = useServerFn(deleteClassSession);
@@ -177,6 +181,19 @@ function AdminClasses() {
     return map;
   }, [records]);
 
+  /** Every week that already has a class, newest last — the summary columns. */
+  const absenceWeeks = useMemo(() => {
+    const today = todayKey();
+    const starts = new Set<string>();
+    for (const s of sessions ?? []) {
+      if (s.session_date <= today) starts.add(weekStart(s.session_date));
+    }
+    return [...starts]
+      .sort((a, b) => a.localeCompare(b))
+      .map((start) => ({ start, end: weekEnd(start) }));
+  }, [sessions]);
+
+
   const currentRecord = (studentId: string) =>
     (records ?? []).find((r) => r.session_id === session?.id && r.student_id === studentId) ?? null;
 
@@ -234,7 +251,14 @@ function AdminClasses() {
         >
           Block results
         </Button>
+        <Button
+          variant={tab === "absence" ? "primary" : "outline"}
+          onClick={() => setTab("absence")}
+        >
+          Absenteeism summary
+        </Button>
       </div>
+
 
       {tab === "mark" ? (
         <>
@@ -338,7 +362,8 @@ function AdminClasses() {
             </Card>
           )}
         </>
-      ) : (
+      ) : tab === "results" ? (
+
         <Card className="overflow-x-auto p-0">
           <table className="w-full min-w-[720px] text-sm">
             <thead>
@@ -400,7 +425,70 @@ function AdminClasses() {
             Class attendance is scored out of every class in the block. Minimum 80%, maximum 100%.
           </p>
         </Card>
+      ) : (
+        <Card className="overflow-x-auto p-0">
+          <table className="w-full min-w-[720px] text-sm">
+            <thead>
+              <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+                <th className="px-4 py-3">Student</th>
+                {absenceWeeks.map((w) => (
+                  <th key={w.start} className="px-4 py-3">
+                    {formatDate(w.start)} → {formatDate(w.end)}
+                  </th>
+                ))}
+                <th className="px-4 py-3">Total absences</th>
+              </tr>
+            </thead>
+            <tbody>
+              {roster.map((s) => {
+                const abs = summariseClassAbsence(sessions ?? [], byStudent.get(s.id) ?? []);
+                const map = new Map(abs.weeks.map((w) => [w.start, w]));
+                return (
+                  <tr key={s.id} className="border-b border-border/40 last:border-0">
+                    <td className="px-4 py-3">
+                      <span className="font-medium">{s.full_name}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {s.student_number ?? "—"}
+                      </span>
+                    </td>
+                    {absenceWeeks.map((w) => {
+                      const week = map.get(w.start);
+                      const count = week?.absent ?? 0;
+                      return (
+                        <td key={w.start} className="px-4 py-3">
+                          <span className={count > 0 ? "font-semibold text-destructive" : ""}>
+                            {count}
+                          </span>
+                          <span className="block text-xs text-muted-foreground">
+                            of {week?.sessions ?? 0} classes
+                          </span>
+                        </td>
+                      );
+                    })}
+                    <td className="px-4 py-3">
+                      <Badge tone={abs.totalAbsent === 0 ? "green" : abs.totalAbsent > 2 ? "red" : "amber"}>
+                        {abs.totalAbsent} day{abs.totalAbsent === 1 ? "" : "s"}
+                      </Badge>
+                    </td>
+                  </tr>
+                );
+              })}
+              {roster.length === 0 || absenceWeeks.length === 0 ? (
+                <tr>
+                  <td colSpan={absenceWeeks.length + 2} className="px-4 py-6 text-center text-muted-foreground">
+                    No classes have taken place yet for this block.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+          <p className="px-4 py-3 text-xs text-muted-foreground">
+            A class that has already taken place and is unmarked, or marked with zero points, counts
+            as one absence for that week.
+          </p>
+        </Card>
       )}
+
 
       <Modal
         open={Boolean(draft)}

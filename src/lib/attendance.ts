@@ -21,6 +21,16 @@ export const POINT_OPTIONS: { value: number; label: string; hint: string }[] = [
   { value: 0, label: "0", hint: "Did not attend" },
 ];
 
+/**
+ * Meditation is marked as Present or Absent only. Present earns the full
+ * session value (2.0) so every existing percentage keeps working unchanged.
+ */
+export const ATTENDANCE_OPTIONS: { value: number; label: string; hint: string }[] = [
+  { value: 2, label: "Present", hint: "Attended the session" },
+  { value: 0, label: "Absent", hint: "Did not attend" },
+];
+
+
 export function pointsLabel(points: number | null | undefined) {
   if (points === null || points === undefined) return "—";
   return points.toFixed(1);
@@ -461,5 +471,78 @@ export function summariseClass(
     physical,
     status,
     statusLabel: met ? "Requirement Met" : "Requirement Not Met",
+  };
+}
+
+/* ----------------------- class absenteeism (MIU only) --------------------- */
+
+/** Monday of the week containing this date, as a YYYY-MM-DD key. */
+export function weekStart(date: string) {
+  const d = new Date(date + "T00:00:00");
+  const dow = d.getDay();
+  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+  return dateKey(d);
+}
+
+export function weekEnd(startKey: string) {
+  const d = new Date(startKey + "T00:00:00");
+  d.setDate(d.getDate() + 6);
+  return dateKey(d);
+}
+
+export type AbsenceWeek = {
+  start: string;
+  end: string;
+  label: string;
+  sessions: number;
+  absent: number;
+};
+
+export type ClassAbsenceSummary = {
+  weeks: AbsenceWeek[];
+  totalAbsent: number;
+  totalSessions: number;
+};
+
+/**
+ * Counts class absences per week. A class in the past with no mark, or marked
+ * with zero points, counts as one absence. Future classes are ignored.
+ */
+export function summariseClassAbsence(
+  sessions: Pick<ClassSession, "id" | "session_date">[],
+  records: Pick<ClassRecord, "session_id" | "points">[],
+  today = todayKey(),
+): ClassAbsenceSummary {
+  const byId = new Map(records.map((r) => [r.session_id, Number(r.points ?? 0)]));
+  const buckets = new Map<string, AbsenceWeek>();
+  let totalAbsent = 0;
+  let totalSessions = 0;
+
+  for (const s of [...sessions].sort((a, b) => a.session_date.localeCompare(b.session_date))) {
+    if (s.session_date > today) continue;
+    const start = weekStart(s.session_date);
+    const week =
+      buckets.get(start) ??
+      {
+        start,
+        end: weekEnd(start),
+        label: `${formatDate(start)} → ${formatDate(weekEnd(start))}`,
+        sessions: 0,
+        absent: 0,
+      };
+    week.sessions += 1;
+    totalSessions += 1;
+    const points = byId.get(s.id);
+    if (points === undefined || points <= 0) {
+      week.absent += 1;
+      totalAbsent += 1;
+    }
+    buckets.set(start, week);
+  }
+
+  return {
+    weeks: [...buckets.values()].sort((a, b) => a.start.localeCompare(b.start)),
+    totalAbsent,
+    totalSessions,
   };
 }

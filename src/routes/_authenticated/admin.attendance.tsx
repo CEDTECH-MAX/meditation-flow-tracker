@@ -20,7 +20,7 @@ import type { AbsenceReason, AttendanceRecord, SessionSlot } from "@/lib/attenda
 import {
   formatDate,
   blockDates,
-  POINT_OPTIONS,
+  ATTENDANCE_OPTIONS,
   REASONS,
   reasonLabel,
   sessionKind,
@@ -224,7 +224,8 @@ function AdminAttendance() {
     <>
       <SectionTitle
         title="Mark attendance"
-        subtitle="Each session is scored out of 2.0 points · drag a score down to fill the rest of the list"
+        subtitle="Mark each session present or absent · drag a mark down to fill the rest of the list"
+
         action={
           block ? (
             <Badge tone={block.status === "active" ? "green" : block.status === "closed" ? "red" : "gold"}>
@@ -298,7 +299,7 @@ function AdminAttendance() {
                     variant="soft"
                     onClick={() => setBulk({ slot, points: 2 })}
                   >
-                    All {slot} 2.0
+                    All {slot} present
                   </Button>
                 ))}
                 {(["morning", "afternoon"] as SessionSlot[]).map((slot) => (
@@ -308,25 +309,26 @@ function AdminAttendance() {
                     variant="outline"
                     onClick={() => setBulk({ slot, points: 0 })}
                   >
-                    All {slot} 0
+                    All {slot} absent
                   </Button>
                 ))}
               </div>
             )}
 
             <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground">
-              {POINT_OPTIONS.map((o) => (
+              {ATTENDANCE_OPTIONS.map((o) => (
                 <span key={o.value} className="glass-muted rounded-full px-3 py-1">
                   <strong className="text-foreground">{o.label}</strong> · {o.hint}
                 </span>
               ))}
             </div>
+
           </Card>
 
           <Card>
             <SectionTitle
               title={formatDate(date)}
-              subtitle={`${rows.length} student${rows.length === 1 ? "" : "s"} · a full day is 4.0 points · Mon–Fri mornings and Mon–Thu afternoons are compulsory; Friday afternoon and Saturday are optional bonus points`}
+              subtitle={`${rows.length} student${rows.length === 1 ? "" : "s"} · Mon–Fri mornings and Mon–Thu afternoons are compulsory; Friday afternoon and Saturday are optional bonus sessions`}
             />
             {la ? (
               <Spinner label="Loading attendance" />
@@ -398,12 +400,13 @@ function AdminAttendance() {
                                   }}
                                 >
                                   <option value="">—</option>
-                                  {POINT_OPTIONS.map((o) => (
+                                  {ATTENDANCE_OPTIONS.map((o) => (
                                     <option key={o.value} value={o.value}>
                                       {o.label}
                                     </option>
                                   ))}
                                 </Select>
+
                                 {value !== null && !locked ? (
                                   <button
                                     type="button"
@@ -484,10 +487,11 @@ function AdminAttendance() {
             }}
           >
             <p className="text-sm text-muted-foreground">
-              Scoring the {reasonFor.slot} session on {formatDate(date)} as{" "}
-              <strong>{reasonFor.points.toFixed(1)} points</strong>. Sick leave and approved leave are
-              excluded from the percentage.
+              Marking the {reasonFor.slot} session on {formatDate(date)} as{" "}
+              <strong>absent</strong>. Sick leave and approved leave are excluded from the
+              percentage.
             </p>
+
             <Field label="Reason">
               <Select
                 value={reasonFor.absence_reason}
