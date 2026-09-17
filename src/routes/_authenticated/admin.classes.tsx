@@ -333,7 +333,7 @@ function AdminClasses() {
                 <thead>
                   <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                     <th className="px-4 py-3">Student</th>
-                    <th className="px-4 py-3">Points</th>
+                    <th className="px-4 py-3">Attendance</th>
                     <th className="px-4 py-3">Attendance type</th>
                     <th className="px-4 py-3">Behaviour comment</th>
                   </tr>
@@ -370,7 +370,7 @@ function AdminClasses() {
               <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                 <th className="px-4 py-3">Student</th>
                 <th className="px-4 py-3">Classes marked</th>
-                <th className="px-4 py-3">Points</th>
+                <th className="px-4 py-3">Attendance points</th>
                 <th className="px-4 py-3">Class attendance</th>
                 <th className="px-4 py-3">Outcome</th>
               </tr>
@@ -569,7 +569,7 @@ function MarkRow({
   const [mode, setMode] = useState<ClassMode>(record?.mode ?? "physical");
   const [comment, setComment] = useState(record?.comment ?? "");
   const points = record ? Number(record.points) : null;
-  const choices = pointChoices(Number(session.max_points));
+  const full = Number(session.max_points);
 
   return (
     <tr className="border-b border-border/40 last:border-0">
