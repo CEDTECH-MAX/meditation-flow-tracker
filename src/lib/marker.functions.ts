@@ -421,13 +421,10 @@ export const updateMarker = createServerFn({ method: "POST" })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
 
-    await supabaseAdmin.from("marker_assignments").update({ is_active: false }).eq("marker_id", data.id);
+    await supabaseAdmin.from("marker_assignments").delete().eq("marker_id", data.id);
     await supabaseAdmin
       .from("marker_assignments")
-      .upsert(
-        { marker_id: data.id, cohort_id: data.cohort_id, is_active: true },
-        { onConflict: "marker_id,cohort_id" },
-      );
+      .insert({ marker_id: data.id, cohort_id: data.cohort_id, is_active: true });
 
     if (data.password) {
       const { error: aErr } = await supabaseAdmin.auth.admin.updateUserById(data.id, {
