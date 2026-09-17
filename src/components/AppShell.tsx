@@ -42,9 +42,11 @@ const markerNav: { to: string; label: string; exact?: boolean }[] = [
 export function AppShell({
   children,
   admin = false,
+  marker = false,
 }: {
   children: React.ReactNode;
   admin?: boolean;
+  marker?: boolean;
 }) {
   const { data: me } = useMe();
   const navigate = useNavigate();
@@ -52,9 +54,10 @@ export function AppShell({
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isUniversity = ((me as any)?.institution as Institution | undefined) === "MIU";
-  const items = (admin ? adminNav : studentNav).filter(
+  const items = (marker ? markerNav : admin ? adminNav : studentNav).filter(
     (item) => isUniversity || (item.to !== "/admin/classes" && item.to !== "/classes"),
   );
+
 
   useEffect(() => {
     setOpen(false);

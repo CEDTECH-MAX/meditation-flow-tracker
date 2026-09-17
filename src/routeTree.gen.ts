@@ -27,6 +27,7 @@ import { Route as AuthenticatedAdminAttendanceRouteImport } from './routes/_auth
 import { Route as AuthenticatedAdminBlocksRouteImport } from './routes/_authenticated/admin.blocks'
 import { Route as AuthenticatedAdminClassesRouteImport } from './routes/_authenticated/admin.classes'
 import { Route as AuthenticatedAdminCohortsRouteImport } from './routes/_authenticated/admin.cohorts'
+import { Route as AuthenticatedAdminMarkersRouteImport } from './routes/_authenticated/admin.markers'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin.reports'
 import { Route as AuthenticatedAdminStudentsRouteImport } from './routes/_authenticated/admin.students'
 import { Route as AuthenticatedMarkerIndexRouteImport } from './routes/_authenticated/marker.index'
@@ -125,6 +126,12 @@ const AuthenticatedAdminCohortsRoute =
     path: '/cohorts',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminMarkersRoute =
+  AuthenticatedAdminMarkersRouteImport.update({
+    id: '/markers',
+    path: '/markers',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminReportsRoute =
   AuthenticatedAdminReportsRouteImport.update({
     id: '/reports',
@@ -167,6 +174,7 @@ export interface FileRoutesByFullPath {
   '/admin/blocks': typeof AuthenticatedAdminBlocksRoute
   '/admin/classes': typeof AuthenticatedAdminClassesRoute
   '/admin/cohorts': typeof AuthenticatedAdminCohortsRoute
+  '/admin/markers': typeof AuthenticatedAdminMarkersRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/marker/password': typeof AuthenticatedMarkerPasswordRoute
@@ -188,6 +196,7 @@ export interface FileRoutesByTo {
   '/admin/blocks': typeof AuthenticatedAdminBlocksRoute
   '/admin/classes': typeof AuthenticatedAdminClassesRoute
   '/admin/cohorts': typeof AuthenticatedAdminCohortsRoute
+  '/admin/markers': typeof AuthenticatedAdminMarkersRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/marker/password': typeof AuthenticatedMarkerPasswordRoute
@@ -213,6 +222,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/blocks': typeof AuthenticatedAdminBlocksRoute
   '/_authenticated/admin/classes': typeof AuthenticatedAdminClassesRoute
   '/_authenticated/admin/cohorts': typeof AuthenticatedAdminCohortsRoute
+  '/_authenticated/admin/markers': typeof AuthenticatedAdminMarkersRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/_authenticated/marker/password': typeof AuthenticatedMarkerPasswordRoute
@@ -238,6 +248,7 @@ export interface FileRouteTypes {
     | '/admin/blocks'
     | '/admin/classes'
     | '/admin/cohorts'
+    | '/admin/markers'
     | '/admin/reports'
     | '/admin/students'
     | '/marker/password'
@@ -259,6 +270,7 @@ export interface FileRouteTypes {
     | '/admin/blocks'
     | '/admin/classes'
     | '/admin/cohorts'
+    | '/admin/markers'
     | '/admin/reports'
     | '/admin/students'
     | '/marker/password'
@@ -283,6 +295,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/blocks'
     | '/_authenticated/admin/classes'
     | '/_authenticated/admin/cohorts'
+    | '/_authenticated/admin/markers'
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/students'
     | '/_authenticated/marker/password'
@@ -428,6 +441,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminCohortsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/markers': {
+      id: '/_authenticated/admin/markers'
+      path: '/markers'
+      fullPath: '/admin/markers'
+      preLoaderRoute: typeof AuthenticatedAdminMarkersRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/reports': {
       id: '/_authenticated/admin/reports'
       path: '/reports'
@@ -464,6 +484,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminBlocksRoute: typeof AuthenticatedAdminBlocksRoute
   AuthenticatedAdminClassesRoute: typeof AuthenticatedAdminClassesRoute
   AuthenticatedAdminCohortsRoute: typeof AuthenticatedAdminCohortsRoute
+  AuthenticatedAdminMarkersRoute: typeof AuthenticatedAdminMarkersRoute
   AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
   AuthenticatedAdminStudentsRoute: typeof AuthenticatedAdminStudentsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
@@ -474,6 +495,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminBlocksRoute: AuthenticatedAdminBlocksRoute,
   AuthenticatedAdminClassesRoute: AuthenticatedAdminClassesRoute,
   AuthenticatedAdminCohortsRoute: AuthenticatedAdminCohortsRoute,
+  AuthenticatedAdminMarkersRoute: AuthenticatedAdminMarkersRoute,
   AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
   AuthenticatedAdminStudentsRoute: AuthenticatedAdminStudentsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
