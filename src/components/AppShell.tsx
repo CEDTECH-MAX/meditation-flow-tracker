@@ -13,13 +13,24 @@ export function useMe() {
   const fn = useServerFn(getMe);
   return useQuery({
     queryKey: ["me"],
-    queryFn: () => fn(),
+    queryFn: async () => {
+      // Wait for the stored session before asking the server who we are — the
+      // token can still be loading right after sign-in, and calling without it
+      // fails with "No authorization header provided".
+      let session = (await supabase.auth.getSession()).data.session;
+      for (let attempt = 0; !session && attempt < 5; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        session = (await supabase.auth.getSession()).data.session;
+      }
+      if (!session) return null;
+      return fn();
+    },
     staleTime: 60_000,
-    // The sign-in token can still be loading on the very first request.
-    retry: 2,
+    retry: 1,
     retryDelay: 400,
   });
 }
+
 
 
 const adminNav: { to: string; label: string; exact?: boolean }[] = [
