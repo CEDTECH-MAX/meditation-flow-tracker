@@ -340,6 +340,35 @@ function AdminDirectory() {
               <tbody>
                 {rows.map((p: any) => (
                   <tr key={p.id} className="border-t border-border/50">
+                    <td className="py-2">
+                      <div className="flex items-center gap-2">
+                        <PersonPhoto path={p.photo_url} name={p.full_name} size={44} />
+                        <div className="flex flex-col text-xs">
+                          <label className="cursor-pointer text-muted-foreground hover:underline">
+                            {busyPhoto === p.id ? "Saving…" : p.photo_url ? "Change" : "Add photo"}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                e.target.value = "";
+                                if (file) void attachPhoto(p.id, file);
+                              }}
+                            />
+                          </label>
+                          {p.photo_url ? (
+                            <button
+                              type="button"
+                              className="text-left text-destructive hover:underline"
+                              onClick={() => void clearPhoto(p.id)}
+                            >
+                              Remove
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    </td>
                     <td className="py-2 font-medium">{p.full_name}</td>
                     <td className="py-2 text-muted-foreground">{p.email}</td>
                     <td className="py-2">{p.department?.name ?? "—"}</td>
