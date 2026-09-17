@@ -2,10 +2,21 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge, Button, Card, Field, SectionTitle, Select, Spinner } from "@/components/ui-kit";
-import { useAttendance, useBlocks, useCohorts, useStudents, pickActive } from "@/lib/admin-hooks";
+import { useMe } from "@/components/AppShell";
+import {
+  useAttendance,
+  useBlocks,
+  useClassAttendance,
+  useClassSessions,
+  useCohorts,
+  useStudents,
+  pickActive,
+} from "@/lib/admin-hooks";
 import { GENDERS, formatDate, summarise, todayKey, type Gender } from "@/lib/attendance";
 import { exportRegisterPdf } from "@/lib/exporters";
+import { exportMiuRegisterWorkbook } from "@/lib/miu-register-export";
 import { buildRegisterRows, exportRegisterWorkbook } from "@/lib/register-export";
+
 
 
 export const Route = createFileRoute("/_authenticated/admin/reports")({
@@ -37,9 +48,14 @@ function AdminReports() {
   const [blockId, setBlockId] = useState<string | null>(null);
   const block = blocks?.find((b) => b.id === (blockId ?? active?.id)) ?? null;
   const { data: records, isLoading: la } = useAttendance(block?.id ?? null);
+  const { data: me } = useMe();
+  const isMiu = ((me as { institution?: string } | undefined)?.institution ?? "MII") === "MIU";
+  const { data: classSessions } = useClassSessions(isMiu ? (block?.id ?? null) : null);
+  const { data: classRecords } = useClassAttendance(isMiu ? (block?.id ?? null) : null);
   const [kind, setKind] = useState<ReportKind>("all");
   const [cohortId, setCohortId] = useState<string>("all");
   const [gender, setGender] = useState<"all" | Gender>("all");
+
 
   const rows = useMemo(() => {
     const all = (students ?? [])
@@ -97,12 +113,27 @@ function AdminReports() {
   async function handleExcel() {
     if (!block) return;
     try {
-      await exportRegisterWorkbook(block, registerLabel, registerStudents, records ?? [], filename);
+      if (isMiu) {
+        await exportMiuRegisterWorkbook(
+          {
+            block,
+            groupName: registerLabel,
+            students: registerStudents,
+            records: records ?? [],
+            classSessions: classSessions ?? [],
+            classRecords: classRecords ?? [],
+          },
+          filename,
+        );
+      } else {
+        await exportRegisterWorkbook(block, registerLabel, registerStudents, records ?? [], filename);
+      }
       toast.success("Register exported to Excel");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Export failed");
     }
   }
+
 
   function handlePdf() {
     if (!block) return;
