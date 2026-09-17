@@ -88,6 +88,55 @@ async function touchPresence(
   );
 }
 
+/** Today's date in the institutions' timezone (South Africa). */
+function localToday(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Johannesburg",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+/**
+ * Past days are locked for markers. An administrator may unlock a specific day
+ * for a marker (or their whole cohort); those grants live in marking_unlocks.
+ */
+async function unlockedDates(scope: MarkerScope, blockId: string): Promise<string[]> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const nowIso = new Date().toISOString();
+  const { data } = await supabaseAdmin
+    .from("marking_unlocks")
+    .select("session_date, marker_id, cohort_id, expires_at")
+    .eq("block_id", blockId);
+  return [
+    ...new Set(
+      (data ?? [])
+        .filter((u: any) => !u.expires_at || u.expires_at > nowIso)
+        .filter(
+          (u: any) =>
+            u.marker_id === scope.markerId ||
+            (u.cohort_id && scope.cohortIds.includes(u.cohort_id)) ||
+            (!u.marker_id && !u.cohort_id),
+        )
+        .map((u: any) => u.session_date as string),
+    ),
+  ];
+}
+
+/** Which session dates this marker may still write to, for one block. */
+export const getMarkerDayAccess = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ block_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const c = context as unknown as Ctx;
+    const scope = await markerScope(c);
+    const blocks = await scopedBlocks(scope);
+    if (!blocks.some((b: any) => b.id === data.block_id))
+      throw new Error("Forbidden: this block is outside your assigned cohort");
+    return { today: localToday(), unlocked: await unlockedDates(scope, data.block_id) };
+  });
+
 /* ------------------------------ marker portal ----------------------------- */
 
 export const getMarkerScope = createServerFn({ method: "GET" })
