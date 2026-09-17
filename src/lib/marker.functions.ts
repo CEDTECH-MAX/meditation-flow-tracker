@@ -627,3 +627,79 @@ export const markerProgress = createServerFn({ method: "POST" })
       };
     });
   });
+
+/* --------------------------- admin: day unlocking -------------------------- */
+
+export const listMarkingUnlocks = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ block_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const c = context as unknown as Ctx;
+    await assertAdmin(c);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin
+      .from("marking_unlocks")
+      .select("id, session_date, marker_id, cohort_id, expires_at, note, created_at")
+      .eq("block_id", data.block_id)
+      .order("session_date", { ascending: false });
+    if (error) throw new Error(error.message);
+
+    const markerIds = [...new Set((rows ?? []).map((r: any) => r.marker_id).filter(Boolean))];
+    const names = new Map<string, string>();
+    if (markerIds.length > 0) {
+      const { data: profiles } = await supabaseAdmin
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", markerIds as string[]);
+      for (const p of profiles ?? []) names.set((p as any).id, (p as any).full_name);
+    }
+    return (rows ?? []).map((r: any) => ({
+      ...r,
+      marker_name: r.marker_id ? (names.get(r.marker_id) ?? "Marker") : null,
+      expired: Boolean(r.expires_at && r.expires_at < new Date().toISOString()),
+    }));
+  });
+
+export const grantMarkingUnlock = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        block_id: z.string().uuid(),
+        session_date: z.string().min(10).max(10),
+        marker_id: z.string().uuid().nullable().optional(),
+        hours: z.number().int().min(1).max(168).default(24),
+        note: z.string().trim().max(300).or(z.literal("")).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const c = context as unknown as Ctx;
+    await assertAdmin(c);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const expires = new Date(Date.now() + data.hours * 3600_000).toISOString();
+    const { error } = await supabaseAdmin.from("marking_unlocks").insert({
+      block_id: data.block_id,
+      session_date: data.session_date,
+      marker_id: data.marker_id ?? null,
+      expires_at: expires,
+      note: data.note || null,
+      granted_by: c.userId,
+    });
+    if (error) throw new Error(error.message);
+    await audit(c, "unlock", "attendance", data.block_id, data as any);
+    return { ok: true, expires_at: expires };
+  });
+
+export const revokeMarkingUnlock = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const c = context as unknown as Ctx;
+    await assertAdmin(c);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("marking_unlocks").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    await audit(c, "lock", "attendance", data.id, {});
+    return { ok: true };
+  });
