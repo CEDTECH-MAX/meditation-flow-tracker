@@ -88,7 +88,7 @@ export function AppShell({
             >
               {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
-            <Link to={admin ? "/admin" : "/dashboard"} className="flex items-center gap-3">
+            <Link to={marker ? "/marker" : admin ? "/admin" : "/dashboard"} className="flex items-center gap-3">
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-sm font-bold text-primary-foreground">
                 {info.short}
               </span>
