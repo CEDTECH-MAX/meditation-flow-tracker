@@ -490,6 +490,13 @@ function AdminDirectory() {
               onChange={(e) => setForm({ ...form, password: e.target.value })}
             />
           </Field>
+          <Field label="PHOTO (OPTIONAL)">
+            <Input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+            />
+          </Field>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpenStaff(false)}>
               Cancel
