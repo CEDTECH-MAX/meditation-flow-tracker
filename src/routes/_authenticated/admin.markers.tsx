@@ -366,6 +366,10 @@ function AdminMarkers() {
                 toast.error("Choose a cohort for this marker.");
                 return;
               }
+              if (!form.id && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email.trim())) {
+                toast.error("Please enter a complete email address, for example rifumo@example.com.");
+                return;
+              }
               save.mutate();
             }}
           >

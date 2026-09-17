@@ -322,7 +322,12 @@ export const listMarkers = createServerFn({ method: "GET" })
 const markerInput = z.object({
   first_name: z.string().trim().min(1).max(60),
   surname: z.string().trim().min(1).max(60),
-  email: z.string().trim().email().max(255),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(255)
+    .email("Please enter a complete email address, for example rifumo@example.com"),
   password: z.string().min(8).max(72),
   institution: z.enum(["MII", "MIU"]),
   cohort_id: z.string().uuid(),
