@@ -342,6 +342,7 @@ export type DirectoryEntry = {
   department: string | null;
   job_title: string | null;
   cohort: string | null;
+  photo_url: string | null;
 };
 
 /**
