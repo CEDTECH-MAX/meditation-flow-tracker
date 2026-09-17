@@ -644,7 +644,6 @@ export type Database = {
         Args: { _block_id: string; _marker_id: string; _student_id: string }
         Returns: boolean
       }
-      marker_cohort_ids: { Args: { _marker_id: string }; Returns: string[] }
     }
     Enums: {
       absence_reason:
