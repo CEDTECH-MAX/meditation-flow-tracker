@@ -16,7 +16,7 @@ import {
   StatCard,
 } from "@/components/ui-kit";
 import { useMarkerScope } from "./marker";
-import { listMarkerAttendance, markAsMarker } from "@/lib/marker.functions";
+import { getMarkerDayAccess, listMarkerAttendance, markAsMarker } from "@/lib/marker.functions";
 import {
   blockDates,
   formatDate,
@@ -76,6 +76,25 @@ function MarkerHome() {
   });
 
   const sessionDates = useMemo(() => (block ? blockDates(block) : []), [block]);
+
+  const accessFn = useServerFn(getMarkerDayAccess);
+  const { data: access } = useQuery<{ today: string; unlocked: string[] }>({
+    queryKey: ["marker-day-access", block?.id],
+    enabled: Boolean(block?.id),
+    refetchInterval: 60_000,
+    queryFn: () =>
+      accessFn({ data: { block_id: block!.id } }) as unknown as Promise<{
+        today: string;
+        unlocked: string[];
+      }>,
+  });
+  const today = access?.today ?? skipSunday(todayKey());
+  const openDates = useMemo(() => {
+    const allowed = new Set<string>([today, ...(access?.unlocked ?? [])]);
+    const list = sessionDates.filter((d) => allowed.has(d));
+    return list.length > 0 ? list : sessionDates.includes(today) ? [today] : [];
+  }, [sessionDates, today, access]);
+
   const [date, setDate] = useState(skipSunday(todayKey()));
   const [search, setSearch] = useState("");
   const [reasonFor, setReasonFor] = useState<{
@@ -88,11 +107,9 @@ function MarkerHome() {
   } | null>(null);
 
   useEffect(() => {
-    if (sessionDates.length === 0) return;
-    if (!sessionDates.includes(date)) {
-      setDate(sessionDates.find((d) => d >= date) ?? sessionDates[sessionDates.length - 1]!);
-    }
-  }, [sessionDates, date]);
+    if (openDates.length === 0) return;
+    if (!openDates.includes(date)) setDate(openDates[openDates.length - 1]!);
+  }, [openDates, date]);
 
   const markFn = useServerFn(markAsMarker);
   const mark = useMutation({
@@ -146,7 +163,8 @@ function MarkerHome() {
   }, [scope, search, dayMap, records, block]);
 
   const marked = rows.filter((r) => r.morning || r.afternoon).length;
-  const locked = !block || block.status === "closed";
+  const dayClosed = date !== today && !(access?.unlocked ?? []).includes(date);
+  const locked = !block || block.status === "closed" || dayClosed;
 
   if (isLoading) return <Spinner label="Loading your cohort" />;
 
@@ -194,12 +212,13 @@ function MarkerHome() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Session date (Mon–Sat only)">
+              <Field label="Session date (today only)">
                 <Select value={date} onChange={(e) => setDate(e.target.value)}>
-                  {sessionDates.length === 0 ? <option value={date}>{formatDate(date)}</option> : null}
-                  {sessionDates.map((d) => (
+                  {openDates.length === 0 ? <option value={date}>{formatDate(date)}</option> : null}
+                  {openDates.map((d) => (
                     <option key={d} value={d}>
                       {formatDate(d)}
+                      {d === today ? " · today" : " · unlocked"}
                       {sessionKind(d, "afternoon") === "optional" ? " · PM optional" : ""}
                     </option>
                   ))}
