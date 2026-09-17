@@ -328,6 +328,7 @@ function AdminDirectory() {
             <table className="w-full text-sm">
               <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
+                  <th className="py-2">Photo</th>
                   <th className="py-2">Name</th>
                   <th className="py-2">Email</th>
                   <th className="py-2">Department</th>
