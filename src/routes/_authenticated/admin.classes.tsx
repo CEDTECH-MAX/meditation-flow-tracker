@@ -589,11 +589,8 @@ function MarkRow({
           }
         >
           <option value="">Not marked</option>
-          {choices.map((p) => (
-            <option key={p} value={p}>
-              {p.toFixed(1)}
-            </option>
-          ))}
+          <option value={full}>Present</option>
+          <option value={0}>Absent</option>
         </Select>
       </td>
       <td className="px-4 py-3">
