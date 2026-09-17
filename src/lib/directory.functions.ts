@@ -359,7 +359,7 @@ export const listDirectory = createServerFn({ method: "GET" })
       supabaseAdmin
         .from("profiles")
         .select(
-          "id, full_name, email, job_title, is_active, department:departments(name), cohort:cohorts(name)",
+          "id, full_name, email, job_title, is_active, photo_url, department:departments(name), cohort:cohorts(name)",
         )
         .eq("institution", inst)
         .order("full_name", { ascending: true }),
@@ -384,5 +384,6 @@ export const listDirectory = createServerFn({ method: "GET" })
         department: p.department?.name ?? null,
         job_title: (p.job_title as string) ?? null,
         cohort: p.cohort?.name ?? null,
+        photo_url: (p.photo_url as string) ?? null,
       })) as DirectoryEntry[];
   });
