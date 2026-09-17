@@ -181,6 +181,19 @@ function AdminClasses() {
     return map;
   }, [records]);
 
+  /** Every week that already has a class, newest last — the summary columns. */
+  const absenceWeeks = useMemo(() => {
+    const today = todayKey();
+    const starts = new Set<string>();
+    for (const s of sessions ?? []) {
+      if (s.session_date <= today) starts.add(weekStart(s.session_date));
+    }
+    return [...starts]
+      .sort((a, b) => a.localeCompare(b))
+      .map((start) => ({ start, end: weekEnd(start) }));
+  }, [sessions]);
+
+
   const currentRecord = (studentId: string) =>
     (records ?? []).find((r) => r.session_id === session?.id && r.student_id === studentId) ?? null;
 
