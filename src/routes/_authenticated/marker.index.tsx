@@ -379,9 +379,10 @@ function MarkerHome() {
             }}
           >
             <p className="text-sm text-muted-foreground">
-              Scoring the {reasonFor.slot} session on {formatDate(date)} as{" "}
-              <strong>{reasonFor.points.toFixed(1)} points</strong>.
+              Marking the {reasonFor.slot} session on {formatDate(date)} as{" "}
+              <strong>absent</strong>.
             </p>
+
             <Field label="Reason">
               <Select
                 value={reasonFor.absence_reason}

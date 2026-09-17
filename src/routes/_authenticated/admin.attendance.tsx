@@ -487,10 +487,11 @@ function AdminAttendance() {
             }}
           >
             <p className="text-sm text-muted-foreground">
-              Scoring the {reasonFor.slot} session on {formatDate(date)} as{" "}
-              <strong>{reasonFor.points.toFixed(1)} points</strong>. Sick leave and approved leave are
-              excluded from the percentage.
+              Marking the {reasonFor.slot} session on {formatDate(date)} as{" "}
+              <strong>absent</strong>. Sick leave and approved leave are excluded from the
+              percentage.
             </p>
+
             <Field label="Reason">
               <Select
                 value={reasonFor.absence_reason}
