@@ -13,15 +13,18 @@ export const getMe = createServerFn({ method: "GET" })
       c.supabase.from("profiles").select("*, cohort:cohorts(id,name,programme,intake_year)").eq("id", c.userId).maybeSingle(),
       c.supabase.from("user_roles").select("role").eq("user_id", c.userId),
     ]);
-    const isAdmin = (roles ?? []).some((r: any) => r.role === "admin");
+    const roleList = (roles ?? []).map((r: any) => r.role as string);
+    const isAdmin = roleList.includes("admin");
     return {
       userId: c.userId,
       email: (c.claims?.["email"] as string) ?? null,
       profile: profile ?? null,
       institution: ((profile as any)?.institution as "MII" | "MIU") ?? "MII",
       isAdmin,
+      roles: roleList,
     };
   });
+
 
 /* --------------------------------- blocks -------------------------------- */
 

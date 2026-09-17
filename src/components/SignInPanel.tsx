@@ -140,6 +140,10 @@ async function routeByRole(
     return true;
   }
   const isAdmin = list.some((r) => r.role === "admin");
+  if (!isAdmin && list.some((r) => (r.role as string) === "staff")) {
+    navigate({ to: "/mail", replace: true });
+    return true;
+  }
   navigate({ to: isAdmin ? "/admin" : "/dashboard", replace: true });
   return true;
 }
