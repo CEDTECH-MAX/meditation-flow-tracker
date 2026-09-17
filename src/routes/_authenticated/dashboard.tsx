@@ -114,17 +114,11 @@ function StudentDashboard() {
     <AppShell>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          {data?.profile?.photo_url ? (
-            <img
-              src={data.profile.photo_url}
-              alt={data.profile.full_name}
-              className="h-14 w-14 rounded-2xl object-cover shadow-soft"
-            />
-          ) : (
-            <span className="grid h-14 w-14 place-items-center rounded-2xl bg-primary-soft font-display text-lg font-semibold text-secondary-foreground">
-              {(data?.profile?.full_name ?? "S").slice(0, 1)}
-            </span>
-          )}
+          <PersonPhoto
+            path={data?.profile?.photo_url ?? null}
+            name={data?.profile?.full_name ?? "Student"}
+            size={56}
+          />
           <div>
             <h1 className="font-display text-2xl font-semibold">
               {data?.profile?.full_name ?? "Student"}
