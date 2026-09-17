@@ -144,6 +144,8 @@ function AdminDirectory() {
     onError: (e: any) => toast.error(e?.message ?? "Could not remove the profile"),
   });
 
+  const savePhotoFn = useServerFn(setPersonPhoto);
+
   const emptyForm = {
     first_name: "",
     surname: "",
@@ -154,6 +156,8 @@ function AdminDirectory() {
   };
   const [form, setForm] = useState(emptyForm);
   const [openStaff, setOpenStaff] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [busyPhoto, setBusyPhoto] = useState<string | null>(null);
   const [staffEdit, setStaffEdit] = useState<
     { id: string; first_name: string; surname: string; department_id: string; job_title: string } | null
   >(null);
@@ -167,7 +171,42 @@ function AdminDirectory() {
     return list.filter((p: any) => p.department_id === filter);
   }, [staff.data, filter]);
 
-  function submitStaff(e: React.FormEvent) {
+  async function attachPhoto(personId: string, file: File) {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Choose an image file (JPG or PNG).");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("That photo is larger than 5 MB. Please use a smaller one.");
+      return;
+    }
+    setBusyPhoto(personId);
+    try {
+      const path = await uploadPhoto(personId, file);
+      await savePhotoFn({ data: { id: personId, photo_url: path } });
+      toast.success("Photo saved");
+      invalidate();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Could not save the photo");
+    } finally {
+      setBusyPhoto(null);
+    }
+  }
+
+  async function clearPhoto(personId: string) {
+    setBusyPhoto(personId);
+    try {
+      await savePhotoFn({ data: { id: personId, photo_url: null } });
+      toast.success("Photo removed");
+      invalidate();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Could not remove the photo");
+    } finally {
+      setBusyPhoto(null);
+    }
+  }
+
+  async function submitStaff(e: React.FormEvent) {
     e.preventDefault();
     if (!EMAIL_RE.test(form.email.trim())) {
       toast.error("Please enter a complete email address, for example thabo@example.com");
@@ -177,7 +216,10 @@ function AdminDirectory() {
       toast.error("Choose a department.");
       return;
     }
-    addStaff.mutate({ data: { ...form, email: form.email.trim() } });
+    const file = photoFile;
+    const created = await addStaff.mutateAsync({ data: { ...form, email: form.email.trim() } });
+    setPhotoFile(null);
+    if (file && created?.id) await attachPhoto(created.id, file);
   }
 
   return (
