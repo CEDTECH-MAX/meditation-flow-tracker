@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import templateUrl from "@/assets/miu-register-template.xlsx?url";
 import { dateKey } from "@/lib/attendance";
 import type {
   AttendanceRecord,
@@ -9,24 +10,31 @@ import type {
 import type { RegisterStudent } from "@/lib/register-export";
 
 /**
- * MIU-only attendance register workbook. It matches the MIU Excel template
- * (Student List, one sheet per teaching week, Absenteeism Summary, Program
- * Summary and Formula Sheet) and is completely separate from the MII
- * "Consciousness Attendance Register" produced by register-export.ts.
+ * MIU-only attendance register. This exporter fills the institution's own
+ * uploaded workbook (src/assets/miu-register-template.xlsx) so the export is
+ * visually identical to the template: every sheet, header, colour, column
+ * width and formula comes from that file. It is completely separate from the
+ * MII register produced by register-export.ts.
  */
 
-const ORANGE = "FFB45F06";
-const RED = "FF990000";
-const GREEN_FILL = "FFB6D7A8";
-const BLUE_FILL = "FFCFE2F3";
-const GREY_FILL = "FFD9D9D9";
-
-/** Points a full week of programme attendance is worth in the MIU template. */
 const WEEK_PROGRAM_TARGET = 14.5;
-const FOUR_WEEK_TARGET = 58;
-const FOUR_WEEK_MAX = 72;
 
-const DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY"] as const;
+/** Weekly sheets in the template, in order. */
+const TEMPLATE_WEEK_SHEETS = [
+  "August 17-20",
+  "August 24-27",
+  "August 31-03",
+  "September 07-10",
+  "September 14-17",
+  "September 21-24",
+  "September 28-01",
+  "October 05-08",
+];
+
+/** Columns holding the week values on the two summary sheets. */
+const ABS_WEEK_COLS = [3, 4, 5, 6, 7, 8, 9, 10]; // C..J
+const PROG_WEEK_COLS = [3, 5, 7, 9, 15, 17, 19, 21]; // C,E,G,I,O,Q,S,U
+
 const MONTHS = [
   "January",
   "February",
@@ -41,17 +49,6 @@ const MONTHS = [
   "November",
   "December",
 ];
-
-function colLetter(index: number) {
-  let n = index;
-  let out = "";
-  while (n > 0) {
-    const rem = (n - 1) % 26;
-    out = String.fromCharCode(65 + rem) + out;
-    n = Math.floor((n - 1) / 26);
-  }
-  return out;
-}
 
 function monday(startDate: string, weekIndex: number) {
   const d = new Date(startDate + "T00:00:00");
@@ -86,11 +83,15 @@ function splitName(full: string) {
   };
 }
 
-function header(cell: ExcelJS.Cell, value: string, fill?: string) {
-  cell.value = value;
-  cell.font = { bold: true, size: 9 };
-  cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-  if (fill) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: fill } };
+/** Blank the sample data the template ships with, keeping all formatting. */
+function clearFrom(ws: ExcelJS.Worksheet, startRow: number) {
+  const last = Math.max(ws.rowCount, ws.actualRowCount);
+  for (let r = startRow; r <= last; r += 1) {
+    const row = ws.getRow(r);
+    row.eachCell({ includeEmpty: true }, (cell) => {
+      cell.value = null;
+    });
+  }
 }
 
 export type MiuRegisterInput = {
@@ -105,49 +106,17 @@ export type MiuRegisterInput = {
 
 export async function exportMiuRegisterWorkbook(input: MiuRegisterInput, filename: string) {
   const { block, groupName, students, records, classSessions, classRecords } = input;
-  const weeks = Math.max(1, block.weeks || 1);
+  const weeks = Math.min(TEMPLATE_WEEK_SHEETS.length, Math.max(1, block.weeks || 1));
+
+  const res = await fetch(templateUrl);
+  if (!res.ok) throw new Error("Could not load the MIU register template.");
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Maharishi Invincibility University";
+  await wb.xlsx.load(await res.arrayBuffer());
 
   const weekMondays = Array.from({ length: weeks }, (_, w) => monday(block.start_date, w));
   const weekNames = weekMondays.map(weekLabel);
 
-  /* ------------------------------ Student List --------------------------- */
-  const list = wb.addWorksheet("Student List", { views: [{ state: "frozen", ySplit: 1 }] });
-  const listHeaders = [
-    "No",
-    "Group",
-    "Location",
-    "Surname",
-    "First Name",
-    "Second & Third Names",
-    "Full Name on Diploma",
-    "Emails",
-    "MIU Emails",
-    "MIU ID",
-    "Programme",
-  ];
-  listHeaders.forEach((label, i) => {
-    header(list.getCell(1, i + 1), label, GREY_FILL);
-    list.getColumn(i + 1).width = i === 0 ? 5 : i >= 7 ? 28 : 16;
-  });
-  students.forEach((s, i) => {
-    const { first, middle, last } = splitName(s.full_name);
-    const row = list.getRow(i + 2);
-    row.getCell(1).value = i + 1;
-    row.getCell(2).value = s.cohort_name ?? groupName;
-    row.getCell(3).value = "";
-    row.getCell(4).value = last;
-    row.getCell(5).value = first;
-    row.getCell(6).value = middle;
-    row.getCell(7).value = s.full_name;
-    row.getCell(8).value = s.email ?? "";
-    row.getCell(9).value = s.internal_email ?? "";
-    row.getCell(10).value = s.student_number ?? "";
-    row.getCell(11).value = s.programme ?? "";
-  });
-
-  /* ---------------------------- weekly sheets ---------------------------- */
+  /* ------------------------------ lookups -------------------------------- */
   const sessionByDate = new Map<string, ClassSession[]>();
   for (const s of classSessions) {
     const day = sessionByDate.get(s.session_date) ?? [];
@@ -164,7 +133,6 @@ export async function exportMiuRegisterWorkbook(input: MiuRegisterInput, filenam
     return rec ? Number(rec.points ?? 0) : 0;
   };
 
-  /** Class attendance for one student on one date, across that day's classes. */
   function classDay(studentId: string, date: string) {
     const day = sessionByDate.get(date) ?? [];
     if (day.length === 0) return { attended: "", mode: "", comment: "" };
@@ -179,278 +147,167 @@ export async function exportMiuRegisterWorkbook(input: MiuRegisterInput, filenam
     }
     return {
       attended: attended ? "Yes" : "No",
-      mode: attended ? (online ? "Online" : "In class") : "Absent",
+      mode: attended ? (online ? "Online" : "In class") : "",
       comment: comments.join(" · "),
     };
   }
 
-  /** Per-week, per-student absence + programme totals reused by the summaries. */
+  /* --------------------------- MIU Login Details -------------------------- */
+  const login = wb.getWorksheet("MIU Login Details");
+  if (login) {
+    clearFrom(login, 2);
+    students.forEach((s, i) => {
+      const { first, last } = splitName(s.full_name);
+      const row = login.getRow(2 + i);
+      row.getCell(1).value = i + 1;
+      row.getCell(2).value = last;
+      row.getCell(3).value = first;
+      row.getCell(5).value = "Student";
+    });
+  }
+
+  /* ------------------------------ Student List --------------------------- */
+  const list = wb.getWorksheet("Student List");
+  if (list) {
+    clearFrom(list, 2);
+    students.forEach((s, i) => {
+      const { first, middle, last } = splitName(s.full_name);
+      const row = list.getRow(2 + i);
+      row.getCell(1).value = i + 1;
+      row.getCell(2).value = s.cohort_name ?? groupName;
+      row.getCell(4).value = last;
+      row.getCell(5).value = first;
+      row.getCell(6).value = middle;
+      row.getCell(7).value = s.full_name;
+      row.getCell(8).value = s.email ?? "";
+      row.getCell(9).value = s.internal_email ?? "";
+      row.getCell(11).value = s.student_number ?? "";
+    });
+  }
+
+  /* ------------------------------ Learnership ---------------------------- */
+  const learn = wb.getWorksheet("Learnership");
+  if (learn) {
+    clearFrom(learn, 3);
+    students.forEach((s, i) => {
+      const { first, last } = splitName(s.full_name);
+      const row = learn.getRow(3 + i);
+      row.getCell(1).value = i + 1;
+      row.getCell(2).value = last;
+      row.getCell(3).value = first;
+    });
+  }
+
+  /* ---------------------------- weekly sheets ---------------------------- */
   const weekTotals: { absent: number; program: number }[][] = students.map(() => []);
 
-  weekMondays.forEach((mon, w) => {
-    const ws = wb.addWorksheet(weekNames[w]!, {
-      views: [{ state: "frozen", xSplit: 5, ySplit: 3 }],
-      pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
-    });
-
-    ws.mergeCells(1, 6, 1, 26);
-    const title = ws.getCell(1, 6);
-    title.value = `${block.name} · ${groupName} · Week ${w + 1} (${weekNames[w]})`;
-    title.font = { bold: true, size: 13, color: { argb: ORANGE } };
-    title.alignment = { horizontal: "center" };
-
-    const leftHeaders = ["NR", "Group", "Location", "Last Name", "First Name"];
-    leftHeaders.forEach((label, i) => {
-      header(ws.getCell(3, i + 1), label, GREY_FILL);
-      ws.getColumn(i + 1).width = i === 0 ? 5 : 16;
-    });
-
-    // 5 columns per class day: attended / mode / behaviour / AM / PM
-    DAYS.forEach((day, d) => {
-      const base = 6 + d * 5;
-      header(ws.getCell(2, base), "Student attended class", GREEN_FILL);
-      header(ws.getCell(2, base + 1), "In class OR Online only", GREEN_FILL);
-      ws.mergeCells(2, base + 3, 2, base + 4);
-      header(ws.getCell(2, base + 3), "Program Attendance", BLUE_FILL);
-      const date = shift(mon, d);
-      header(ws.getCell(3, base), `${day} ${pad(date.getDate())}/${pad(date.getMonth() + 1)}`);
-      header(ws.getCell(3, base + 1), "Online/In Class");
-      header(ws.getCell(3, base + 2), "Student Behavior in Class");
-      header(ws.getCell(3, base + 3), "Morning");
-      header(ws.getCell(3, base + 4), "Afternoon");
-      ws.getColumn(base).width = 14;
-      ws.getColumn(base + 1).width = 13;
-      ws.getColumn(base + 2).width = 26;
-      ws.getColumn(base + 3).width = 10;
-      ws.getColumn(base + 4).width = 10;
-    });
-
-    const friCol = 26; // Z
-    ws.mergeCells(2, friCol, 2, friCol + 1);
-    header(ws.getCell(2, friCol), "Friday Program", BLUE_FILL);
-    header(ws.getCell(3, friCol), "Morning");
-    header(ws.getCell(3, friCol + 1), "PM- Extra");
-    ws.mergeCells(2, friCol + 2, 2, friCol + 3);
-    header(ws.getCell(2, friCol + 2), "Saturday", BLUE_FILL);
-    header(ws.getCell(3, friCol + 2), "AM-Extra");
-    header(ws.getCell(3, friCol + 3), "PM- Extra");
-    header(ws.getCell(3, friCol + 4), "Total absence this week");
-    header(ws.getCell(3, friCol + 5), "Total Program Attendance");
-    header(ws.getCell(3, friCol + 6), "Oustanding Credits");
-    for (let i = 0; i < 7; i += 1) ws.getColumn(friCol + i).width = i >= 4 ? 15 : 11;
+  TEMPLATE_WEEK_SHEETS.forEach((sheetName, w) => {
+    const ws = wb.getWorksheet(sheetName);
+    if (!ws) return;
+    if (w >= weeks) {
+      wb.removeWorksheet(ws.id);
+      return;
+    }
+    ws.name = weekNames[w]!;
+    clearFrom(ws, 4);
+    const mon = weekMondays[w]!;
 
     students.forEach((student, sIdx) => {
-      const row = 4 + sIdx;
+      const r = 4 + sIdx;
+      const row = ws.getRow(r);
       const { first, last } = splitName(student.full_name);
-      ws.getCell(row, 1).value = sIdx + 1;
-      ws.getCell(row, 2).value = student.cohort_name ?? groupName;
-      ws.getCell(row, 3).value = "";
-      ws.getCell(row, 4).value = last;
-      ws.getCell(row, 5).value = first;
+      row.getCell(1).value = sIdx + 1;
+      row.getCell(2).value = student.cohort_name ?? groupName;
+      row.getCell(4).value = last;
+      row.getCell(5).value = first;
 
       let absent = 0;
       let program = 0;
-      const pointCells: string[] = [];
 
-      DAYS.forEach((_, d) => {
+      // Monday F..J, Tuesday K..O, Wednesday P..T, Thursday U..Y
+      for (let d = 0; d < 4; d += 1) {
         const base = 6 + d * 5;
         const date = dateKey(shift(mon, d));
         const info = classDay(student.id, date);
-        ws.getCell(row, base).value = info.attended;
-        ws.getCell(row, base + 1).value = info.mode;
-        ws.getCell(row, base + 2).value = info.comment;
+        row.getCell(base).value = info.attended;
+        row.getCell(base + 1).value = info.mode;
+        row.getCell(base + 2).value = info.comment;
         if (info.attended === "No") absent += 1;
         const am = medPoints(student.id, date, "morning");
         const pm = medPoints(student.id, date, "afternoon");
+        row.getCell(base + 3).value = am;
+        row.getCell(base + 4).value = pm;
         program += am + pm;
-        for (const [offset, value] of [
-          [3, am],
-          [4, pm],
-        ] as [number, number][]) {
-          const cell = ws.getCell(row, base + offset);
-          cell.value = value;
-          cell.numFmt = "#,##0.0";
-          pointCells.push(`${colLetter(base + offset)}${row}`);
-        }
-      });
+      }
 
+      // Z/AA Friday, AB/AC Saturday
       const friday = dateKey(shift(mon, 4));
       const saturday = dateKey(shift(mon, 5));
       const bonus: [number, number][] = [
-        [friCol, medPoints(student.id, friday, "morning")],
-        [friCol + 1, medPoints(student.id, friday, "afternoon")],
-        [friCol + 2, medPoints(student.id, saturday, "morning")],
-        [friCol + 3, medPoints(student.id, saturday, "afternoon")],
+        [26, medPoints(student.id, friday, "morning")],
+        [27, medPoints(student.id, friday, "afternoon")],
+        [28, medPoints(student.id, saturday, "morning")],
+        [29, medPoints(student.id, saturday, "afternoon")],
       ];
       for (const [col, value] of bonus) {
-        const cell = ws.getCell(row, col);
-        cell.value = value;
-        cell.numFmt = "#,##0.0";
-        pointCells.push(`${colLetter(col)}${row}`);
+        row.getCell(col).value = value;
         program += value;
       }
 
-      ws.getCell(row, friCol + 4).value = absent;
-      const total = ws.getCell(row, friCol + 5);
-      total.value = { formula: pointCells.join("+") };
-      total.numFmt = "#,##0.0";
-      const owed = ws.getCell(row, friCol + 6);
-      owed.value = { formula: `${WEEK_PROGRAM_TARGET}-${colLetter(friCol + 5)}${row}` };
-      owed.numFmt = "#,##0.0";
+      row.getCell(30).value = absent; // AD
+      row.getCell(31).value = {
+        formula: `I${r}+J${r}+N${r}+O${r}+S${r}+T${r}+X${r}+Y${r}+Z${r}+AA${r}+AB${r}+AC${r}`,
+      }; // AE
+      row.getCell(32).value = { formula: `${WEEK_PROGRAM_TARGET}-AE${r}` }; // AF
 
       weekTotals[sIdx]!.push({ absent, program: Math.round(program * 10) / 10 });
     });
-
-    ws.getRow(2).height = 28;
-    ws.getRow(3).height = 34;
   });
 
   /* ------------------------ Absenteeism Summary Sheet -------------------- */
-  const abs = wb.addWorksheet("Absenteeism Summary Sheet", {
-    views: [{ state: "frozen", xSplit: 2, ySplit: 1 }],
-  });
-  header(abs.getCell(1, 1), "Last Name", GREY_FILL);
-  header(abs.getCell(1, 2), "First Name", GREY_FILL);
-  weekNames.forEach((name, i) => header(abs.getCell(1, 3 + i), name, GREY_FILL));
-  const absTotalCol = 3 + weeks;
-  header(abs.getCell(1, absTotalCol), "Total Absenteeism", GREEN_FILL);
-  header(abs.getCell(1, absTotalCol + 1), "Comments", GREY_FILL);
-  abs.getColumn(1).width = 18;
-  abs.getColumn(2).width = 18;
-  for (let i = 0; i < weeks + 2; i += 1) abs.getColumn(3 + i).width = 16;
-  abs.getColumn(absTotalCol + 1).width = 34;
-
-  students.forEach((student, sIdx) => {
-    const row = 2 + sIdx;
-    const { first, last } = splitName(student.full_name);
-    abs.getCell(row, 1).value = last;
-    abs.getCell(row, 2).value = first;
-    weekNames.forEach((_, w) => {
-      abs.getCell(row, 3 + w).value = weekTotals[sIdx]?.[w]?.absent ?? 0;
+  const abs = wb.getWorksheet("Absenteeism Summary Sheet");
+  if (abs) {
+    clearFrom(abs, 2);
+    ABS_WEEK_COLS.forEach((col, w) => {
+      abs.getCell(1, col).value = w < weeks ? weekNames[w]! : null;
     });
-    const total = abs.getCell(row, absTotalCol);
-    total.value = {
-      formula: `SUM(${colLetter(3)}${row}:${colLetter(2 + weeks)}${row})`,
-    };
-    total.font = { bold: true };
-  });
-
-  /* -------------------------- Program Summary Sheet ---------------------- */
-  const prog = wb.addWorksheet("Program Summary Sheet", {
-    views: [{ state: "frozen", xSplit: 2, ySplit: 2 }],
-  });
-  header(prog.getCell(2, 1), "Last Name", GREY_FILL);
-  header(prog.getCell(2, 2), "First Name", GREY_FILL);
-  prog.getColumn(1).width = 18;
-  prog.getColumn(2).width = 18;
-
-  // Column layout: [week, Comments] per week, plus accumulative columns after
-  // every four weeks, exactly like the template.
-  type ProgCol =
-    | { kind: "week"; week: number; col: number }
-    | { kind: "comment"; col: number }
-    | { kind: "outstanding"; group: number; col: number }
-    | { kind: "accum"; group: number; col: number }
-    | { kind: "pct"; group: number; col: number };
-  const progCols: ProgCol[] = [];
-  let col = 3;
-  for (let w = 0; w < weeks; w += 1) {
-    header(prog.getCell(1, col), `Week ${w + 1}`);
-    header(prog.getCell(2, col), weekNames[w]!, GREEN_FILL);
-    progCols.push({ kind: "week", week: w, col });
-    prog.getColumn(col).width = 16;
-    col += 1;
-    header(prog.getCell(2, col), "Comments", GREY_FILL);
-    progCols.push({ kind: "comment", col });
-    prog.getColumn(col).width = 24;
-    col += 1;
-    if ((w + 1) % 4 === 0 || w === weeks - 1) {
-      const group = Math.floor(w / 4);
-      header(prog.getCell(2, col), "Four Weeks Accumulative", BLUE_FILL);
-      progCols.push({ kind: "outstanding", group, col });
-      prog.getColumn(col).width = 18;
-      col += 1;
-      header(prog.getCell(2, col), "Accumulative points", BLUE_FILL);
-      progCols.push({ kind: "accum", group, col });
-      prog.getColumn(col).width = 18;
-      col += 1;
-      header(prog.getCell(2, col), "Percentage of target", BLUE_FILL);
-      progCols.push({ kind: "pct", group, col });
-      prog.getColumn(col).width = 18;
-      col += 1;
-    }
+    students.forEach((student, sIdx) => {
+      const r = 2 + sIdx;
+      const row = abs.getRow(r);
+      const { first, last } = splitName(student.full_name);
+      row.getCell(1).value = last;
+      row.getCell(2).value = first;
+      ABS_WEEK_COLS.forEach((col, w) => {
+        row.getCell(col).value = w < weeks ? (weekTotals[sIdx]?.[w]?.absent ?? 0) : null;
+      });
+      row.getCell(11).value = { formula: `SUM(C${r}:J${r})` };
+    });
   }
 
-  students.forEach((student, sIdx) => {
-    const row = 3 + sIdx;
-    const { first, last } = splitName(student.full_name);
-    prog.getCell(row, 1).value = last;
-    prog.getCell(row, 2).value = first;
-    for (const entry of progCols) {
-      if (entry.kind === "week") {
-        const cell = prog.getCell(row, entry.col);
-        cell.value = weekTotals[sIdx]?.[entry.week]?.program ?? 0;
-        cell.numFmt = "#,##0.0";
-      } else if (entry.kind === "accum") {
-        const members = progCols.filter(
-          (c) => c.kind === "week" && Math.floor(c.week / 4) === entry.group,
-        );
-        const cell = prog.getCell(row, entry.col);
-        cell.value = {
-          formula: members.map((m) => `${colLetter(m.col)}${row}`).join("+") || "0",
-        };
-        cell.numFmt = "#,##0.0";
-      } else if (entry.kind === "outstanding") {
-        const accum = progCols.find((c) => c.kind === "accum" && c.group === entry.group);
-        const cell = prog.getCell(row, entry.col);
-        cell.value = accum
-          ? { formula: `${FOUR_WEEK_TARGET}-${colLetter(accum.col)}${row}` }
-          : 0;
-        cell.numFmt = "#,##0.0";
-      } else if (entry.kind === "pct") {
-        const accum = progCols.find((c) => c.kind === "accum" && c.group === entry.group);
-        const cell = prog.getCell(row, entry.col);
-        cell.value = accum
-          ? { formula: `${colLetter(accum.col)}${row}/${FOUR_WEEK_MAX}` }
-          : 0;
-        cell.numFmt = "0.0%";
-      }
-    }
-  });
-
-  /* ------------------------------ Formula Sheet -------------------------- */
-  const fs = wb.addWorksheet("Formula Sheet");
-  header(fs.getCell(1, 1), "Class Options", GREY_FILL);
-  header(fs.getCell(1, 2), "Absenteeism Days", GREY_FILL);
-  header(fs.getCell(1, 4), "Program", GREY_FILL);
-  header(fs.getCell(1, 7), "Detailed", GREY_FILL);
-  ["Yes", "No"].forEach((v, i) => (fs.getCell(3 + i, 1).value = v));
-  [0, 1, 2, 3, 4].forEach((v, i) => (fs.getCell(2 + i, 2).value = v));
-  const program: [string, number][] = [
-    ["Did not attend Program", 0],
-    ["Full program attendance", 2],
-  ];
-  program.forEach(([label, value], i) => {
-    fs.getCell(2 + i, 4).value = label;
-    fs.getCell(2 + i, 5).value = value;
-  });
-  [
-    "Online/permission granted",
-    "In class",
-    "Group Assignment",
-    "Absent",
-    "Online/Sick",
-    "Online/ NO permission",
-    "Public Holiday",
-    "In class/Lesson not attended",
-    "Reported absent",
-  ].forEach((v, i) => (fs.getCell(2 + i, 7).value = v));
-  fs.getColumn(1).width = 18;
-  fs.getColumn(2).width = 18;
-  fs.getColumn(4).width = 26;
-  fs.getColumn(5).width = 10;
-  fs.getColumn(7).width = 30;
-  fs.getCell(1, 1).font = { bold: true, color: { argb: RED } };
+  /* -------------------------- Program Summary Sheet ---------------------- */
+  const prog = wb.getWorksheet("Program Summary Sheet");
+  if (prog) {
+    clearFrom(prog, 3);
+    PROG_WEEK_COLS.forEach((col, w) => {
+      prog.getCell(2, col).value = w < weeks ? weekNames[w]! : null;
+    });
+    students.forEach((student, sIdx) => {
+      const r = 3 + sIdx;
+      const row = prog.getRow(r);
+      const { first, last } = splitName(student.full_name);
+      row.getCell(1).value = last;
+      row.getCell(2).value = first;
+      PROG_WEEK_COLS.forEach((col, w) => {
+        row.getCell(col).value = w < weeks ? (weekTotals[sIdx]?.[w]?.program ?? 0) : null;
+      });
+      row.getCell(11).value = { formula: `58-L${r}` };
+      row.getCell(12).value = { formula: `sum(C${r}+E${r}+G${r}+I${r})` };
+      row.getCell(13).value = { formula: `L${r}/72` };
+      row.getCell(22).value = { formula: `sum(O${r}+Q${r}+S${r}+U${r})` };
+      row.getCell(23).value = { formula: `V${r}/66` };
+      row.getCell(24).value = { formula: `53-V${r}` };
+    });
+  }
 
   const buffer = await wb.xlsx.writeBuffer();
   const blob = new Blob([buffer], {
@@ -459,7 +316,7 @@ export async function exportMiuRegisterWorkbook(input: MiuRegisterInput, filenam
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${filename}.xlsx`;
+  a.download = filename.endsWith(".xlsx") ? filename : `${filename}.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
 }
