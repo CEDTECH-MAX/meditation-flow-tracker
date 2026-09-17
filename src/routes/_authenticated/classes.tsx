@@ -17,10 +17,12 @@ import {
   formatDate,
   statusTone,
   summariseClass,
+  summariseClassAbsence,
   type Block,
   type ClassRecord,
   type ClassSession,
 } from "@/lib/attendance";
+
 
 export const Route = createFileRoute("/_authenticated/classes")({
   head: () => ({
@@ -67,6 +69,11 @@ function StudentClasses() {
   );
 
   const summary = useMemo(() => summariseClass(sessions, blockRecords), [sessions, blockRecords]);
+  const absence = useMemo(
+    () => summariseClassAbsence(sessions, blockRecords),
+    [sessions, blockRecords],
+  );
+
   const tone = statusTone(summary.status);
   const recordFor = (id: string) => blockRecords.find((r) => r.session_id === id) ?? null;
 
@@ -134,13 +141,47 @@ function StudentClasses() {
 
             <div className="grid gap-3 sm:grid-cols-4">
               <StatCard label="Classes marked" value={`${summary.marked}/${summary.sessions}`} />
+              <StatCard label="Days absent" value={absence.totalAbsent} tone="red" />
               <StatCard label="Physical" value={summary.physical} />
-              <StatCard label="Online" value={summary.online} />
               <StatCard
                 label="Credits owed"
                 value={summary.met ? "0.0" : summary.pointsOwed.toFixed(1)}
               />
             </div>
+
+            {absence.weeks.length > 0 ? (
+              <Card className="overflow-x-auto p-0">
+                <div className="px-4 pt-4">
+                  <SectionTitle
+                    title="My absences per week"
+                    subtitle={`You have been absent from ${absence.totalAbsent} of ${absence.totalSessions} classes so far.`}
+                  />
+                </div>
+                <table className="w-full min-w-[420px] text-sm">
+                  <thead>
+                    <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+                      <th className="px-4 py-3">Week</th>
+                      <th className="px-4 py-3">Classes</th>
+                      <th className="px-4 py-3">Days absent</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {absence.weeks.map((w) => (
+                      <tr key={w.start} className="border-b border-border/40 last:border-0">
+                        <td className="px-4 py-3">{w.label}</td>
+                        <td className="px-4 py-3">{w.sessions}</td>
+                        <td className="px-4 py-3">
+                          <Badge tone={w.absent === 0 ? "green" : w.absent > 1 ? "red" : "amber"}>
+                            {w.absent}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Card>
+            ) : null}
+
 
             <Card className="overflow-x-auto p-0">
               <table className="w-full min-w-[640px] text-sm">
