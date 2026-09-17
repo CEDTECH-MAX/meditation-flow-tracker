@@ -234,9 +234,17 @@ function MarkerHome() {
             </div>
             {locked ? (
               <p className="mt-3 rounded-2xl bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                This block is closed. Marking is locked.
+                {block?.status === "closed"
+                  ? "This block is closed. Marking is locked."
+                  : "This day is closed. You can only mark today's sessions — ask your administrator to unlock a past day."}
               </p>
-            ) : null}
+            ) : (
+              <p className="mt-3 rounded-2xl bg-primary/10 px-3 py-2 text-xs text-primary">
+                {date === today
+                  ? "You are marking today. Once the day ends it locks automatically."
+                  : "Your administrator unlocked this day for you."}
+              </p>
+            )}
             <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground">
               {POINT_OPTIONS.map((o) => (
                 <span key={o.value} className="glass-muted rounded-full px-3 py-1">
