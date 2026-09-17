@@ -44,7 +44,10 @@ export function AppShell({
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const items = admin ? adminNav : studentNav;
+  const isUniversity = ((me as any)?.institution as Institution | undefined) === "MIU";
+  const items = (admin ? adminNav : studentNav).filter(
+    (item) => isUniversity || (item.to !== "/admin/classes" && item.to !== "/classes"),
+  );
 
   useEffect(() => {
     setOpen(false);
