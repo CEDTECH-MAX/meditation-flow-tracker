@@ -151,7 +151,7 @@ function AdminReports() {
     <>
       <SectionTitle
         title="Reports"
-        subtitle="Exports use the official Consciousness Attendance Register template"
+        subtitle={isMiu ? "Exports use the MIU attendance register template" : "Exports use the official Consciousness Attendance Register template"}
         action={
           <div className="flex gap-2">
             <Button variant="outline" disabled={!block || rows.length === 0} onClick={handleExcel}>
