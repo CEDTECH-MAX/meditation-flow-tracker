@@ -22,10 +22,13 @@ import {
   listDepartments,
   listStaff,
   resetStaffPassword,
+  setPersonPhoto,
   setStaffActive,
   updateDepartment,
   updateStaff,
 } from "@/lib/directory.functions";
+import { PersonPhoto } from "@/components/PersonPhoto";
+import { uploadPhoto } from "@/lib/photos";
 
 export const Route = createFileRoute("/_authenticated/admin/directory")({
   head: () => ({
@@ -141,6 +144,8 @@ function AdminDirectory() {
     onError: (e: any) => toast.error(e?.message ?? "Could not remove the profile"),
   });
 
+  const savePhotoFn = useServerFn(setPersonPhoto);
+
   const emptyForm = {
     first_name: "",
     surname: "",
@@ -151,6 +156,8 @@ function AdminDirectory() {
   };
   const [form, setForm] = useState(emptyForm);
   const [openStaff, setOpenStaff] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [busyPhoto, setBusyPhoto] = useState<string | null>(null);
   const [staffEdit, setStaffEdit] = useState<
     { id: string; first_name: string; surname: string; department_id: string; job_title: string } | null
   >(null);
@@ -164,7 +171,42 @@ function AdminDirectory() {
     return list.filter((p: any) => p.department_id === filter);
   }, [staff.data, filter]);
 
-  function submitStaff(e: React.FormEvent) {
+  async function attachPhoto(personId: string, file: File) {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Choose an image file (JPG or PNG).");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("That photo is larger than 5 MB. Please use a smaller one.");
+      return;
+    }
+    setBusyPhoto(personId);
+    try {
+      const path = await uploadPhoto(personId, file);
+      await savePhotoFn({ data: { id: personId, photo_url: path } });
+      toast.success("Photo saved");
+      invalidate();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Could not save the photo");
+    } finally {
+      setBusyPhoto(null);
+    }
+  }
+
+  async function clearPhoto(personId: string) {
+    setBusyPhoto(personId);
+    try {
+      await savePhotoFn({ data: { id: personId, photo_url: null } });
+      toast.success("Photo removed");
+      invalidate();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Could not remove the photo");
+    } finally {
+      setBusyPhoto(null);
+    }
+  }
+
+  async function submitStaff(e: React.FormEvent) {
     e.preventDefault();
     if (!EMAIL_RE.test(form.email.trim())) {
       toast.error("Please enter a complete email address, for example thabo@example.com");
@@ -174,7 +216,14 @@ function AdminDirectory() {
       toast.error("Choose a department.");
       return;
     }
-    addStaff.mutate({ data: { ...form, email: form.email.trim() } });
+    const file = photoFile;
+    try {
+      const created = await addStaff.mutateAsync({ data: { ...form, email: form.email.trim() } });
+      setPhotoFile(null);
+      if (file && created?.id) await attachPhoto(created.id, file);
+    } catch {
+      /* the mutation already showed the reason */
+    }
   }
 
   return (
@@ -279,6 +328,7 @@ function AdminDirectory() {
             <table className="w-full text-sm">
               <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
+                  <th className="py-2">Photo</th>
                   <th className="py-2">Name</th>
                   <th className="py-2">Email</th>
                   <th className="py-2">Department</th>
@@ -290,6 +340,35 @@ function AdminDirectory() {
               <tbody>
                 {rows.map((p: any) => (
                   <tr key={p.id} className="border-t border-border/50">
+                    <td className="py-2">
+                      <div className="flex items-center gap-2">
+                        <PersonPhoto path={p.photo_url} name={p.full_name} size={44} />
+                        <div className="flex flex-col text-xs">
+                          <label className="cursor-pointer text-muted-foreground hover:underline">
+                            {busyPhoto === p.id ? "Saving…" : p.photo_url ? "Change" : "Add photo"}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                e.target.value = "";
+                                if (file) void attachPhoto(p.id, file);
+                              }}
+                            />
+                          </label>
+                          {p.photo_url ? (
+                            <button
+                              type="button"
+                              className="text-left text-destructive hover:underline"
+                              onClick={() => void clearPhoto(p.id)}
+                            >
+                              Remove
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    </td>
                     <td className="py-2 font-medium">{p.full_name}</td>
                     <td className="py-2 text-muted-foreground">{p.email}</td>
                     <td className="py-2">{p.department?.name ?? "—"}</td>
@@ -409,6 +488,13 @@ function AdminDirectory() {
               minLength={8}
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+          </Field>
+          <Field label="PHOTO (OPTIONAL)">
+            <Input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
             />
           </Field>
           <div className="flex justify-end gap-2 pt-2">

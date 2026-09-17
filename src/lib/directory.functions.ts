@@ -123,7 +123,7 @@ export const listStaff = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("profiles")
-      .select("id, full_name, email, job_title, staff_id, is_active, department_id, department:departments(id,name)")
+      .select("id, full_name, email, job_title, staff_id, is_active, photo_url, department_id, department:departments(id,name)")
       .eq("institution", inst)
       .in("id", ids)
       .order("full_name", { ascending: true });
@@ -295,6 +295,43 @@ export const deleteStaff = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Saves (or clears) the photo of anyone in the administrator's own institution.
+ * The file itself is uploaded to the private photo area by the browser; only the
+ * stored path is recorded here.
+ */
+export const setPersonPhoto = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        id: uuid,
+        photo_url: z.string().trim().max(500).nullable(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const c = context as unknown as Ctx;
+    await assertAdmin(c);
+    const inst = await myInstitution(c);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("id", data.id)
+      .eq("institution", inst)
+      .maybeSingle();
+    if (!profile) throw new Error("That person is outside your institution.");
+    const { error } = await supabaseAdmin
+      .from("profiles")
+      .update({ photo_url: data.photo_url || null })
+      .eq("id", data.id)
+      .eq("institution", inst);
+    if (error) throw new Error(error.message);
+    await audit(c, data.photo_url ? "set_photo" : "clear_photo", "profile", data.id, {});
+    return { ok: true };
+  });
+
 /* ------------------------- address book (everyone) ------------------------ */
 
 export type DirectoryEntry = {
@@ -305,6 +342,7 @@ export type DirectoryEntry = {
   department: string | null;
   job_title: string | null;
   cohort: string | null;
+  photo_url: string | null;
 };
 
 /**
@@ -321,7 +359,7 @@ export const listDirectory = createServerFn({ method: "GET" })
       supabaseAdmin
         .from("profiles")
         .select(
-          "id, full_name, email, job_title, is_active, department:departments(name), cohort:cohorts(name)",
+          "id, full_name, email, job_title, is_active, photo_url, department:departments(name), cohort:cohorts(name)",
         )
         .eq("institution", inst)
         .order("full_name", { ascending: true }),
@@ -346,5 +384,6 @@ export const listDirectory = createServerFn({ method: "GET" })
         department: p.department?.name ?? null,
         job_title: (p.job_title as string) ?? null,
         cohort: p.cohort?.name ?? null,
+        photo_url: (p.photo_url as string) ?? null,
       })) as DirectoryEntry[];
   });
