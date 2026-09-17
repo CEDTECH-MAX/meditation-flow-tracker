@@ -370,6 +370,33 @@ export type Database = {
         }
         Relationships: []
       }
+      departments: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          institution: Database["public"]["Enums"]["institution"]
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          institution: Database["public"]["Enums"]["institution"]
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          institution?: Database["public"]["Enums"]["institution"]
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       marker_assignments: {
         Row: {
           block_id: string | null
@@ -586,6 +613,100 @@ export type Database = {
           },
         ]
       }
+      message_recipients: {
+        Row: {
+          created_at: string
+          folder: string
+          id: string
+          is_starred: boolean
+          kind: string
+          message_id: string
+          read_at: string | null
+          recipient_id: string
+        }
+        Insert: {
+          created_at?: string
+          folder?: string
+          id?: string
+          is_starred?: boolean
+          kind?: string
+          message_id: string
+          read_at?: string | null
+          recipient_id: string
+        }
+        Update: {
+          created_at?: string
+          folder?: string
+          id?: string
+          is_starred?: boolean
+          kind?: string
+          message_id?: string
+          read_at?: string | null
+          recipient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_recipients_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          is_draft: boolean
+          parent_id: string | null
+          sender_folder: string
+          sender_id: string
+          sender_starred: boolean
+          sent_at: string | null
+          subject: string
+          thread_id: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          id?: string
+          is_draft?: boolean
+          parent_id?: string | null
+          sender_folder?: string
+          sender_id: string
+          sender_starred?: boolean
+          sent_at?: string | null
+          subject?: string
+          thread_id?: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          is_draft?: boolean
+          parent_id?: string | null
+          sender_folder?: string
+          sender_id?: string
+          sender_starred?: boolean
+          sent_at?: string | null
+          subject?: string
+          thread_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           classification:
@@ -593,6 +714,7 @@ export type Database = {
             | null
           cohort_id: string | null
           created_at: string
+          department_id: string | null
           email: string | null
           full_name: string
           gender: Database["public"]["Enums"]["student_gender"] | null
@@ -614,6 +736,7 @@ export type Database = {
             | null
           cohort_id?: string | null
           created_at?: string
+          department_id?: string | null
           email?: string | null
           full_name?: string
           gender?: Database["public"]["Enums"]["student_gender"] | null
@@ -635,6 +758,7 @@ export type Database = {
             | null
           cohort_id?: string | null
           created_at?: string
+          department_id?: string | null
           email?: string | null
           full_name?: string
           gender?: Database["public"]["Enums"]["student_gender"] | null
@@ -656,6 +780,13 @@ export type Database = {
             columns: ["cohort_id"]
             isOneToOne: false
             referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
             referencedColumns: ["id"]
           },
         ]
@@ -694,6 +825,14 @@ export type Database = {
         Args: { _role: string; _user_id: string }
         Returns: boolean
       }
+      is_message_recipient: {
+        Args: { _message_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_message_sender: {
+        Args: { _message_id: string; _user_id: string }
+        Returns: boolean
+      }
       marker_can_mark_student: {
         Args: { _block_id: string; _marker_id: string; _student_id: string }
         Returns: boolean
@@ -706,7 +845,7 @@ export type Database = {
         | "late_arrival"
         | "unexcused"
         | "other"
-      app_role: "admin" | "student" | "marker" | "head_of_meditation"
+      app_role: "admin" | "student" | "marker" | "head_of_meditation" | "staff"
       attendance_status: "present" | "absent" | "excused"
       block_status: "upcoming" | "active" | "closed"
       institution: "MII" | "MIU"
@@ -847,7 +986,7 @@ export const Constants = {
         "unexcused",
         "other",
       ],
-      app_role: ["admin", "student", "marker", "head_of_meditation"],
+      app_role: ["admin", "student", "marker", "head_of_meditation", "staff"],
       attendance_status: ["present", "absent", "excused"],
       block_status: ["upcoming", "active", "closed"],
       institution: ["MII", "MIU"],

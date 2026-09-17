@@ -28,21 +28,30 @@ const adminNav: { to: string; label: string; exact?: boolean }[] = [
   { to: "/admin/classes", label: "Class register" },
   { to: "/admin/students", label: "Students" },
   { to: "/admin/markers", label: "Markers" },
+  { to: "/admin/directory", label: "Staff directory" },
   { to: "/admin/cohorts", label: "Cohorts" },
   { to: "/admin/blocks", label: "Blocks" },
   { to: "/admin/reports", label: "Reports" },
+  { to: "/mail", label: "Mail" },
 ];
 
 const studentNav: { to: string; label: string; exact?: boolean }[] = [
   { to: "/dashboard", label: "My attendance", exact: true },
   { to: "/classes", label: "My class attendance" },
   { to: "/advisor", label: "AI Advisor" },
+  { to: "/mail", label: "Mail" },
   { to: "/password", label: "Password" },
 ];
 
 const markerNav: { to: string; label: string; exact?: boolean }[] = [
   { to: "/marker", label: "Marking", exact: true },
+  { to: "/mail", label: "Mail" },
   { to: "/marker/password", label: "Password" },
+];
+
+const staffNav: { to: string; label: string; exact?: boolean }[] = [
+  { to: "/mail", label: "Mail", exact: true },
+  { to: "/password", label: "Password" },
 ];
 
 
@@ -51,10 +60,12 @@ export function AppShell({
   children,
   admin = false,
   marker = false,
+  staff = false,
 }: {
   children: React.ReactNode;
   admin?: boolean;
   marker?: boolean;
+  staff?: boolean;
 }) {
   const { data: me } = useMe();
   const navigate = useNavigate();
@@ -62,9 +73,10 @@ export function AppShell({
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isUniversity = ((me as any)?.institution as Institution | undefined) === "MIU";
-  const items = (marker ? markerNav : admin ? adminNav : studentNav).filter(
+  const items = (staff ? staffNav : marker ? markerNav : admin ? adminNav : studentNav).filter(
     (item) => isUniversity || (item.to !== "/admin/classes" && item.to !== "/classes"),
   );
+
 
 
   useEffect(() => {
@@ -96,7 +108,7 @@ export function AppShell({
             >
               {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
-            <Link to={marker ? "/marker" : admin ? "/admin" : "/dashboard"} className="flex items-center gap-3">
+            <Link to={staff ? "/mail" : marker ? "/marker" : admin ? "/admin" : "/dashboard"} className="flex items-center gap-3">
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-sm font-bold text-primary-foreground">
                 {info.short}
               </span>

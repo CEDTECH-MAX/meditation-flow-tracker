@@ -20,6 +20,7 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedAdvisorRouteImport } from './routes/_authenticated/advisor'
 import { Route as AuthenticatedClassesRouteImport } from './routes/_authenticated/classes'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedMailRouteImport } from './routes/_authenticated/mail'
 import { Route as AuthenticatedMarkerRouteImport } from './routes/_authenticated/marker'
 import { Route as AuthenticatedPasswordRouteImport } from './routes/_authenticated/password'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
@@ -27,6 +28,7 @@ import { Route as AuthenticatedAdminAttendanceRouteImport } from './routes/_auth
 import { Route as AuthenticatedAdminBlocksRouteImport } from './routes/_authenticated/admin.blocks'
 import { Route as AuthenticatedAdminClassesRouteImport } from './routes/_authenticated/admin.classes'
 import { Route as AuthenticatedAdminCohortsRouteImport } from './routes/_authenticated/admin.cohorts'
+import { Route as AuthenticatedAdminDirectoryRouteImport } from './routes/_authenticated/admin.directory'
 import { Route as AuthenticatedAdminMarkersRouteImport } from './routes/_authenticated/admin.markers'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin.reports'
 import { Route as AuthenticatedAdminStudentsRouteImport } from './routes/_authenticated/admin.students'
@@ -87,6 +89,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedMailRoute = AuthenticatedMailRouteImport.update({
+  id: '/mail',
+  path: '/mail',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedMarkerRoute = AuthenticatedMarkerRouteImport.update({
   id: '/marker',
   path: '/marker',
@@ -124,6 +131,12 @@ const AuthenticatedAdminCohortsRoute =
   AuthenticatedAdminCohortsRouteImport.update({
     id: '/cohorts',
     path: '/cohorts',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminDirectoryRoute =
+  AuthenticatedAdminDirectoryRouteImport.update({
+    id: '/directory',
+    path: '/directory',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedAdminMarkersRoute =
@@ -168,12 +181,14 @@ export interface FileRoutesByFullPath {
   '/advisor': typeof AuthenticatedAdvisorRoute
   '/classes': typeof AuthenticatedClassesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/mail': typeof AuthenticatedMailRoute
   '/marker': typeof AuthenticatedMarkerRouteWithChildren
   '/password': typeof AuthenticatedPasswordRoute
   '/admin/attendance': typeof AuthenticatedAdminAttendanceRoute
   '/admin/blocks': typeof AuthenticatedAdminBlocksRoute
   '/admin/classes': typeof AuthenticatedAdminClassesRoute
   '/admin/cohorts': typeof AuthenticatedAdminCohortsRoute
+  '/admin/directory': typeof AuthenticatedAdminDirectoryRoute
   '/admin/markers': typeof AuthenticatedAdminMarkersRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
@@ -191,11 +206,13 @@ export interface FileRoutesByTo {
   '/advisor': typeof AuthenticatedAdvisorRoute
   '/classes': typeof AuthenticatedClassesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/mail': typeof AuthenticatedMailRoute
   '/password': typeof AuthenticatedPasswordRoute
   '/admin/attendance': typeof AuthenticatedAdminAttendanceRoute
   '/admin/blocks': typeof AuthenticatedAdminBlocksRoute
   '/admin/classes': typeof AuthenticatedAdminClassesRoute
   '/admin/cohorts': typeof AuthenticatedAdminCohortsRoute
+  '/admin/directory': typeof AuthenticatedAdminDirectoryRoute
   '/admin/markers': typeof AuthenticatedAdminMarkersRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
@@ -216,12 +233,14 @@ export interface FileRoutesById {
   '/_authenticated/advisor': typeof AuthenticatedAdvisorRoute
   '/_authenticated/classes': typeof AuthenticatedClassesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/mail': typeof AuthenticatedMailRoute
   '/_authenticated/marker': typeof AuthenticatedMarkerRouteWithChildren
   '/_authenticated/password': typeof AuthenticatedPasswordRoute
   '/_authenticated/admin/attendance': typeof AuthenticatedAdminAttendanceRoute
   '/_authenticated/admin/blocks': typeof AuthenticatedAdminBlocksRoute
   '/_authenticated/admin/classes': typeof AuthenticatedAdminClassesRoute
   '/_authenticated/admin/cohorts': typeof AuthenticatedAdminCohortsRoute
+  '/_authenticated/admin/directory': typeof AuthenticatedAdminDirectoryRoute
   '/_authenticated/admin/markers': typeof AuthenticatedAdminMarkersRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/students': typeof AuthenticatedAdminStudentsRoute
@@ -242,12 +261,14 @@ export interface FileRouteTypes {
     | '/advisor'
     | '/classes'
     | '/dashboard'
+    | '/mail'
     | '/marker'
     | '/password'
     | '/admin/attendance'
     | '/admin/blocks'
     | '/admin/classes'
     | '/admin/cohorts'
+    | '/admin/directory'
     | '/admin/markers'
     | '/admin/reports'
     | '/admin/students'
@@ -265,11 +286,13 @@ export interface FileRouteTypes {
     | '/advisor'
     | '/classes'
     | '/dashboard'
+    | '/mail'
     | '/password'
     | '/admin/attendance'
     | '/admin/blocks'
     | '/admin/classes'
     | '/admin/cohorts'
+    | '/admin/directory'
     | '/admin/markers'
     | '/admin/reports'
     | '/admin/students'
@@ -289,12 +312,14 @@ export interface FileRouteTypes {
     | '/_authenticated/advisor'
     | '/_authenticated/classes'
     | '/_authenticated/dashboard'
+    | '/_authenticated/mail'
     | '/_authenticated/marker'
     | '/_authenticated/password'
     | '/_authenticated/admin/attendance'
     | '/_authenticated/admin/blocks'
     | '/_authenticated/admin/classes'
     | '/_authenticated/admin/cohorts'
+    | '/_authenticated/admin/directory'
     | '/_authenticated/admin/markers'
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/students'
@@ -392,6 +417,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/mail': {
+      id: '/_authenticated/mail'
+      path: '/mail'
+      fullPath: '/mail'
+      preLoaderRoute: typeof AuthenticatedMailRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/marker': {
       id: '/_authenticated/marker'
       path: '/marker'
@@ -441,6 +473,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminCohortsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/directory': {
+      id: '/_authenticated/admin/directory'
+      path: '/directory'
+      fullPath: '/admin/directory'
+      preLoaderRoute: typeof AuthenticatedAdminDirectoryRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/markers': {
       id: '/_authenticated/admin/markers'
       path: '/markers'
@@ -484,6 +523,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminBlocksRoute: typeof AuthenticatedAdminBlocksRoute
   AuthenticatedAdminClassesRoute: typeof AuthenticatedAdminClassesRoute
   AuthenticatedAdminCohortsRoute: typeof AuthenticatedAdminCohortsRoute
+  AuthenticatedAdminDirectoryRoute: typeof AuthenticatedAdminDirectoryRoute
   AuthenticatedAdminMarkersRoute: typeof AuthenticatedAdminMarkersRoute
   AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
   AuthenticatedAdminStudentsRoute: typeof AuthenticatedAdminStudentsRoute
@@ -495,6 +535,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminBlocksRoute: AuthenticatedAdminBlocksRoute,
   AuthenticatedAdminClassesRoute: AuthenticatedAdminClassesRoute,
   AuthenticatedAdminCohortsRoute: AuthenticatedAdminCohortsRoute,
+  AuthenticatedAdminDirectoryRoute: AuthenticatedAdminDirectoryRoute,
   AuthenticatedAdminMarkersRoute: AuthenticatedAdminMarkersRoute,
   AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
   AuthenticatedAdminStudentsRoute: AuthenticatedAdminStudentsRoute,
@@ -522,6 +563,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdvisorRoute: typeof AuthenticatedAdvisorRoute
   AuthenticatedClassesRoute: typeof AuthenticatedClassesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedMailRoute: typeof AuthenticatedMailRoute
   AuthenticatedMarkerRoute: typeof AuthenticatedMarkerRouteWithChildren
   AuthenticatedPasswordRoute: typeof AuthenticatedPasswordRoute
 }
@@ -531,6 +573,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdvisorRoute: AuthenticatedAdvisorRoute,
   AuthenticatedClassesRoute: AuthenticatedClassesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedMailRoute: AuthenticatedMailRoute,
   AuthenticatedMarkerRoute: AuthenticatedMarkerRouteWithChildren,
   AuthenticatedPasswordRoute: AuthenticatedPasswordRoute,
 }
