@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as MarkerSigninRouteImport } from './routes/marker-signin'
 import { Route as MiiRouteImport } from './routes/mii'
 import { Route as MiuRouteImport } from './routes/miu'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
@@ -19,14 +20,18 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedAdvisorRouteImport } from './routes/_authenticated/advisor'
 import { Route as AuthenticatedClassesRouteImport } from './routes/_authenticated/classes'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedMarkerRouteImport } from './routes/_authenticated/marker'
 import { Route as AuthenticatedPasswordRouteImport } from './routes/_authenticated/password'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedAdminAttendanceRouteImport } from './routes/_authenticated/admin.attendance'
 import { Route as AuthenticatedAdminBlocksRouteImport } from './routes/_authenticated/admin.blocks'
 import { Route as AuthenticatedAdminClassesRouteImport } from './routes/_authenticated/admin.classes'
 import { Route as AuthenticatedAdminCohortsRouteImport } from './routes/_authenticated/admin.cohorts'
+import { Route as AuthenticatedAdminMarkersRouteImport } from './routes/_authenticated/admin.markers'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin.reports'
 import { Route as AuthenticatedAdminStudentsRouteImport } from './routes/_authenticated/admin.students'
+import { Route as AuthenticatedMarkerIndexRouteImport } from './routes/_authenticated/marker.index'
+import { Route as AuthenticatedMarkerPasswordRouteImport } from './routes/_authenticated/marker.password'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,6 +45,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarkerSigninRoute = MarkerSigninRouteImport.update({
+  id: '/marker-signin',
+  path: '/marker-signin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MiiRoute = MiiRouteImport.update({
@@ -77,6 +87,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedMarkerRoute = AuthenticatedMarkerRouteImport.update({
+  id: '/marker',
+  path: '/marker',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedPasswordRoute = AuthenticatedPasswordRouteImport.update({
   id: '/password',
   path: '/password',
@@ -111,6 +126,12 @@ const AuthenticatedAdminCohortsRoute =
     path: '/cohorts',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminMarkersRoute =
+  AuthenticatedAdminMarkersRouteImport.update({
+    id: '/markers',
+    path: '/markers',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminReportsRoute =
   AuthenticatedAdminReportsRouteImport.update({
     id: '/reports',
@@ -123,10 +144,23 @@ const AuthenticatedAdminStudentsRoute =
     path: '/students',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedMarkerIndexRoute =
+  AuthenticatedMarkerIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedMarkerRoute,
+  } as any)
+const AuthenticatedMarkerPasswordRoute =
+  AuthenticatedMarkerPasswordRouteImport.update({
+    id: '/password',
+    path: '/password',
+    getParentRoute: () => AuthenticatedMarkerRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/marker-signin': typeof MarkerSigninRoute
   '/mii': typeof MiiRoute
   '/miu': typeof MiuRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -134,18 +168,23 @@ export interface FileRoutesByFullPath {
   '/advisor': typeof AuthenticatedAdvisorRoute
   '/classes': typeof AuthenticatedClassesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/marker': typeof AuthenticatedMarkerRouteWithChildren
   '/password': typeof AuthenticatedPasswordRoute
   '/admin/attendance': typeof AuthenticatedAdminAttendanceRoute
   '/admin/blocks': typeof AuthenticatedAdminBlocksRoute
   '/admin/classes': typeof AuthenticatedAdminClassesRoute
   '/admin/cohorts': typeof AuthenticatedAdminCohortsRoute
+  '/admin/markers': typeof AuthenticatedAdminMarkersRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
+  '/marker/password': typeof AuthenticatedMarkerPasswordRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/marker/': typeof AuthenticatedMarkerIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/marker-signin': typeof MarkerSigninRoute
   '/mii': typeof MiiRoute
   '/miu': typeof MiuRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -157,15 +196,19 @@ export interface FileRoutesByTo {
   '/admin/blocks': typeof AuthenticatedAdminBlocksRoute
   '/admin/classes': typeof AuthenticatedAdminClassesRoute
   '/admin/cohorts': typeof AuthenticatedAdminCohortsRoute
+  '/admin/markers': typeof AuthenticatedAdminMarkersRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
+  '/marker/password': typeof AuthenticatedMarkerPasswordRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/marker': typeof AuthenticatedMarkerIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
+  '/marker-signin': typeof MarkerSigninRoute
   '/mii': typeof MiiRoute
   '/miu': typeof MiuRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -173,20 +216,25 @@ export interface FileRoutesById {
   '/_authenticated/advisor': typeof AuthenticatedAdvisorRoute
   '/_authenticated/classes': typeof AuthenticatedClassesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/marker': typeof AuthenticatedMarkerRouteWithChildren
   '/_authenticated/password': typeof AuthenticatedPasswordRoute
   '/_authenticated/admin/attendance': typeof AuthenticatedAdminAttendanceRoute
   '/_authenticated/admin/blocks': typeof AuthenticatedAdminBlocksRoute
   '/_authenticated/admin/classes': typeof AuthenticatedAdminClassesRoute
   '/_authenticated/admin/cohorts': typeof AuthenticatedAdminCohortsRoute
+  '/_authenticated/admin/markers': typeof AuthenticatedAdminMarkersRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/students': typeof AuthenticatedAdminStudentsRoute
+  '/_authenticated/marker/password': typeof AuthenticatedMarkerPasswordRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/marker/': typeof AuthenticatedMarkerIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/forgot-password'
+    | '/marker-signin'
     | '/mii'
     | '/miu'
     | '/reset-password'
@@ -194,18 +242,23 @@ export interface FileRouteTypes {
     | '/advisor'
     | '/classes'
     | '/dashboard'
+    | '/marker'
     | '/password'
     | '/admin/attendance'
     | '/admin/blocks'
     | '/admin/classes'
     | '/admin/cohorts'
+    | '/admin/markers'
     | '/admin/reports'
     | '/admin/students'
+    | '/marker/password'
     | '/admin/'
+    | '/marker/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/forgot-password'
+    | '/marker-signin'
     | '/mii'
     | '/miu'
     | '/reset-password'
@@ -217,14 +270,18 @@ export interface FileRouteTypes {
     | '/admin/blocks'
     | '/admin/classes'
     | '/admin/cohorts'
+    | '/admin/markers'
     | '/admin/reports'
     | '/admin/students'
+    | '/marker/password'
     | '/admin'
+    | '/marker'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/forgot-password'
+    | '/marker-signin'
     | '/mii'
     | '/miu'
     | '/reset-password'
@@ -232,20 +289,25 @@ export interface FileRouteTypes {
     | '/_authenticated/advisor'
     | '/_authenticated/classes'
     | '/_authenticated/dashboard'
+    | '/_authenticated/marker'
     | '/_authenticated/password'
     | '/_authenticated/admin/attendance'
     | '/_authenticated/admin/blocks'
     | '/_authenticated/admin/classes'
     | '/_authenticated/admin/cohorts'
+    | '/_authenticated/admin/markers'
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/students'
+    | '/_authenticated/marker/password'
     | '/_authenticated/admin/'
+    | '/_authenticated/marker/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   ForgotPasswordRoute: typeof ForgotPasswordRoute
+  MarkerSigninRoute: typeof MarkerSigninRoute
   MiiRoute: typeof MiiRoute
   MiuRoute: typeof MiuRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -272,6 +334,13 @@ declare module '@tanstack/react-router' {
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marker-signin': {
+      id: '/marker-signin'
+      path: '/marker-signin'
+      fullPath: '/marker-signin'
+      preLoaderRoute: typeof MarkerSigninRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mii': {
@@ -323,6 +392,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/marker': {
+      id: '/_authenticated/marker'
+      path: '/marker'
+      fullPath: '/marker'
+      preLoaderRoute: typeof AuthenticatedMarkerRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/password': {
       id: '/_authenticated/password'
       path: '/password'
@@ -365,6 +441,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminCohortsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/markers': {
+      id: '/_authenticated/admin/markers'
+      path: '/markers'
+      fullPath: '/admin/markers'
+      preLoaderRoute: typeof AuthenticatedAdminMarkersRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/reports': {
       id: '/_authenticated/admin/reports'
       path: '/reports'
@@ -379,6 +462,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminStudentsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/marker/': {
+      id: '/_authenticated/marker/'
+      path: '/'
+      fullPath: '/marker/'
+      preLoaderRoute: typeof AuthenticatedMarkerIndexRouteImport
+      parentRoute: typeof AuthenticatedMarkerRoute
+    }
+    '/_authenticated/marker/password': {
+      id: '/_authenticated/marker/password'
+      path: '/password'
+      fullPath: '/marker/password'
+      preLoaderRoute: typeof AuthenticatedMarkerPasswordRouteImport
+      parentRoute: typeof AuthenticatedMarkerRoute
+    }
   }
 }
 
@@ -387,6 +484,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminBlocksRoute: typeof AuthenticatedAdminBlocksRoute
   AuthenticatedAdminClassesRoute: typeof AuthenticatedAdminClassesRoute
   AuthenticatedAdminCohortsRoute: typeof AuthenticatedAdminCohortsRoute
+  AuthenticatedAdminMarkersRoute: typeof AuthenticatedAdminMarkersRoute
   AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
   AuthenticatedAdminStudentsRoute: typeof AuthenticatedAdminStudentsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
@@ -397,6 +495,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminBlocksRoute: AuthenticatedAdminBlocksRoute,
   AuthenticatedAdminClassesRoute: AuthenticatedAdminClassesRoute,
   AuthenticatedAdminCohortsRoute: AuthenticatedAdminCohortsRoute,
+  AuthenticatedAdminMarkersRoute: AuthenticatedAdminMarkersRoute,
   AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
   AuthenticatedAdminStudentsRoute: AuthenticatedAdminStudentsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
@@ -405,11 +504,25 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
 const AuthenticatedAdminRouteWithChildren =
   AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
 
+interface AuthenticatedMarkerRouteChildren {
+  AuthenticatedMarkerPasswordRoute: typeof AuthenticatedMarkerPasswordRoute
+  AuthenticatedMarkerIndexRoute: typeof AuthenticatedMarkerIndexRoute
+}
+
+const AuthenticatedMarkerRouteChildren: AuthenticatedMarkerRouteChildren = {
+  AuthenticatedMarkerPasswordRoute: AuthenticatedMarkerPasswordRoute,
+  AuthenticatedMarkerIndexRoute: AuthenticatedMarkerIndexRoute,
+}
+
+const AuthenticatedMarkerRouteWithChildren =
+  AuthenticatedMarkerRoute._addFileChildren(AuthenticatedMarkerRouteChildren)
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedAdvisorRoute: typeof AuthenticatedAdvisorRoute
   AuthenticatedClassesRoute: typeof AuthenticatedClassesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedMarkerRoute: typeof AuthenticatedMarkerRouteWithChildren
   AuthenticatedPasswordRoute: typeof AuthenticatedPasswordRoute
 }
 
@@ -418,6 +531,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdvisorRoute: AuthenticatedAdvisorRoute,
   AuthenticatedClassesRoute: AuthenticatedClassesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedMarkerRoute: AuthenticatedMarkerRouteWithChildren,
   AuthenticatedPasswordRoute: AuthenticatedPasswordRoute,
 }
 
@@ -428,6 +542,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   ForgotPasswordRoute: ForgotPasswordRoute,
+  MarkerSigninRoute: MarkerSigninRoute,
   MiiRoute: MiiRoute,
   MiuRoute: MiuRoute,
   ResetPasswordRoute: ResetPasswordRoute,

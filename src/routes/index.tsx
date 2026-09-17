@@ -55,9 +55,17 @@ function Chooser() {
           ))}
         </div>
 
-        <p className="mt-8 text-center text-xs text-muted-foreground">
+        <p className="mt-8 text-center text-sm text-muted-foreground">
+          Marking attendance for a cohort?{" "}
+          <Link to="/marker-signin" className="font-medium text-primary hover:underline">
+            Marker sign in
+          </Link>
+        </p>
+
+        <p className="mt-3 text-center text-xs text-muted-foreground">
           Minimum requirement: 80% attendance per block. Accounts are created by your administrator.
         </p>
+
       </div>
     </div>
   );

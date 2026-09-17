@@ -134,7 +134,13 @@ async function routeByRole(
     return false;
   }
 
-  const isAdmin = (roles ?? []).some((r) => r.role === "admin");
+  const list = roles ?? [];
+  if (list.some((r) => r.role === "marker")) {
+    navigate({ to: "/marker", replace: true });
+    return true;
+  }
+  const isAdmin = list.some((r) => r.role === "admin");
   navigate({ to: isAdmin ? "/admin" : "/dashboard", replace: true });
   return true;
 }
+

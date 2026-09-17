@@ -19,6 +19,7 @@ const adminNav: { to: string; label: string; exact?: boolean }[] = [
   { to: "/admin/attendance", label: "Meditation register" },
   { to: "/admin/classes", label: "Class register" },
   { to: "/admin/students", label: "Students" },
+  { to: "/admin/markers", label: "Markers" },
   { to: "/admin/cohorts", label: "Cohorts" },
   { to: "/admin/blocks", label: "Blocks" },
   { to: "/admin/reports", label: "Reports" },
@@ -31,13 +32,21 @@ const studentNav: { to: string; label: string; exact?: boolean }[] = [
   { to: "/password", label: "Password" },
 ];
 
+const markerNav: { to: string; label: string; exact?: boolean }[] = [
+  { to: "/marker", label: "Marking", exact: true },
+  { to: "/marker/password", label: "Password" },
+];
+
+
 
 export function AppShell({
   children,
   admin = false,
+  marker = false,
 }: {
   children: React.ReactNode;
   admin?: boolean;
+  marker?: boolean;
 }) {
   const { data: me } = useMe();
   const navigate = useNavigate();
@@ -45,9 +54,10 @@ export function AppShell({
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isUniversity = ((me as any)?.institution as Institution | undefined) === "MIU";
-  const items = (admin ? adminNav : studentNav).filter(
+  const items = (marker ? markerNav : admin ? adminNav : studentNav).filter(
     (item) => isUniversity || (item.to !== "/admin/classes" && item.to !== "/classes"),
   );
+
 
   useEffect(() => {
     setOpen(false);
@@ -56,12 +66,13 @@ export function AppShell({
   const info = institutionInfo((me as any)?.institution as Institution | undefined);
 
   async function signOut() {
-    const path = info.path;
+    const path = marker ? "/marker-signin" : info.path;
     await queryClient.cancelQueries();
     queryClient.clear();
     await supabase.auth.signOut();
     navigate({ to: path, replace: true });
   }
+
 
   return (
     <div className="min-h-screen">
@@ -77,7 +88,7 @@ export function AppShell({
             >
               {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
-            <Link to={admin ? "/admin" : "/dashboard"} className="flex items-center gap-3">
+            <Link to={marker ? "/marker" : admin ? "/admin" : "/dashboard"} className="flex items-center gap-3">
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-sm font-bold text-primary-foreground">
                 {info.short}
               </span>
