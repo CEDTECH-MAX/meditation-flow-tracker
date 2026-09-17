@@ -78,11 +78,6 @@ const emptyDraft = (): Draft => ({
   max_points: 2,
 });
 
-function pointChoices(max: number) {
-  const out: number[] = [];
-  for (let p = max; p >= 0; p -= 0.5) out.push(Math.round(p * 10) / 10);
-  return out;
-}
 
 function AdminClasses() {
   const qc = useQueryClient();
@@ -579,7 +574,7 @@ function MarkRow({
       </td>
       <td className="px-4 py-3">
         <Select
-          value={points === null ? "" : String(points)}
+          value={points === null ? "" : points > 0 ? String(full) : "0"}
           onChange={(e) =>
             onSave({
               points: e.target.value === "" ? null : Number(e.target.value),
