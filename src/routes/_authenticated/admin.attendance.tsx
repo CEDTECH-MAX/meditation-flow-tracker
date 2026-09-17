@@ -328,7 +328,7 @@ function AdminAttendance() {
           <Card>
             <SectionTitle
               title={formatDate(date)}
-              subtitle={`${rows.length} student${rows.length === 1 ? "" : "s"} · a full day is 4.0 points · Mon–Fri mornings and Mon–Thu afternoons are compulsory; Friday afternoon and Saturday are optional bonus points`}
+              subtitle={`${rows.length} student${rows.length === 1 ? "" : "s"} · Mon–Fri mornings and Mon–Thu afternoons are compulsory; Friday afternoon and Saturday are optional bonus sessions`}
             />
             {la ? (
               <Spinner label="Loading attendance" />
