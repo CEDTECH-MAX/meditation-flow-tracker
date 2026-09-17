@@ -78,11 +78,6 @@ const emptyDraft = (): Draft => ({
   max_points: 2,
 });
 
-function pointChoices(max: number) {
-  const out: number[] = [];
-  for (let p = max; p >= 0; p -= 0.5) out.push(Math.round(p * 10) / 10);
-  return out;
-}
 
 function AdminClasses() {
   const qc = useQueryClient();
@@ -333,7 +328,7 @@ function AdminClasses() {
                 <thead>
                   <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                     <th className="px-4 py-3">Student</th>
-                    <th className="px-4 py-3">Points</th>
+                    <th className="px-4 py-3">Attendance</th>
                     <th className="px-4 py-3">Attendance type</th>
                     <th className="px-4 py-3">Behaviour comment</th>
                   </tr>
@@ -370,7 +365,7 @@ function AdminClasses() {
               <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                 <th className="px-4 py-3">Student</th>
                 <th className="px-4 py-3">Classes marked</th>
-                <th className="px-4 py-3">Points</th>
+                <th className="px-4 py-3">Attendance points</th>
                 <th className="px-4 py-3">Class attendance</th>
                 <th className="px-4 py-3">Outcome</th>
               </tr>
@@ -569,7 +564,7 @@ function MarkRow({
   const [mode, setMode] = useState<ClassMode>(record?.mode ?? "physical");
   const [comment, setComment] = useState(record?.comment ?? "");
   const points = record ? Number(record.points) : null;
-  const choices = pointChoices(Number(session.max_points));
+  const full = Number(session.max_points);
 
   return (
     <tr className="border-b border-border/40 last:border-0">
@@ -579,7 +574,7 @@ function MarkRow({
       </td>
       <td className="px-4 py-3">
         <Select
-          value={points === null ? "" : String(points)}
+          value={points === null ? "" : points > 0 ? String(full) : "0"}
           onChange={(e) =>
             onSave({
               points: e.target.value === "" ? null : Number(e.target.value),
@@ -589,11 +584,8 @@ function MarkRow({
           }
         >
           <option value="">Not marked</option>
-          {choices.map((p) => (
-            <option key={p} value={p}>
-              {p.toFixed(1)}
-            </option>
-          ))}
+          <option value={full}>Present</option>
+          <option value={0}>Absent</option>
         </Select>
       </td>
       <td className="px-4 py-3">
