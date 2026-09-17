@@ -21,6 +21,16 @@ export const POINT_OPTIONS: { value: number; label: string; hint: string }[] = [
   { value: 0, label: "0", hint: "Did not attend" },
 ];
 
+/**
+ * Meditation is marked as Present or Absent only. Present earns the full
+ * session value (2.0) so every existing percentage keeps working unchanged.
+ */
+export const ATTENDANCE_OPTIONS: { value: number; label: string; hint: string }[] = [
+  { value: 2, label: "Present", hint: "Attended the session" },
+  { value: 0, label: "Absent", hint: "Did not attend" },
+];
+
+
 export function pointsLabel(points: number | null | undefined) {
   if (points === null || points === undefined) return "—";
   return points.toFixed(1);
