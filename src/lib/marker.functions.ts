@@ -242,6 +242,23 @@ export const markAsMarker = createServerFn({ method: "POST" })
     }
     if ((block as any).status === "closed") throw new Error("This block is closed");
 
+    const today = localToday();
+    if (data.session_date !== today) {
+      const open = await unlockedDates(scope, data.block_id);
+      if (!open.includes(data.session_date)) {
+        await audit(c, "denied", "attendance", data.student_id, {
+          reason: data.session_date > today ? "future day" : "day locked",
+          block_id: data.block_id,
+          session_date: data.session_date,
+        });
+        throw new Error(
+          data.session_date > today
+            ? "You can only mark today's sessions."
+            : "That day is closed. Ask your administrator to unlock it before marking again.",
+        );
+      }
+    }
+
     const { data: allowed } = await c.supabase.rpc("marker_can_mark_student", {
       _marker_id: c.userId,
       _student_id: data.student_id,
