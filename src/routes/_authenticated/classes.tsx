@@ -106,11 +106,11 @@ function StudentClasses() {
         ) : (
           <>
             <Card className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
-              <CircularProgress value={Math.min(100, summary.percentage)} stroke={tone.stroke}>
-                <span className="font-display text-2xl font-semibold">
-                  {summary.percentage.toFixed(1)}%
-                </span>
-              </CircularProgress>
+              <CircularProgress
+                value={summary.percentage}
+                color={tone.stroke}
+                caption={summary.statusLabel}
+              />
               <div className="flex-1 text-center sm:text-left">
                 <Badge tone={summary.met ? "green" : "red"}>
                   {summary.met ? "Requirement met" : "Requirement NOT met"}
