@@ -11,8 +11,16 @@ import { Button } from "@/components/ui-kit";
 
 export function useMe() {
   const fn = useServerFn(getMe);
-  return useQuery({ queryKey: ["me"], queryFn: () => fn(), staleTime: 60_000 });
+  return useQuery({
+    queryKey: ["me"],
+    queryFn: () => fn(),
+    staleTime: 60_000,
+    // The sign-in token can still be loading on the very first request.
+    retry: 2,
+    retryDelay: 400,
+  });
 }
+
 
 const adminNav: { to: string; label: string; exact?: boolean }[] = [
   { to: "/admin", label: "Overview", exact: true },
