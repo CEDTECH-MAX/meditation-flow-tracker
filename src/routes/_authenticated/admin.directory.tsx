@@ -217,9 +217,13 @@ function AdminDirectory() {
       return;
     }
     const file = photoFile;
-    const created = await addStaff.mutateAsync({ data: { ...form, email: form.email.trim() } });
-    setPhotoFile(null);
-    if (file && created?.id) await attachPhoto(created.id, file);
+    try {
+      const created = await addStaff.mutateAsync({ data: { ...form, email: form.email.trim() } });
+      setPhotoFile(null);
+      if (file && created?.id) await attachPhoto(created.id, file);
+    } catch {
+      /* the mutation already showed the reason */
+    }
   }
 
   return (
