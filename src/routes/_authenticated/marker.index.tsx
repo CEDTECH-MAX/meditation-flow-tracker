@@ -20,7 +20,7 @@ import { getMarkerDayAccess, listMarkerAttendance, markAsMarker } from "@/lib/ma
 import {
   blockDates,
   formatDate,
-  POINT_OPTIONS,
+  ATTENDANCE_OPTIONS,
   REASONS,
   reasonLabel,
   sessionKind,
@@ -246,18 +246,19 @@ function MarkerHome() {
               </p>
             )}
             <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground">
-              {POINT_OPTIONS.map((o) => (
+              {ATTENDANCE_OPTIONS.map((o) => (
                 <span key={o.value} className="glass-muted rounded-full px-3 py-1">
                   <strong className="text-foreground">{o.label}</strong> · {o.hint}
                 </span>
               ))}
             </div>
+
           </Card>
 
           <Card>
             <SectionTitle
               title={formatDate(date)}
-              subtitle="Each session is scored out of 2.0 points. You can only mark the students of your own cohort."
+              subtitle="Mark each session present or absent. You can only mark the students of your own cohort."
             />
             {la ? (
               <Spinner label="Loading attendance" />
@@ -319,12 +320,13 @@ function MarkerHome() {
                                 }}
                               >
                                 <option value="">—</option>
-                                {POINT_OPTIONS.map((o) => (
+                                {ATTENDANCE_OPTIONS.map((o) => (
                                   <option key={o.value} value={o.value}>
                                     {o.label}
                                   </option>
                                 ))}
                               </Select>
+
                               {rec && Number(rec.points) < 2 ? (
                                 <span className="mt-1 block text-xs text-muted-foreground">
                                   {reasonLabel(rec.absence_reason)}
