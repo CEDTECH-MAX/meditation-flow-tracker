@@ -22,10 +22,13 @@ import {
   listDepartments,
   listStaff,
   resetStaffPassword,
+  setPersonPhoto,
   setStaffActive,
   updateDepartment,
   updateStaff,
 } from "@/lib/directory.functions";
+import { PersonPhoto } from "@/components/PersonPhoto";
+import { uploadPhoto } from "@/lib/photos";
 
 export const Route = createFileRoute("/_authenticated/admin/directory")({
   head: () => ({
