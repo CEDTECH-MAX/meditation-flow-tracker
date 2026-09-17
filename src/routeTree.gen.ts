@@ -29,6 +29,7 @@ import { Route as AuthenticatedAdminClassesRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminCohortsRouteImport } from './routes/_authenticated/admin.cohorts'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin.reports'
 import { Route as AuthenticatedAdminStudentsRouteImport } from './routes/_authenticated/admin.students'
+import { Route as AuthenticatedMarkerIndexRouteImport } from './routes/_authenticated/marker.index'
 import { Route as AuthenticatedMarkerPasswordRouteImport } from './routes/_authenticated/marker.password'
 
 const IndexRoute = IndexRouteImport.update({
@@ -136,6 +137,12 @@ const AuthenticatedAdminStudentsRoute =
     path: '/students',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedMarkerIndexRoute =
+  AuthenticatedMarkerIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedMarkerRoute,
+  } as any)
 const AuthenticatedMarkerPasswordRoute =
   AuthenticatedMarkerPasswordRouteImport.update({
     id: '/password',
@@ -164,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/marker/password': typeof AuthenticatedMarkerPasswordRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/marker/': typeof AuthenticatedMarkerIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -175,7 +183,6 @@ export interface FileRoutesByTo {
   '/advisor': typeof AuthenticatedAdvisorRoute
   '/classes': typeof AuthenticatedClassesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/marker': typeof AuthenticatedMarkerRouteWithChildren
   '/password': typeof AuthenticatedPasswordRoute
   '/admin/attendance': typeof AuthenticatedAdminAttendanceRoute
   '/admin/blocks': typeof AuthenticatedAdminBlocksRoute
@@ -185,6 +192,7 @@ export interface FileRoutesByTo {
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/marker/password': typeof AuthenticatedMarkerPasswordRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/marker': typeof AuthenticatedMarkerIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -209,6 +217,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/_authenticated/marker/password': typeof AuthenticatedMarkerPasswordRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/marker/': typeof AuthenticatedMarkerIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -233,6 +242,7 @@ export interface FileRouteTypes {
     | '/admin/students'
     | '/marker/password'
     | '/admin/'
+    | '/marker/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -244,7 +254,6 @@ export interface FileRouteTypes {
     | '/advisor'
     | '/classes'
     | '/dashboard'
-    | '/marker'
     | '/password'
     | '/admin/attendance'
     | '/admin/blocks'
@@ -254,6 +263,7 @@ export interface FileRouteTypes {
     | '/admin/students'
     | '/marker/password'
     | '/admin'
+    | '/marker'
   id:
     | '__root__'
     | '/'
@@ -277,6 +287,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/students'
     | '/_authenticated/marker/password'
     | '/_authenticated/admin/'
+    | '/_authenticated/marker/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -431,6 +442,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminStudentsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/marker/': {
+      id: '/_authenticated/marker/'
+      path: '/'
+      fullPath: '/marker/'
+      preLoaderRoute: typeof AuthenticatedMarkerIndexRouteImport
+      parentRoute: typeof AuthenticatedMarkerRoute
+    }
     '/_authenticated/marker/password': {
       id: '/_authenticated/marker/password'
       path: '/password'
@@ -466,10 +484,12 @@ const AuthenticatedAdminRouteWithChildren =
 
 interface AuthenticatedMarkerRouteChildren {
   AuthenticatedMarkerPasswordRoute: typeof AuthenticatedMarkerPasswordRoute
+  AuthenticatedMarkerIndexRoute: typeof AuthenticatedMarkerIndexRoute
 }
 
 const AuthenticatedMarkerRouteChildren: AuthenticatedMarkerRouteChildren = {
   AuthenticatedMarkerPasswordRoute: AuthenticatedMarkerPasswordRoute,
+  AuthenticatedMarkerIndexRoute: AuthenticatedMarkerIndexRoute,
 }
 
 const AuthenticatedMarkerRouteWithChildren =

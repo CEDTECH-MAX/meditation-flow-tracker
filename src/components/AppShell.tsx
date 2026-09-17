@@ -19,6 +19,7 @@ const adminNav: { to: string; label: string; exact?: boolean }[] = [
   { to: "/admin/attendance", label: "Meditation register" },
   { to: "/admin/classes", label: "Class register" },
   { to: "/admin/students", label: "Students" },
+  { to: "/admin/markers", label: "Markers" },
   { to: "/admin/cohorts", label: "Cohorts" },
   { to: "/admin/blocks", label: "Blocks" },
   { to: "/admin/reports", label: "Reports" },
@@ -30,6 +31,12 @@ const studentNav: { to: string; label: string; exact?: boolean }[] = [
   { to: "/advisor", label: "AI Advisor" },
   { to: "/password", label: "Password" },
 ];
+
+const markerNav: { to: string; label: string; exact?: boolean }[] = [
+  { to: "/marker", label: "Marking", exact: true },
+  { to: "/marker/password", label: "Password" },
+];
+
 
 
 export function AppShell({
