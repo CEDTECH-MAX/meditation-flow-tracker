@@ -221,7 +221,11 @@ function AdminAppeals() {
             className="grid gap-3"
             onSubmit={(e) => {
               e.preventDefault();
-              decide.mutate({ id: open.id, decision, response, close });
+              if (response.trim().length < 3) {
+                toast.error("Please write a short response (at least 3 characters).");
+                return;
+              }
+              decide.mutate({ id: open.id, decision, response: response.trim(), close });
             }}
           >
             <p className="text-sm text-muted-foreground">
@@ -235,7 +239,7 @@ function AdminAppeals() {
                 <option value="pending">Still investigating</option>
               </Select>
             </Field>
-            <Field label="Your response">
+            <Field label="Your response (required)">
               <textarea
                 className="min-h-[110px] w-full rounded-2xl border border-border bg-background/70 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
                 value={response}
