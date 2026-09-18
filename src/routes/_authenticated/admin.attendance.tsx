@@ -20,7 +20,7 @@ import type { AbsenceReason, AttendanceRecord, SessionSlot } from "@/lib/attenda
 import {
   formatDate,
   blockDates,
-  ATTENDANCE_OPTIONS,
+  POINT_OPTIONS as ATTENDANCE_OPTIONS,
   REASONS,
   reasonLabel,
   sessionKind,
@@ -224,7 +224,7 @@ function AdminAttendance() {
     <>
       <SectionTitle
         title="Mark attendance"
-        subtitle="Mark each session present or absent · drag a mark down to fill the rest of the list"
+        subtitle="Score each session 2.0, 1.5, 1.0, 0.5 or 0 · drag a mark down to fill the rest of the list"
 
         action={
           block ? (
@@ -299,7 +299,7 @@ function AdminAttendance() {
                     variant="soft"
                     onClick={() => setBulk({ slot, points: 2 })}
                   >
-                    All {slot} present
+                    All {slot} 2.0
                   </Button>
                 ))}
                 {(["morning", "afternoon"] as SessionSlot[]).map((slot) => (
@@ -309,7 +309,7 @@ function AdminAttendance() {
                     variant="outline"
                     onClick={() => setBulk({ slot, points: 0 })}
                   >
-                    All {slot} absent
+                    All {slot} 0
                   </Button>
                 ))}
               </div>
