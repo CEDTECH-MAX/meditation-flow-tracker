@@ -39,6 +39,8 @@ const adminNav: { to: string; label: string; exact?: boolean }[] = [
   { to: "/admin/classes", label: "Class register" },
   { to: "/admin/students", label: "Students" },
   { to: "/admin/markers", label: "Markers" },
+  { to: "/admin/appeals", label: "Appeals" },
+  { to: "/admin/feedback", label: "Session feedback" },
   { to: "/admin/directory", label: "Staff directory" },
   { to: "/admin/cohorts", label: "Cohorts" },
   { to: "/admin/blocks", label: "Blocks" },
@@ -49,6 +51,7 @@ const adminNav: { to: string; label: string; exact?: boolean }[] = [
 const studentNav: { to: string; label: string; exact?: boolean }[] = [
   { to: "/dashboard", label: "My attendance", exact: true },
   { to: "/classes", label: "My class attendance" },
+  { to: "/appeals", label: "Appeals & reviews" },
   { to: "/advisor", label: "AI Advisor" },
   { to: "/mail", label: "Mail" },
   { to: "/password", label: "Password" },
@@ -56,6 +59,7 @@ const studentNav: { to: string; label: string; exact?: boolean }[] = [
 
 const markerNav: { to: string; label: string; exact?: boolean }[] = [
   { to: "/marker", label: "Marking", exact: true },
+  { to: "/marker/appeals", label: "Appeals" },
   { to: "/mail", label: "Mail" },
   { to: "/marker/password", label: "Password" },
 ];

@@ -9,7 +9,6 @@ import {
   Button,
   Card,
   Field,
-  Input,
   Modal,
   SectionTitle,
   Select,
@@ -23,7 +22,7 @@ import {
   submitAppeal,
   submitSessionReview,
 } from "@/lib/appeals.functions";
-import { formatDate, type AttendanceRecord, type Block } from "@/lib/attendance";
+import { formatDate, type AttendanceRecord } from "@/lib/attendance";
 
 export const Route = createFileRoute("/_authenticated/appeals")({
   head: () => ({
@@ -75,7 +74,6 @@ function StudentAppeals() {
   const { data: appeals } = useQuery({ queryKey: ["my-appeals"], queryFn: () => appealsFn() });
   const { data: reviews } = useQuery({ queryKey: ["my-reviews"], queryFn: () => reviewsFn() });
 
-  const blocks = (data?.blocks ?? []) as unknown as Block[];
   const records = (data?.records ?? []) as unknown as AttendanceRecord[];
 
   const [appealFor, setAppealFor] = useState<AttendanceRecord | null>(null);
@@ -373,9 +371,6 @@ function StudentAppeals() {
         ) : null}
       </Modal>
 
-      <div className="hidden">
-        <Input aria-hidden readOnly value={blocks.length} />
-      </div>
     </AppShell>
   );
 }
