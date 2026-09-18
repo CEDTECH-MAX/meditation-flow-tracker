@@ -299,7 +299,7 @@ function AdminAttendance() {
                     variant="soft"
                     onClick={() => setBulk({ slot, points: 2 })}
                   >
-                    All {slot} present
+                    All {slot} 2.0
                   </Button>
                 ))}
                 {(["morning", "afternoon"] as SessionSlot[]).map((slot) => (
@@ -309,7 +309,7 @@ function AdminAttendance() {
                     variant="outline"
                     onClick={() => setBulk({ slot, points: 0 })}
                   >
-                    All {slot} absent
+                    All {slot} 0
                   </Button>
                 ))}
               </div>
