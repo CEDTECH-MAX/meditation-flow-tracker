@@ -18,6 +18,7 @@ import { Route as MiuRouteImport } from './routes/miu'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAdvisorRouteImport } from './routes/_authenticated/advisor'
+import { Route as AuthenticatedAppealsRouteImport } from './routes/_authenticated/appeals'
 import { Route as AuthenticatedClassesRouteImport } from './routes/_authenticated/classes'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedMailRouteImport } from './routes/_authenticated/mail'
@@ -77,6 +78,11 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
 const AuthenticatedAdvisorRoute = AuthenticatedAdvisorRouteImport.update({
   id: '/advisor',
   path: '/advisor',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAppealsRoute = AuthenticatedAppealsRouteImport.update({
+  id: '/appeals',
+  path: '/appeals',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedClassesRoute = AuthenticatedClassesRouteImport.update({
@@ -179,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/advisor': typeof AuthenticatedAdvisorRoute
+  '/appeals': typeof AuthenticatedAppealsRoute
   '/classes': typeof AuthenticatedClassesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/mail': typeof AuthenticatedMailRoute
@@ -204,6 +211,7 @@ export interface FileRoutesByTo {
   '/miu': typeof MiuRoute
   '/reset-password': typeof ResetPasswordRoute
   '/advisor': typeof AuthenticatedAdvisorRoute
+  '/appeals': typeof AuthenticatedAppealsRoute
   '/classes': typeof AuthenticatedClassesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/mail': typeof AuthenticatedMailRoute
@@ -231,6 +239,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/advisor': typeof AuthenticatedAdvisorRoute
+  '/_authenticated/appeals': typeof AuthenticatedAppealsRoute
   '/_authenticated/classes': typeof AuthenticatedClassesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/mail': typeof AuthenticatedMailRoute
@@ -259,6 +268,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/admin'
     | '/advisor'
+    | '/appeals'
     | '/classes'
     | '/dashboard'
     | '/mail'
@@ -284,6 +294,7 @@ export interface FileRouteTypes {
     | '/miu'
     | '/reset-password'
     | '/advisor'
+    | '/appeals'
     | '/classes'
     | '/dashboard'
     | '/mail'
@@ -310,6 +321,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/_authenticated/admin'
     | '/_authenticated/advisor'
+    | '/_authenticated/appeals'
     | '/_authenticated/classes'
     | '/_authenticated/dashboard'
     | '/_authenticated/mail'
@@ -401,6 +413,13 @@ declare module '@tanstack/react-router' {
       path: '/advisor'
       fullPath: '/advisor'
       preLoaderRoute: typeof AuthenticatedAdvisorRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/appeals': {
+      id: '/_authenticated/appeals'
+      path: '/appeals'
+      fullPath: '/appeals'
+      preLoaderRoute: typeof AuthenticatedAppealsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/classes': {
@@ -561,6 +580,7 @@ const AuthenticatedMarkerRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedAdvisorRoute: typeof AuthenticatedAdvisorRoute
+  AuthenticatedAppealsRoute: typeof AuthenticatedAppealsRoute
   AuthenticatedClassesRoute: typeof AuthenticatedClassesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedMailRoute: typeof AuthenticatedMailRoute
@@ -571,6 +591,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedAdvisorRoute: AuthenticatedAdvisorRoute,
+  AuthenticatedAppealsRoute: AuthenticatedAppealsRoute,
   AuthenticatedClassesRoute: AuthenticatedClassesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedMailRoute: AuthenticatedMailRoute,
