@@ -232,12 +232,23 @@ export const listMarkerAppeals = createServerFn({ method: "GET" })
     const sb = await admin();
     const { data, error } = await sb
       .from("attendance_appeals")
-      .select("*, student:profiles!attendance_appeals_student_id_fkey(full_name, student_number)")
+      .select("*")
       .eq("institution", scope.institution)
       .in("cohort_id", scope.cohortIds)
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return data ?? [];
+
+    const rows = data ?? [];
+    const ids = [...new Set(rows.map((r: any) => r.student_id))] as string[];
+    const { data: people } = ids.length
+      ? await sb.from("profiles").select("id, full_name, student_number").in("id", ids)
+      : { data: [] as any[] };
+    const nameOf = new Map((people ?? []).map((p: any) => [p.id, p]));
+    return rows.map((r: any) => ({
+      ...r,
+      student_name: nameOf.get(r.student_id)?.full_name ?? "Unknown",
+      student_number: nameOf.get(r.student_id)?.student_number ?? null,
+    }));
   });
 
 export const respondToAppeal = createServerFn({ method: "POST" })
