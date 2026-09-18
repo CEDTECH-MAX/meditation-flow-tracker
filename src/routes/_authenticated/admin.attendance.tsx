@@ -20,7 +20,7 @@ import type { AbsenceReason, AttendanceRecord, SessionSlot } from "@/lib/attenda
 import {
   formatDate,
   blockDates,
-  ATTENDANCE_OPTIONS,
+  POINT_OPTIONS as ATTENDANCE_OPTIONS,
   REASONS,
   reasonLabel,
   sessionKind,
@@ -224,7 +224,7 @@ function AdminAttendance() {
     <>
       <SectionTitle
         title="Mark attendance"
-        subtitle="Mark each session present or absent · drag a mark down to fill the rest of the list"
+        subtitle="Score each session 2.0, 1.5, 1.0, 0.5 or 0 · drag a mark down to fill the rest of the list"
 
         action={
           block ? (

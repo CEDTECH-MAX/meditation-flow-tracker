@@ -20,7 +20,7 @@ import { getMarkerDayAccess, listMarkerAttendance, markAsMarker } from "@/lib/ma
 import {
   blockDates,
   formatDate,
-  ATTENDANCE_OPTIONS,
+  POINT_OPTIONS as ATTENDANCE_OPTIONS,
   REASONS,
   reasonLabel,
   sessionKind,
@@ -258,7 +258,7 @@ function MarkerHome() {
           <Card>
             <SectionTitle
               title={formatDate(date)}
-              subtitle="Mark each session present or absent. You can only mark the students of your own cohort."
+              subtitle="Score each session out of 2.0. You can only mark the students of your own cohort."
             />
             {la ? (
               <Spinner label="Loading attendance" />
