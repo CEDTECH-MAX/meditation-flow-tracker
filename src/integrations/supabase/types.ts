@@ -120,6 +120,100 @@ export type Database = {
           },
         ]
       }
+      attendance_appeals: {
+        Row: {
+          admin_decision: string | null
+          admin_id: string | null
+          admin_response: string | null
+          admin_reviewed_at: string | null
+          block_id: string
+          cohort_id: string | null
+          comment: string | null
+          created_at: string
+          id: string
+          institution: Database["public"]["Enums"]["institution"]
+          marker_decision: string | null
+          marker_id: string | null
+          marker_response: string | null
+          marker_reviewed_at: string | null
+          reason: string
+          register: string
+          session_date: string
+          slot: Database["public"]["Enums"]["session_slot"]
+          status: Database["public"]["Enums"]["appeal_status"]
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          admin_decision?: string | null
+          admin_id?: string | null
+          admin_response?: string | null
+          admin_reviewed_at?: string | null
+          block_id: string
+          cohort_id?: string | null
+          comment?: string | null
+          created_at?: string
+          id?: string
+          institution: Database["public"]["Enums"]["institution"]
+          marker_decision?: string | null
+          marker_id?: string | null
+          marker_response?: string | null
+          marker_reviewed_at?: string | null
+          reason: string
+          register?: string
+          session_date: string
+          slot: Database["public"]["Enums"]["session_slot"]
+          status?: Database["public"]["Enums"]["appeal_status"]
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          admin_decision?: string | null
+          admin_id?: string | null
+          admin_response?: string | null
+          admin_reviewed_at?: string | null
+          block_id?: string
+          cohort_id?: string | null
+          comment?: string | null
+          created_at?: string
+          id?: string
+          institution?: Database["public"]["Enums"]["institution"]
+          marker_decision?: string | null
+          marker_id?: string | null
+          marker_response?: string | null
+          marker_reviewed_at?: string | null
+          reason?: string
+          register?: string
+          session_date?: string
+          slot?: Database["public"]["Enums"]["session_slot"]
+          status?: Database["public"]["Enums"]["appeal_status"]
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_appeals_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_appeals_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_appeals_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -791,6 +885,70 @@ export type Database = {
           },
         ]
       }
+      session_reviews: {
+        Row: {
+          block_id: string
+          cohort_id: string | null
+          comment: string | null
+          created_at: string
+          id: string
+          institution: Database["public"]["Enums"]["institution"]
+          rating: number
+          session_date: string
+          slot: Database["public"]["Enums"]["session_slot"]
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          block_id: string
+          cohort_id?: string | null
+          comment?: string | null
+          created_at?: string
+          id?: string
+          institution: Database["public"]["Enums"]["institution"]
+          rating: number
+          session_date: string
+          slot: Database["public"]["Enums"]["session_slot"]
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          block_id?: string
+          cohort_id?: string | null
+          comment?: string | null
+          created_at?: string
+          id?: string
+          institution?: Database["public"]["Enums"]["institution"]
+          rating?: number
+          session_date?: string
+          slot?: Database["public"]["Enums"]["session_slot"]
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_reviews_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_reviews_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -837,6 +995,29 @@ export type Database = {
         Args: { _block_id: string; _marker_id: string; _student_id: string }
         Returns: boolean
       }
+      session_review_comments: {
+        Args: { _institution: Database["public"]["Enums"]["institution"] }
+        Returns: {
+          block_id: string
+          cohort_id: string
+          comment: string
+          created_at: string
+          rating: number
+          session_date: string
+          slot: Database["public"]["Enums"]["session_slot"]
+        }[]
+      }
+      session_review_summary: {
+        Args: { _institution: Database["public"]["Enums"]["institution"] }
+        Returns: {
+          average: number
+          block_id: string
+          cohort_id: string
+          responses: number
+          session_date: string
+          slot: Database["public"]["Enums"]["session_slot"]
+        }[]
+      }
     }
     Enums: {
       absence_reason:
@@ -846,6 +1027,13 @@ export type Database = {
         | "unexcused"
         | "other"
       app_role: "admin" | "student" | "marker" | "head_of_meditation" | "staff"
+      appeal_status:
+        | "submitted"
+        | "reviewed"
+        | "accepted"
+        | "rejected"
+        | "referred"
+        | "resolved"
       attendance_status: "present" | "absent" | "excused"
       block_status: "upcoming" | "active" | "closed"
       institution: "MII" | "MIU"
@@ -987,6 +1175,14 @@ export const Constants = {
         "other",
       ],
       app_role: ["admin", "student", "marker", "head_of_meditation", "staff"],
+      appeal_status: [
+        "submitted",
+        "reviewed",
+        "accepted",
+        "rejected",
+        "referred",
+        "resolved",
+      ],
       attendance_status: ["present", "absent", "excused"],
       block_status: ["upcoming", "active", "closed"],
       institution: ["MII", "MIU"],
