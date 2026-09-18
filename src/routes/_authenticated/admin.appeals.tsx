@@ -239,7 +239,7 @@ function AdminAppeals() {
                 <option value="pending">Still investigating</option>
               </Select>
             </Field>
-            <Field label="Your response" hint="Required — at least 3 characters">
+            <Field label="Your response (required)">
               <textarea
                 className="min-h-[110px] w-full rounded-2xl border border-border bg-background/70 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
                 value={response}
