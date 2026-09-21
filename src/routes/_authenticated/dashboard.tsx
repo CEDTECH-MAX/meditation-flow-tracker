@@ -23,7 +23,11 @@ import {
   reasonLabel,
   statusTone,
   summarise,
+  weeklyMeditationTargets,
+  WEEKLY_TARGET_POINTS,
+  WEEKLY_TARGET_SESSIONS,
 } from "@/lib/attendance";
+
 import { AttendanceCalendar } from "@/components/AttendanceCalendar";
 import { Leaderboard } from "@/components/Leaderboard";
 
@@ -101,8 +105,20 @@ function StudentDashboard() {
         tone: "red",
         text: `With ${summary.remainingSessions} session${summary.remainingSessions === 1 ? "" : "s"} left, your maximum possible score for this block is ${summary.maxPossible}%.`,
       });
+    if (data?.institution === "MIU") {
+      for (const w of weeklyMeditationTargets(blockRecords)) {
+        if (w.met) continue;
+        items.push({
+          tone: w.complete ? "red" : "amber",
+          text: w.complete
+            ? `Weekly target missed (${w.label}): you earned ${w.points.toFixed(1)} of the required ${WEEKLY_TARGET_POINTS} points (${w.sessionsAttended} of ${WEEKLY_TARGET_SESSIONS} sessions). Please improve this week.`
+            : `This week (${w.label}) you have ${w.points.toFixed(1)} of the required ${WEEKLY_TARGET_POINTS} points — attend ${Math.max(0, WEEKLY_TARGET_SESSIONS - w.sessionsAttended)} more session${WEEKLY_TARGET_SESSIONS - w.sessionsAttended === 1 ? "" : "s"} to reach your weekly target.`,
+        });
+      }
+    }
     return items;
-  }, [selected, summary, blockRecords.length]);
+  }, [selected, summary, blockRecords, data?.institution]);
+
 
   if (isLoading)
     return (

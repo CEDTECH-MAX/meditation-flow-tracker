@@ -28,7 +28,7 @@ import {
   saveClassSession,
 } from "@/lib/class.functions";
 import {
-  CLASS_MODES,
+  classModesFor,
   formatDate,
   summariseClass,
   summariseClassAbsence,
@@ -39,6 +39,8 @@ import {
   type ClassRecord,
   type ClassSession,
 } from "@/lib/attendance";
+import { useMe } from "@/components/AppShell";
+
 
 
 export const Route = createFileRoute("/_authenticated/admin/classes")({
@@ -81,6 +83,8 @@ const emptyDraft = (): Draft => ({
 
 function AdminClasses() {
   const qc = useQueryClient();
+  const { data: me } = useMe();
+  const modes = classModesFor(me?.institution as "MII" | "MIU" | undefined);
   const { data: blocks, isLoading: lb } = useBlocks();
   const { data: students, isLoading: ls } = useStudents();
   const { data: cohorts } = useCohorts();
@@ -342,6 +346,7 @@ function AdminClasses() {
                       session={session}
                       record={currentRecord(s.id)}
                       saving={mark.isPending}
+                      modes={modes}
                       onSave={(v) => mark.mutate({ student_id: s.id, ...v })}
                     />
                   ))}
@@ -552,6 +557,7 @@ function MarkRow({
   session,
   record,
   saving,
+  modes,
   onSave,
 }: {
   name: string;
@@ -559,6 +565,7 @@ function MarkRow({
   session: ClassSession;
   record: ClassRecord | null;
   saving: boolean;
+  modes: { value: ClassMode; label: string }[];
   onSave: (v: { points: number | null; mode: ClassMode; comment: string }) => void;
 }) {
   const [mode, setMode] = useState<ClassMode>(record?.mode ?? "physical");
@@ -597,7 +604,7 @@ function MarkRow({
             if (points !== null) onSave({ points, mode: next, comment });
           }}
         >
-          {CLASS_MODES.map((m) => (
+          {modes.map((m) => (
             <option key={m.value} value={m.value}>
               {m.label}
             </option>

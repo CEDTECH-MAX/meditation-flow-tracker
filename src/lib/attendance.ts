@@ -384,7 +384,39 @@ export const CLASS_MODES: { value: ClassMode; label: string }[] = [
   { value: "online", label: "Online" },
 ];
 
-export type ClassMode = "online" | "physical";
+/**
+ * MIU records a fuller attendance type on the class register. MII keeps the
+ * original Physical / Online choice untouched.
+ */
+export const MIU_CLASS_MODES: { value: ClassMode; label: string }[] = [
+  { value: "online", label: "Online" },
+  { value: "physical", label: "Physical" },
+  { value: "absent", label: "Absent" },
+  { value: "online_permission", label: "Online / permission granted" },
+  { value: "online_no_permission", label: "Online / no permission" },
+  { value: "public_holiday", label: "Public holiday" },
+  { value: "reported_absent", label: "Reported absent" },
+  { value: "arrived_late", label: "Arrived late" },
+];
+
+export function classModesFor(institution: Institution | null | undefined) {
+  return institution === "MIU" ? MIU_CLASS_MODES : CLASS_MODES;
+}
+
+export function classModeLabel(mode: ClassMode | null | undefined) {
+  return MIU_CLASS_MODES.find((m) => m.value === mode)?.label ?? "—";
+}
+
+export type ClassMode =
+  | "online"
+  | "physical"
+  | "absent"
+  | "online_permission"
+  | "online_no_permission"
+  | "public_holiday"
+  | "reported_absent"
+  | "arrived_late";
+
 
 export type ClassSession = {
   id: string;
@@ -446,8 +478,9 @@ export function summariseClass(
     if (cap === undefined) continue;
     marked += 1;
     pointsEarned += Math.min(cap, Number(r.points ?? 0));
-    if (r.mode === "online") online += 1;
-    else physical += 1;
+    if (String(r.mode).startsWith("online")) online += 1;
+    else if (r.mode === "physical" || r.mode === "arrived_late") physical += 1;
+
   }
 
   pointsEarned = round1(pointsEarned);
@@ -545,4 +578,55 @@ export function summariseClassAbsence(
     totalAbsent,
     totalSessions,
   };
+}
+
+/* -------------------- weekly meditation target (MIU only) ----------------- */
+
+/** MIU students must attend at least 8 meditation sessions (16 points) a week. */
+export const WEEKLY_TARGET_SESSIONS = 8;
+export const WEEKLY_TARGET_POINTS = WEEKLY_TARGET_SESSIONS * MAX_SESSION_POINTS;
+
+export type WeeklyTarget = {
+  start: string;
+  end: string;
+  label: string;
+  sessionsAttended: number;
+  points: number;
+  met: boolean;
+  /** True once the week is over — an unfinished week is not a failure yet. */
+  complete: boolean;
+};
+
+/**
+ * Groups a student's own meditation records into weeks and checks them against
+ * the weekly target of 8 sessions / 16 points.
+ */
+export function weeklyMeditationTargets(
+  records: Pick<AttendanceRecord, "session_date" | "status" | "points">[],
+  today = todayKey(),
+): WeeklyTarget[] {
+  const buckets = new Map<string, WeeklyTarget>();
+  for (const r of records) {
+    const start = weekStart(r.session_date);
+    const end = weekEnd(start);
+    const week =
+      buckets.get(start) ??
+      {
+        start,
+        end,
+        label: `${formatDate(start)} → ${formatDate(end)}`,
+        sessionsAttended: 0,
+        points: 0,
+        met: false,
+        complete: end < today,
+      };
+    if (r.status === "present") {
+      week.sessionsAttended += 1;
+      week.points += Number(r.points ?? MAX_SESSION_POINTS);
+    }
+    buckets.set(start, week);
+  }
+  return [...buckets.values()]
+    .map((w) => ({ ...w, points: round1(w.points), met: w.points >= WEEKLY_TARGET_POINTS }))
+    .sort((a, b) => a.start.localeCompare(b.start));
 }

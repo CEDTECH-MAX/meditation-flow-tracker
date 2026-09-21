@@ -104,7 +104,17 @@ export const markClassAttendance = createServerFn({ method: "POST" })
         session_id: uuid,
         student_id: uuid,
         points: z.number().min(0).max(20).nullable(),
-        mode: z.enum(["online", "physical"]),
+        mode: z.enum([
+          "online",
+          "physical",
+          "absent",
+          "online_permission",
+          "online_no_permission",
+          "public_holiday",
+          "reported_absent",
+          "arrived_late",
+        ]),
+
         comment: z.string().trim().max(600).or(z.literal("")).optional(),
       })
       .parse(d),
