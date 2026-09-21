@@ -503,10 +503,12 @@ export const getMyAttendance = createServerFn({ method: "GET" })
         .order("session_date", { ascending: false }),
     ]);
     return {
+      institution: (((profile as any)?.institution as "MII" | "MIU") ?? "MII") as "MII" | "MIU",
       profile: profile ?? null,
       blocks: blocks ?? [],
       records: records ?? [],
     };
+
   });
 
 
