@@ -579,3 +579,54 @@ export function summariseClassAbsence(
     totalSessions,
   };
 }
+
+/* -------------------- weekly meditation target (MIU only) ----------------- */
+
+/** MIU students must attend at least 8 meditation sessions (16 points) a week. */
+export const WEEKLY_TARGET_SESSIONS = 8;
+export const WEEKLY_TARGET_POINTS = WEEKLY_TARGET_SESSIONS * MAX_SESSION_POINTS;
+
+export type WeeklyTarget = {
+  start: string;
+  end: string;
+  label: string;
+  sessionsAttended: number;
+  points: number;
+  met: boolean;
+  /** True once the week is over — an unfinished week is not a failure yet. */
+  complete: boolean;
+};
+
+/**
+ * Groups a student's own meditation records into weeks and checks them against
+ * the weekly target of 8 sessions / 16 points.
+ */
+export function weeklyMeditationTargets(
+  records: Pick<AttendanceRecord, "session_date" | "status" | "points">[],
+  today = todayKey(),
+): WeeklyTarget[] {
+  const buckets = new Map<string, WeeklyTarget>();
+  for (const r of records) {
+    const start = weekStart(r.session_date);
+    const end = weekEnd(start);
+    const week =
+      buckets.get(start) ??
+      {
+        start,
+        end,
+        label: `${formatDate(start)} → ${formatDate(end)}`,
+        sessionsAttended: 0,
+        points: 0,
+        met: false,
+        complete: end < today,
+      };
+    if (r.status === "present") {
+      week.sessionsAttended += 1;
+      week.points += Number(r.points ?? MAX_SESSION_POINTS);
+    }
+    buckets.set(start, week);
+  }
+  return [...buckets.values()]
+    .map((w) => ({ ...w, points: round1(w.points), met: w.points >= WEEKLY_TARGET_POINTS }))
+    .sort((a, b) => a.start.localeCompare(b.start));
+}
