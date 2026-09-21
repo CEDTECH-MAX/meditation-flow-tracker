@@ -22,7 +22,7 @@ import {
   useStudents,
   type Student,
 } from "@/lib/admin-hooks";
-import { createStudent, deleteStudent, updateStudent } from "@/lib/data.functions";
+import { createStudent, deleteStudent, importStudents, updateStudent } from "@/lib/data.functions";
 import {
   CLASSIFICATIONS,
   GENDERS,
