@@ -384,7 +384,39 @@ export const CLASS_MODES: { value: ClassMode; label: string }[] = [
   { value: "online", label: "Online" },
 ];
 
-export type ClassMode = "online" | "physical";
+/**
+ * MIU records a fuller attendance type on the class register. MII keeps the
+ * original Physical / Online choice untouched.
+ */
+export const MIU_CLASS_MODES: { value: ClassMode; label: string }[] = [
+  { value: "online", label: "Online" },
+  { value: "physical", label: "Physical" },
+  { value: "absent", label: "Absent" },
+  { value: "online_permission", label: "Online / permission granted" },
+  { value: "online_no_permission", label: "Online / no permission" },
+  { value: "public_holiday", label: "Public holiday" },
+  { value: "reported_absent", label: "Reported absent" },
+  { value: "arrived_late", label: "Arrived late" },
+];
+
+export function classModesFor(institution: Institution | null | undefined) {
+  return institution === "MIU" ? MIU_CLASS_MODES : CLASS_MODES;
+}
+
+export function classModeLabel(mode: ClassMode | null | undefined) {
+  return MIU_CLASS_MODES.find((m) => m.value === mode)?.label ?? "—";
+}
+
+export type ClassMode =
+  | "online"
+  | "physical"
+  | "absent"
+  | "online_permission"
+  | "online_no_permission"
+  | "public_holiday"
+  | "reported_absent"
+  | "arrived_late";
+
 
 export type ClassSession = {
   id: string;
