@@ -104,9 +104,11 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     background-image:
-      radial-gradient(60rem 40rem at 8% -10%, oklch(0.46 0.11 156 / 0.1), transparent 60%),
-      radial-gradient(50rem 34rem at 100% 0%, oklch(0.76 0.13 85 / 0.12), transparent 60%),
-      radial-gradient(46rem 30rem at 50% 110%, oklch(0.46 0.11 156 / 0.08), transparent 60%);
+      radial-gradient(48rem 34rem at 6% -8%, oklch(0.46 0.11 156 / 0.28), transparent 62%),
+      radial-gradient(42rem 30rem at 102% 2%, oklch(0.76 0.13 85 / 0.32), transparent 62%),
+      radial-gradient(38rem 28rem at 88% 78%, oklch(0.55 0.13 168 / 0.22), transparent 60%),
+      radial-gradient(44rem 30rem at 12% 92%, oklch(0.46 0.11 156 / 0.2), transparent 60%),
+      radial-gradient(60rem 46rem at 50% 115%, oklch(0.76 0.13 85 / 0.14), transparent 62%);
     background-attachment: fixed;
     -webkit-font-smoothing: antialiased;
   }
@@ -120,17 +122,26 @@
 }
 
 @utility glass {
-  background: color-mix(in oklab, white 72%, transparent);
-  backdrop-filter: blur(18px) saturate(150%);
-  border: 1px solid oklch(1 0 0 / 0.7);
-  box-shadow: var(--shadow-glass);
+  background: linear-gradient(
+    135deg,
+    oklch(1 0 0 / 0.66),
+    oklch(1 0 0 / 0.42) 55%,
+    oklch(0.97 0.02 155 / 0.38)
+  );
+  backdrop-filter: blur(22px) saturate(160%);
+  border: 1px solid oklch(1 0 0 / 0.75);
+  box-shadow:
+    var(--shadow-glass),
+    inset 0 1px 0 oklch(1 0 0 / 0.6);
 }
 
 @utility glass-muted {
-  background: color-mix(in oklab, white 55%, transparent);
-  backdrop-filter: blur(14px) saturate(140%);
+  background: linear-gradient(135deg, oklch(1 0 0 / 0.5), oklch(1 0 0 / 0.32));
+  backdrop-filter: blur(16px) saturate(150%);
   border: 1px solid oklch(1 0 0 / 0.6);
-  box-shadow: var(--shadow-soft);
+  box-shadow:
+    var(--shadow-soft),
+    inset 0 1px 0 oklch(1 0 0 / 0.5);
 }
 
 @utility text-gradient-green {
