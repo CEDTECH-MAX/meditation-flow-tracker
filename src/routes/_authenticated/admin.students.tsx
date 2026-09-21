@@ -22,7 +22,7 @@ import {
   useStudents,
   type Student,
 } from "@/lib/admin-hooks";
-import { createStudent, deleteStudent, updateStudent } from "@/lib/data.functions";
+import { createStudent, deleteStudent, importStudents, updateStudent } from "@/lib/data.functions";
 import {
   CLASSIFICATIONS,
   GENDERS,
@@ -77,6 +77,48 @@ const empty: FormState = {
   gender: "",
 };
 
+type ImportRow = { full_name: string; email: string; student_number?: string };
+
+function pick(row: Record<string, unknown>, keys: string[]) {
+  for (const k of Object.keys(row)) {
+    const norm = k.trim().toLowerCase().replace(/[^a-z]/g, "");
+    if (keys.includes(norm)) {
+      const v = row[k];
+      if (v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim();
+    }
+  }
+  return "";
+}
+
+async function parseSpreadsheet(file: File): Promise<{ rows: ImportRow[]; skipped: number }> {
+  const XLSX = await import("xlsx");
+  const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+  const rows: ImportRow[] = [];
+  let skipped = 0;
+  for (const name of wb.SheetNames) {
+    const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[name]!, { defval: "" });
+    for (const raw of json) {
+      const email = pick(raw, ["email", "emails", "emailaddress", "miuemails", "studentemail"]).toLowerCase();
+      const full =
+        pick(raw, ["fullname", "name", "fullnameondip", "fullnameondiploma", "studentname"]) ||
+        [
+          pick(raw, ["firstname", "first", "names"]),
+          pick(raw, ["surname", "lastname", "last"]),
+        ]
+          .filter(Boolean)
+          .join(" ");
+      const number = pick(raw, ["studentnumber", "studentno", "miuid", "id", "no", "nr"]);
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || full.trim().length < 2) {
+        if (email || full) skipped += 1;
+        continue;
+      }
+      rows.push({ full_name: full.trim(), email, ...(number ? { student_number: number } : {}) });
+    }
+    if (rows.length > 0) break;
+  }
+  return { rows, skipped };
+}
+
 function AdminStudents() {
   const qc = useQueryClient();
   const { data: students, isLoading } = useStudents();
@@ -90,10 +132,54 @@ function AdminStudents() {
   const [search, setSearch] = useState("");
   const [cohortFilter, setCohortFilter] = useState("all");
   const [classFilter, setClassFilter] = useState("all");
+  const [importOpen, setImportOpen] = useState(false);
+  const [importRows, setImportRows] = useState<ImportRow[]>([]);
+  const [importSkipped, setImportSkipped] = useState(0);
+  const [importCohort, setImportCohort] = useState("");
+  const [importFile, setImportFile] = useState<string>("");
+  const [importResult, setImportResult] = useState<{ created: number; failed: { email: string; reason: string }[] } | null>(null);
 
   const createFn = useServerFn(createStudent);
   const updateFn = useServerFn(updateStudent);
   const deleteFn = useServerFn(deleteStudent);
+  const importFn = useServerFn(importStudents);
+
+  const runImport = useMutation({
+    mutationFn: () =>
+      importFn({
+        data: { cohort_id: importCohort || null, rows: importRows },
+      }),
+    onSuccess: (res: any) => {
+      qc.invalidateQueries({ queryKey: ["students"] });
+      setImportResult(res);
+      if (res.created > 0) toast.success(`${res.created} student account(s) created`);
+      if (res.failed?.length) toast.error(`${res.failed.length} row(s) could not be imported`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const closeImport = () => {
+    setImportOpen(false);
+    setImportRows([]);
+    setImportSkipped(0);
+    setImportFile("");
+    setImportResult(null);
+  };
+
+  const onPickFile = async (file: File | undefined) => {
+    if (!file) return;
+    setImportResult(null);
+    setImportFile(file.name);
+    try {
+      const { rows, skipped } = await parseSpreadsheet(file);
+      setImportRows(rows);
+      setImportSkipped(skipped);
+      if (rows.length === 0)
+        toast.error("No usable rows found. The file needs a name column and an email column.");
+    } catch {
+      toast.error("That file could not be read. Please upload an Excel or CSV file.");
+    }
+  };
 
   const done = (msg: string) => {
     qc.invalidateQueries({ queryKey: ["students"] });
@@ -177,7 +263,14 @@ function AdminStudents() {
       <SectionTitle
         title="Students"
         subtitle={`${students?.length ?? 0} enrolled · attendance shown for ${block?.name ?? "no block"}`}
-        action={<Button onClick={() => setForm({ ...empty })}>Add student</Button>}
+        action={
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              Import from spreadsheet
+            </Button>
+            <Button onClick={() => setForm({ ...empty })}>Add student</Button>
+          </div>
+        }
       />
 
       <Card>
@@ -443,6 +536,84 @@ function AdminStudents() {
           >
             {remove.isPending ? "Deleting…" : "Delete"}
           </Button>
+        </div>
+      </Modal>
+
+      <Modal open={importOpen} onClose={closeImport} title="Import students from a spreadsheet">
+        <div className="grid gap-4">
+          <p className="text-sm text-muted-foreground">
+            Upload an Excel or CSV file with a name column and an email column (a student number
+            column is optional). Everyone imported gets the temporary password{" "}
+            <strong>MAHARISHI1</strong> and can change it after signing in.
+          </p>
+          <Field label="Spreadsheet file">
+            <Input
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={(e) => onPickFile(e.target.files?.[0])}
+            />
+          </Field>
+          <Field label="Add everyone to cohort (optional)">
+            <Select value={importCohort} onChange={(e) => setImportCohort(e.target.value)}>
+              <option value="">Unassigned</option>
+              {(cohorts ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          {importFile ? (
+            <div className="rounded-xl border border-border/60 p-3 text-sm">
+              <p className="font-medium">
+                {importRows.length} student{importRows.length === 1 ? "" : "s"} ready from{" "}
+                {importFile}
+              </p>
+              {importSkipped > 0 ? (
+                <p className="text-muted-foreground">
+                  {importSkipped} row(s) skipped — missing a name or a valid email.
+                </p>
+              ) : null}
+              {importRows.length > 0 ? (
+                <ul className="mt-2 max-h-40 overflow-y-auto text-muted-foreground">
+                  {importRows.slice(0, 20).map((r) => (
+                    <li key={r.email}>
+                      {r.full_name} · {r.email}
+                    </li>
+                  ))}
+                  {importRows.length > 20 ? <li>…and {importRows.length - 20} more</li> : null}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+
+          {importResult ? (
+            <div className="rounded-xl border border-border/60 p-3 text-sm">
+              <p className="font-medium">{importResult.created} account(s) created</p>
+              {importResult.failed.length > 0 ? (
+                <ul className="mt-2 max-h-40 overflow-y-auto text-muted-foreground">
+                  {importResult.failed.map((f) => (
+                    <li key={f.email}>
+                      {f.email} — {f.reason}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={closeImport}>
+              Close
+            </Button>
+            <Button
+              disabled={importRows.length === 0 || runImport.isPending}
+              onClick={() => runImport.mutate()}
+            >
+              {runImport.isPending ? "Importing…" : `Import ${importRows.length || ""}`.trim()}
+            </Button>
+          </div>
         </div>
       </Modal>
     </>
