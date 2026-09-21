@@ -478,8 +478,9 @@ export function summariseClass(
     if (cap === undefined) continue;
     marked += 1;
     pointsEarned += Math.min(cap, Number(r.points ?? 0));
-    if (r.mode === "online") online += 1;
-    else physical += 1;
+    if (String(r.mode).startsWith("online")) online += 1;
+    else if (r.mode === "physical" || r.mode === "arrived_late") physical += 1;
+
   }
 
   pointsEarned = round1(pointsEarned);
