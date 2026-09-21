@@ -77,6 +77,48 @@ const empty: FormState = {
   gender: "",
 };
 
+type ImportRow = { full_name: string; email: string; student_number?: string };
+
+function pick(row: Record<string, unknown>, keys: string[]) {
+  for (const k of Object.keys(row)) {
+    const norm = k.trim().toLowerCase().replace(/[^a-z]/g, "");
+    if (keys.includes(norm)) {
+      const v = row[k];
+      if (v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim();
+    }
+  }
+  return "";
+}
+
+async function parseSpreadsheet(file: File): Promise<{ rows: ImportRow[]; skipped: number }> {
+  const XLSX = await import("xlsx");
+  const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+  const rows: ImportRow[] = [];
+  let skipped = 0;
+  for (const name of wb.SheetNames) {
+    const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[name]!, { defval: "" });
+    for (const raw of json) {
+      const email = pick(raw, ["email", "emails", "emailaddress", "miuemails", "studentemail"]).toLowerCase();
+      const full =
+        pick(raw, ["fullname", "name", "fullnameondip", "fullnameondiploma", "studentname"]) ||
+        [
+          pick(raw, ["firstname", "first", "names"]),
+          pick(raw, ["surname", "lastname", "last"]),
+        ]
+          .filter(Boolean)
+          .join(" ");
+      const number = pick(raw, ["studentnumber", "studentno", "miuid", "id", "no", "nr"]);
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || full.trim().length < 2) {
+        if (email || full) skipped += 1;
+        continue;
+      }
+      rows.push({ full_name: full.trim(), email, ...(number ? { student_number: number } : {}) });
+    }
+    if (rows.length > 0) break;
+  }
+  return { rows, skipped };
+}
+
 function AdminStudents() {
   const qc = useQueryClient();
   const { data: students, isLoading } = useStudents();
