@@ -137,20 +137,21 @@ export async function exportMiuRegisterWorkbook(input: MiuRegisterInput, filenam
     const day = sessionByDate.get(date) ?? [];
     if (day.length === 0) return { attended: "", mode: "", comment: "" };
     let attended = false;
-    let online = false;
+    let modeCode: ClassRecord["mode"] | null = null;
     const comments: string[] = [];
     for (const s of day) {
       const rec = classByKey.get(`${s.id}:${studentId}`);
       if (rec && Number(rec.points ?? 0) > 0) attended = true;
-      if (rec?.mode === "online") online = true;
+      if (rec && !modeCode) modeCode = rec.mode;
       if (rec?.comment) comments.push(rec.comment);
     }
     return {
       attended: attended ? "Yes" : "No",
-      mode: attended ? (online ? "Online" : "In class") : "",
+      mode: modeCode ? (modeCode === "physical" ? "In class" : classModeLabel(modeCode)) : "",
       comment: comments.join(" · "),
     };
   }
+
 
   /* --------------------------- MIU Login Details -------------------------- */
   const login = wb.getWorksheet("MIU Login Details");

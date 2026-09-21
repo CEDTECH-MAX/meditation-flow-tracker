@@ -14,6 +14,7 @@ import {
 } from "@/components/ui-kit";
 import { getMyClassAttendance } from "@/lib/class.functions";
 import {
+  classModeLabel,
   formatDate,
   statusTone,
   summariseClass,
@@ -22,6 +23,7 @@ import {
   type ClassRecord,
   type ClassSession,
 } from "@/lib/attendance";
+
 
 
 export const Route = createFileRoute("/_authenticated/classes")({
@@ -211,10 +213,11 @@ function StudentClasses() {
                         </td>
                         <td className="px-4 py-3">
                           {r ? (
-                            <Badge tone={r.mode === "online" ? "gold" : "neutral"}>
-                              {r.mode === "online" ? "Online" : "Physical"}
+                            <Badge tone={String(r.mode).startsWith("online") ? "gold" : "neutral"}>
+                              {classModeLabel(r.mode)}
                             </Badge>
                           ) : (
+
                             "—"
                           )}
                         </td>
