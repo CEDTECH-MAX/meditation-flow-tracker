@@ -132,10 +132,54 @@ function AdminStudents() {
   const [search, setSearch] = useState("");
   const [cohortFilter, setCohortFilter] = useState("all");
   const [classFilter, setClassFilter] = useState("all");
+  const [importOpen, setImportOpen] = useState(false);
+  const [importRows, setImportRows] = useState<ImportRow[]>([]);
+  const [importSkipped, setImportSkipped] = useState(0);
+  const [importCohort, setImportCohort] = useState("");
+  const [importFile, setImportFile] = useState<string>("");
+  const [importResult, setImportResult] = useState<{ created: number; failed: { email: string; reason: string }[] } | null>(null);
 
   const createFn = useServerFn(createStudent);
   const updateFn = useServerFn(updateStudent);
   const deleteFn = useServerFn(deleteStudent);
+  const importFn = useServerFn(importStudents);
+
+  const runImport = useMutation({
+    mutationFn: () =>
+      importFn({
+        data: { cohort_id: importCohort || null, rows: importRows },
+      }),
+    onSuccess: (res: any) => {
+      qc.invalidateQueries({ queryKey: ["students"] });
+      setImportResult(res);
+      if (res.created > 0) toast.success(`${res.created} student account(s) created`);
+      if (res.failed?.length) toast.error(`${res.failed.length} row(s) could not be imported`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const closeImport = () => {
+    setImportOpen(false);
+    setImportRows([]);
+    setImportSkipped(0);
+    setImportFile("");
+    setImportResult(null);
+  };
+
+  const onPickFile = async (file: File | undefined) => {
+    if (!file) return;
+    setImportResult(null);
+    setImportFile(file.name);
+    try {
+      const { rows, skipped } = await parseSpreadsheet(file);
+      setImportRows(rows);
+      setImportSkipped(skipped);
+      if (rows.length === 0)
+        toast.error("No usable rows found. The file needs a name column and an email column.");
+    } catch {
+      toast.error("That file could not be read. Please upload an Excel or CSV file.");
+    }
+  };
 
   const done = (msg: string) => {
     qc.invalidateQueries({ queryKey: ["students"] });
