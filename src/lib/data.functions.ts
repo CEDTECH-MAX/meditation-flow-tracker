@@ -300,6 +300,91 @@ export const createStudent = createServerFn({ method: "POST" })
     return { id };
   });
 
+/* ------------------------- bulk student import --------------------------- */
+
+export const BULK_STUDENT_PASSWORD = "MAHARISHI1";
+
+const importRow = z.object({
+  full_name: z.string().trim().min(2).max(120),
+  email: z.string().trim().toLowerCase().email().max(255),
+  student_number: z.string().trim().max(40).optional(),
+  classification: z.enum(["meditator", "rising_siddha", "siddha"]).nullable().optional(),
+  gender: z.enum(["male", "female"]).nullable().optional(),
+});
+
+export const importStudents = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        cohort_id: z.string().uuid().nullable().optional(),
+        rows: z.array(importRow).min(1).max(500),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const c = context as unknown as Ctx;
+    await assertAdmin(c);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const institution = await myInstitution(c);
+
+    const created: string[] = [];
+    const failed: { email: string; reason: string }[] = [];
+    const seen = new Set<string>();
+
+    for (const [i, row] of data.rows.entries()) {
+      if (seen.has(row.email)) {
+        failed.push({ email: row.email, reason: "Duplicate row in the file" });
+        continue;
+      }
+      seen.add(row.email);
+
+      const studentNumber =
+        row.student_number && row.student_number.length > 0
+          ? row.student_number
+          : row.email.split("@")[0]!.slice(0, 40) || `student-${i + 1}`;
+
+      const { data: newUser, error } = await supabaseAdmin.auth.admin.createUser({
+        email: row.email,
+        password: BULK_STUDENT_PASSWORD,
+        email_confirm: true,
+        user_metadata: { full_name: row.full_name },
+      });
+      if (error || !newUser.user) {
+        failed.push({ email: row.email, reason: error?.message ?? "Could not create account" });
+        continue;
+      }
+
+      const id = newUser.user.id;
+      const { error: pErr } = await supabaseAdmin.from("profiles").insert({
+        id,
+        full_name: row.full_name,
+        student_number: studentNumber,
+        email: row.email,
+        cohort_id: data.cohort_id ?? null,
+        classification: row.classification ?? null,
+        gender: row.gender ?? null,
+        internal_email: internalEmail(studentNumber),
+        institution,
+      });
+      if (pErr) {
+        await supabaseAdmin.auth.admin.deleteUser(id);
+        failed.push({ email: row.email, reason: pErr.message });
+        continue;
+      }
+      await supabaseAdmin.from("user_roles").insert({ user_id: id, role: "student" });
+      created.push(row.email);
+    }
+
+    await audit(c, "import", "student", null, {
+      created: created.length,
+      failed: failed.length,
+      cohort_id: data.cohort_id ?? null,
+    });
+
+    return { created: created.length, failed };
+  });
+
 export const updateStudent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
