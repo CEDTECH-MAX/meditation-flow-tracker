@@ -263,7 +263,14 @@ function AdminStudents() {
       <SectionTitle
         title="Students"
         subtitle={`${students?.length ?? 0} enrolled · attendance shown for ${block?.name ?? "no block"}`}
-        action={<Button onClick={() => setForm({ ...empty })}>Add student</Button>}
+        action={
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              Import from spreadsheet
+            </Button>
+            <Button onClick={() => setForm({ ...empty })}>Add student</Button>
+          </div>
+        }
       />
 
       <Card>
