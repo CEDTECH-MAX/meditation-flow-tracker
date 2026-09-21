@@ -1,6 +1,6 @@
 import ExcelJS from "exceljs";
 import templateUrl from "@/assets/miu-register-template.xlsx?url";
-import { dateKey } from "@/lib/attendance";
+import { classModeLabel, dateKey } from "@/lib/attendance";
 import type {
   AttendanceRecord,
   Block,

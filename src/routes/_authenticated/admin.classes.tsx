@@ -28,7 +28,7 @@ import {
   saveClassSession,
 } from "@/lib/class.functions";
 import {
-  CLASS_MODES,
+  classModesFor,
   formatDate,
   summariseClass,
   summariseClassAbsence,
@@ -39,6 +39,8 @@ import {
   type ClassRecord,
   type ClassSession,
 } from "@/lib/attendance";
+import { useMe } from "@/components/AppShell";
+
 
 
 export const Route = createFileRoute("/_authenticated/admin/classes")({
