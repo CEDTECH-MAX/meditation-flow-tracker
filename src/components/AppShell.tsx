@@ -87,10 +87,7 @@ export function AppShell({
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const isUniversity = ((me as any)?.institution as Institution | undefined) === "MIU";
-  const items = (staff ? staffNav : marker ? markerNav : admin ? adminNav : studentNav).filter(
-    () => true,
-  );
+  const items = staff ? staffNav : marker ? markerNav : admin ? adminNav : studentNav;
 
 
 
