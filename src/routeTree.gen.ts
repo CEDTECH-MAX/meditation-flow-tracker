@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as DeveloperSigninRouteImport } from './routes/developer-signin'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as MarkerSigninRouteImport } from './routes/marker-signin'
 import { Route as MiiRouteImport } from './routes/mii'
@@ -36,6 +37,7 @@ import { Route as AuthenticatedAdminFeedbackRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminMarkersRouteImport } from './routes/_authenticated/admin.markers'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin.reports'
 import { Route as AuthenticatedAdminStudentsRouteImport } from './routes/_authenticated/admin.students'
+import { Route as AuthenticatedDeveloperIndexRouteImport } from './routes/_authenticated/developer.index'
 import { Route as AuthenticatedDeveloperSectionRouteImport } from './routes/_authenticated/developer.$section'
 import { Route as AuthenticatedMarkerIndexRouteImport } from './routes/_authenticated/marker.index'
 import { Route as AuthenticatedMarkerAppealsRouteImport } from './routes/_authenticated/marker.appeals'
@@ -48,6 +50,11 @@ const IndexRoute = IndexRouteImport.update({
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeveloperSigninRoute = DeveloperSigninRouteImport.update({
+  id: '/developer-signin',
+  path: '/developer-signin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
@@ -185,6 +192,12 @@ const AuthenticatedAdminStudentsRoute =
     path: '/students',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedDeveloperIndexRoute =
+  AuthenticatedDeveloperIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedDeveloperRoute,
+  } as any)
 const AuthenticatedDeveloperSectionRoute =
   AuthenticatedDeveloperSectionRouteImport.update({
     id: '/$section',
@@ -212,6 +225,7 @@ const AuthenticatedMarkerPasswordRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/developer-signin': typeof DeveloperSigninRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/marker-signin': typeof MarkerSigninRoute
   '/mii': typeof MiiRoute
@@ -240,10 +254,12 @@ export interface FileRoutesByFullPath {
   '/marker/appeals': typeof AuthenticatedMarkerAppealsRoute
   '/marker/password': typeof AuthenticatedMarkerPasswordRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/developer/': typeof AuthenticatedDeveloperIndexRoute
   '/marker/': typeof AuthenticatedMarkerIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/developer-signin': typeof DeveloperSigninRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/marker-signin': typeof MarkerSigninRoute
   '/mii': typeof MiiRoute
@@ -253,7 +269,6 @@ export interface FileRoutesByTo {
   '/appeals': typeof AuthenticatedAppealsRoute
   '/classes': typeof AuthenticatedClassesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/developer': typeof AuthenticatedDeveloperRouteWithChildren
   '/mail': typeof AuthenticatedMailRoute
   '/password': typeof AuthenticatedPasswordRoute
   '/admin/appeals': typeof AuthenticatedAdminAppealsRoute
@@ -270,12 +285,14 @@ export interface FileRoutesByTo {
   '/marker/appeals': typeof AuthenticatedMarkerAppealsRoute
   '/marker/password': typeof AuthenticatedMarkerPasswordRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/developer': typeof AuthenticatedDeveloperIndexRoute
   '/marker': typeof AuthenticatedMarkerIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/developer-signin': typeof DeveloperSigninRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/marker-signin': typeof MarkerSigninRoute
   '/mii': typeof MiiRoute
@@ -304,12 +321,14 @@ export interface FileRoutesById {
   '/_authenticated/marker/appeals': typeof AuthenticatedMarkerAppealsRoute
   '/_authenticated/marker/password': typeof AuthenticatedMarkerPasswordRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/developer/': typeof AuthenticatedDeveloperIndexRoute
   '/_authenticated/marker/': typeof AuthenticatedMarkerIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/developer-signin'
     | '/forgot-password'
     | '/marker-signin'
     | '/mii'
@@ -338,10 +357,12 @@ export interface FileRouteTypes {
     | '/marker/appeals'
     | '/marker/password'
     | '/admin/'
+    | '/developer/'
     | '/marker/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/developer-signin'
     | '/forgot-password'
     | '/marker-signin'
     | '/mii'
@@ -351,7 +372,6 @@ export interface FileRouteTypes {
     | '/appeals'
     | '/classes'
     | '/dashboard'
-    | '/developer'
     | '/mail'
     | '/password'
     | '/admin/appeals'
@@ -368,11 +388,13 @@ export interface FileRouteTypes {
     | '/marker/appeals'
     | '/marker/password'
     | '/admin'
+    | '/developer'
     | '/marker'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/developer-signin'
     | '/forgot-password'
     | '/marker-signin'
     | '/mii'
@@ -401,12 +423,14 @@ export interface FileRouteTypes {
     | '/_authenticated/marker/appeals'
     | '/_authenticated/marker/password'
     | '/_authenticated/admin/'
+    | '/_authenticated/developer/'
     | '/_authenticated/marker/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  DeveloperSigninRoute: typeof DeveloperSigninRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   MarkerSigninRoute: typeof MarkerSigninRoute
   MiiRoute: typeof MiiRoute
@@ -428,6 +452,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/developer-signin': {
+      id: '/developer-signin'
+      path: '/developer-signin'
+      fullPath: '/developer-signin'
+      preLoaderRoute: typeof DeveloperSigninRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forgot-password': {
@@ -605,6 +636,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminStudentsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/developer/': {
+      id: '/_authenticated/developer/'
+      path: '/'
+      fullPath: '/developer/'
+      preLoaderRoute: typeof AuthenticatedDeveloperIndexRouteImport
+      parentRoute: typeof AuthenticatedDeveloperRoute
+    }
     '/_authenticated/developer/$section': {
       id: '/_authenticated/developer/$section'
       path: '/$section'
@@ -669,11 +707,13 @@ const AuthenticatedAdminRouteWithChildren =
 
 interface AuthenticatedDeveloperRouteChildren {
   AuthenticatedDeveloperSectionRoute: typeof AuthenticatedDeveloperSectionRoute
+  AuthenticatedDeveloperIndexRoute: typeof AuthenticatedDeveloperIndexRoute
 }
 
 const AuthenticatedDeveloperRouteChildren: AuthenticatedDeveloperRouteChildren =
   {
     AuthenticatedDeveloperSectionRoute: AuthenticatedDeveloperSectionRoute,
+    AuthenticatedDeveloperIndexRoute: AuthenticatedDeveloperIndexRoute,
   }
 
 const AuthenticatedDeveloperRouteWithChildren =
@@ -726,6 +766,7 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  DeveloperSigninRoute: DeveloperSigninRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   MarkerSigninRoute: MarkerSigninRoute,
   MiiRoute: MiiRoute,
