@@ -66,6 +66,13 @@ function Chooser() {
           Minimum requirement: 80% attendance per block. Accounts are created by your administrator.
         </p>
 
+        <p className="mt-6 text-center text-[11px] text-muted-foreground">
+          <Link to="/developer-signin" className="hover:underline">
+            Platform developer access
+          </Link>
+        </p>
+
+
       </div>
     </div>
   );
