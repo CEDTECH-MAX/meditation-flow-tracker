@@ -100,7 +100,7 @@ export function SearchSection() {
           className="flex flex-wrap gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            if (term.trim().length < 2) return toast.error("Type at least two characters.");
+            if (term.trim().length < 2) { toast.error("Type at least two characters."); return; }
             setQ(term.trim());
           }}
         >
@@ -621,8 +621,8 @@ export function SupportSection() {
         <div className="mt-3">
           <Button
             onClick={() => {
-              if (!userId) return toast.error("Choose a person first.");
-              if (reason.trim().length < 5) return toast.error("Write a short reason (at least 5 characters).");
+              if (!userId) { toast.error("Choose a person first."); return; }
+              if (reason.trim().length < 5) { toast.error("Write a short reason (at least 5 characters)."); return; }
               start.mutate();
             }}
           >
@@ -877,7 +877,7 @@ export function ToolsSection() {
           <Input value={blockTerm} onChange={(e) => setBlockTerm(e.target.value)} placeholder="Search a block by name" />
           <Button
             onClick={() => {
-              if (!blockId) return toast.error("Pick a block first.");
+              if (!blockId) { toast.error("Pick a block first."); return; }
               recalc.mutate();
             }}
           >
@@ -1085,7 +1085,7 @@ export function EmergencySection() {
             </Button>
             <Button
               onClick={() => {
-                if (typed !== "CONFIRM") return toast.error("Type CONFIRM exactly to continue.");
+                if (typed !== "CONFIRM") { toast.error("Type CONFIRM exactly to continue."); return; }
                 update.mutate();
               }}
             >

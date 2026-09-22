@@ -134,7 +134,7 @@ export function DeveloperShell({ children, alerts = 0 }: { children: React.React
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
           <Link
-            to="/developer/search"
+            to="/developer/$section" params={{ section: "search" }}
             className="flex min-w-[14rem] flex-1 items-center gap-2 rounded-xl border border-border bg-card/60 px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent"
           >
             <Search className="h-4 w-4" />
