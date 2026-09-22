@@ -290,27 +290,35 @@ function AdminBlocks() {
                   onChange={(e) => setForm({ ...form, end_date: e.target.value })}
                 />
               </Field>
-              <Field label="Weeks (2–6 typical)">
-                <Input
-                  type="number"
-                  min={1}
-                  max={52}
-                  required
-                  value={form.weeks}
-                  onChange={(e) => setForm({ ...form, weeks: Number(e.target.value) })}
-                />
-              </Field>
-              <Field label="Meditation days">
-                <Input
-                  type="number"
-                  min={1}
-                  max={400}
-                  required
-                  value={form.meditation_days}
-                  onChange={(e) => setForm({ ...form, meditation_days: Number(e.target.value) })}
-                />
-              </Field>
             </div>
+            <Field label="Percent each full session (2.0) is worth">
+              <Input
+                type="number"
+                min={0.1}
+                max={100}
+                step={0.1}
+                required
+                placeholder="e.g. 2.5"
+                value={form.percent_input}
+                onChange={(e) => setForm({ ...form, percent_input: e.target.value })}
+              />
+            </Field>
+            {(() => {
+              const d = derive(form.start_date, form.end_date);
+              if (!d.valid) return null;
+              return (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() =>
+                    setForm({ ...form, percent_input: String(round1(100 / d.sessions)) })
+                  }
+                >
+                  Use even split ({round1(100 / d.sessions)}% per session)
+                </Button>
+              );
+            })()}
             <Field label="Cohort">
               <Select
                 value={form.cohort_id}
