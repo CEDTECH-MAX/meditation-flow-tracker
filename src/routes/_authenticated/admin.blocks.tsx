@@ -98,19 +98,27 @@ function AdminBlocks() {
   };
 
   const save = useMutation({
-    mutationFn: (v: FormState) =>
-      saveFn({
+    mutationFn: (v: FormState) => {
+      const d = derive(v.start_date, v.end_date);
+      if (!d.valid) throw new Error("Enter a start date and an end date that comes after it.");
+      const typed = Number(v.percent_input);
+      if (!v.percent_input.trim() || !Number.isFinite(typed) || typed <= 0) {
+        throw new Error("Enter how many percent one full 2.0 session is worth.");
+      }
+      return saveFn({
         data: {
           ...(v.id ? { id: v.id } : {}),
           name: v.name,
           start_date: v.start_date,
           end_date: v.end_date,
-          weeks: Number(v.weeks),
-          meditation_days: Number(v.meditation_days),
+          weeks: d.weeks,
+          meditation_days: d.days,
           status: v.status,
           cohort_id: v.cohort_id || null,
+          percent_per_session: typed,
         },
-      }),
+      });
+    },
     onSuccess: () => refresh("Block saved"),
     onError: (e: Error) => toast.error(e.message),
   });
