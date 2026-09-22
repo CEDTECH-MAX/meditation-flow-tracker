@@ -1,7 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { recordAuthEvent } from "@/lib/developer.functions";
 import { Button, Card, Field, Input } from "@/components/ui-kit";
+
 
 export const Route = createFileRoute("/marker-signin")({
   head: () => ({
