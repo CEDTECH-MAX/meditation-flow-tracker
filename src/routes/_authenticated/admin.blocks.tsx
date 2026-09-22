@@ -342,11 +342,42 @@ function AdminBlocks() {
                 <option value="closed">Closed (locked)</option>
               </Select>
             </Field>
-            <p className="text-xs text-muted-foreground">
-              {form.meditation_days * 2} total sessions ·{" "}
-              {Math.round((100 / Math.max(1, form.meditation_days * 2)) * 10) / 10}% per session ·
-              80% required to pass.
-            </p>
+            {(() => {
+              const d = derive(form.start_date, form.end_date);
+              const per = Number(form.percent_input);
+              if (!d.valid) {
+                return (
+                  <p className="text-xs text-muted-foreground">
+                    Enter the start and end dates and the system works out the length of the block.
+                  </p>
+                );
+              }
+              const valid = Number.isFinite(per) && per > 0;
+              const totalPercent = valid ? round1(per * d.sessions) : 0;
+              return (
+                <div className="rounded-2xl bg-muted/50 p-3 text-xs text-muted-foreground">
+                  <p className="font-medium text-foreground">Calculated for this block</p>
+                  <p className="mt-1">
+                    {d.weeks} week{d.weeks === 1 ? "" : "s"} · {d.days} meditation days (Sundays
+                    excluded) · {d.sessions} sessions · {round1(d.sessions * 2)} points available
+                  </p>
+                  {valid ? (
+                    <>
+                      <p className="mt-1">
+                        {per}% per full 2.0 session · {round1(per / 2)}% per 1.0 ·{" "}
+                        {totalPercent}% if every session is attended
+                      </p>
+                      <p className="mt-1">
+                        80% to pass = {round1((80 / per) * 1)} full sessions ·{" "}
+                        {round1(d.sessions * 2 * 0.8)} points
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-1">Enter the percent one full session is worth.</p>
+                  )}
+                </div>
+              );
+            })()}
             <div className="mt-2 flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setForm(null)}>
                 Cancel
