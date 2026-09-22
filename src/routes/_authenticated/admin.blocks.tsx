@@ -46,6 +46,7 @@ type FormState = {
   meditation_days: number;
   status: BlockStatus;
   cohort_id: string;
+  template?: BlockTemplateInfo | null;
 };
 
 const empty: FormState = {
