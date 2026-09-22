@@ -333,6 +333,41 @@ function AdminBlocks() {
                 ))}
               </Select>
             </Field>
+            <Field label="Week template (optional)">
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                disabled={parsing}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleTemplate(file);
+                }}
+                className="w-full rounded-2xl border border-border/60 bg-background/60 px-3 py-2 text-sm"
+              />
+            </Field>
+            {parsing ? (
+              <p className="text-xs text-muted-foreground">Reading the template…</p>
+            ) : null}
+            {form.template ? (
+              <div className="rounded-2xl bg-muted/50 p-3 text-xs text-muted-foreground">
+                <p className="font-medium text-foreground">{form.template.fileName}</p>
+                <p className="mt-1">
+                  {form.template.weeks} week{form.template.weeks === 1 ? "" : "s"} ·{" "}
+                  {form.template.sessionsPerWeek} sessions a week ·{" "}
+                  {form.template.totalSessions} sessions in total
+                </p>
+                <p>
+                  Each full session is worth {form.template.sessionPointValue.toFixed(1)} points ={" "}
+                  {form.template.percentPerSession}% of the block · weekly target{" "}
+                  {form.template.weeklyRequiredPoints} of {form.template.weeklyReferencePoints}{" "}
+                  points
+                </p>
+                <p>
+                  Dates filled in: {formatDate(form.template.startDate)} →{" "}
+                  {formatDate(form.template.endDate)}
+                </p>
+              </div>
+            ) : null}
             <Field label="Status">
               <Select
                 value={form.status}
