@@ -35,11 +35,15 @@ function MarkerSignIn() {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    const address = email.trim();
     const { data, error: authError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: address,
       password,
     });
     if (authError || !data.user) {
+      await recordAuthEvent({
+        data: { email: address, succeeded: false, reason: "Incorrect email or password", portal: "marker" },
+      }).catch(() => null);
       setError("Incorrect email or password.");
       setBusy(false);
       return;
@@ -51,13 +55,18 @@ function MarkerSignIn() {
     const isMarker = (roles ?? []).some((r) => r.role === "marker");
     if (!isMarker) {
       await supabase.auth.signOut();
+      await recordAuthEvent({
+        data: { email: address, succeeded: false, reason: "Not a marker account", portal: "marker" },
+      }).catch(() => null);
       setError("This is not a marker account. Please use your institution's sign-in page.");
       setBusy(false);
       return;
     }
+    await recordAuthEvent({ data: { email: address, succeeded: true, portal: "marker" } }).catch(() => null);
     navigate({ to: "/marker", replace: true });
     setBusy(false);
   }
+
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-10">

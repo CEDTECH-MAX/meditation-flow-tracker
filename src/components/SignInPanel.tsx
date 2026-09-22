@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button, Card, Field, Input } from "@/components/ui-kit";
 import { institutionInfo, type Institution } from "@/lib/attendance";
+import { recordAuthEvent } from "@/lib/developer.functions";
+
 
 /**
  * Each institution has its own sign-in page. An account may only sign in
