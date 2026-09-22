@@ -53,3 +53,18 @@ export async function myInstitution(context: Ctx): Promise<"MII" | "MIU"> {
     .maybeSingle();
   return (data?.institution as "MII" | "MIU") ?? "MII";
 }
+
+/**
+ * Emergency control: the platform developer can pause all marking.
+ * Checked server-side so pausing cannot be bypassed from the browser.
+ */
+export async function assertMarkingEnabled(c: Ctx) {
+  const { data } = await c.supabase
+    .from("system_controls")
+    .select("enabled")
+    .eq("key", "disable_marking")
+    .maybeSingle();
+  if (data?.enabled) {
+    throw new Error("Marking is temporarily paused. Please try again later.");
+  }
+}
