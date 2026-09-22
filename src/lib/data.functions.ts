@@ -51,6 +51,7 @@ const blockInput = z.object({
   meditation_days: z.number().int().min(1).max(400),
   status: z.enum(["upcoming", "active", "closed"]),
   cohort_id: z.string().uuid().nullable().optional(),
+  percent_per_session: z.number().min(0).max(100).optional(),
 });
 
 export const saveBlock = createServerFn({ method: "POST" })
@@ -60,7 +61,12 @@ export const saveBlock = createServerFn({ method: "POST" })
     const c = context as unknown as Ctx;
     await assertAdmin(c);
     const inst = await myInstitution(c);
-    const payload = { ...data, cohort_id: data.cohort_id ?? null, institution: inst };
+    const payload = {
+      ...data,
+      cohort_id: data.cohort_id ?? null,
+      percent_per_session: data.percent_per_session ?? 0,
+      institution: inst,
+    };
     delete (payload as any).id;
 
     if (data.status === "active") {

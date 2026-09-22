@@ -1,0 +1,1 @@
+ALTER TABLE public.blocks ADD COLUMN IF NOT EXISTS percent_per_session numeric NOT NULL DEFAULT 0;

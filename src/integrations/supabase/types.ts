@@ -259,6 +259,7 @@ export type Database = {
           max_attendance_points: number
           meditation_days: number
           name: string
+          percent_per_session: number
           precision_digits: number
           rounding_day: boolean
           rounding_day_points: number
@@ -286,6 +287,7 @@ export type Database = {
           max_attendance_points?: number
           meditation_days?: number
           name: string
+          percent_per_session?: number
           precision_digits?: number
           rounding_day?: boolean
           rounding_day_points?: number
@@ -313,6 +315,7 @@ export type Database = {
           max_attendance_points?: number
           meditation_days?: number
           name?: string
+          percent_per_session?: number
           precision_digits?: number
           rounding_day?: boolean
           rounding_day_points?: number

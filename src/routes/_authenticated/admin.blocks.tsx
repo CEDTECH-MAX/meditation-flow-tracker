@@ -16,7 +16,7 @@ import {
 } from "@/components/ui-kit";
 import { useBlocks, useCohorts } from "@/lib/admin-hooks";
 import { deleteBlock, resetBlockAttendance, saveBlock, setBlockStatus } from "@/lib/data.functions";
-import { blockProgress, dateKey, formatDate, todayKey, type Block, type BlockStatus } from "@/lib/attendance";
+import { blockProgress, formatDate, type Block, type BlockStatus } from "@/lib/attendance";
 
 export const Route = createFileRoute("/_authenticated/admin/blocks")({
   head: () => ({
@@ -42,21 +42,38 @@ type FormState = {
   name: string;
   start_date: string;
   end_date: string;
-  weeks: number;
-  meditation_days: number;
   status: BlockStatus;
   cohort_id: string;
+  percent_input: string;
 };
 
 const empty: FormState = {
   name: "",
-  start_date: todayKey(),
-  end_date: dateKey(new Date(Date.now() + 27 * 864e5)),
-  weeks: 4,
-  meditation_days: 20,
+  start_date: "",
+  end_date: "",
   status: "upcoming",
   cohort_id: "",
+  percent_input: "",
 };
+
+/** Meditation days = every day in the range except Sundays. */
+function derive(start: string, end: string) {
+  if (!start || !end) return { valid: false, days: 0, weeks: 0, sessions: 0 };
+  const s = new Date(`${start}T00:00:00`);
+  const e = new Date(`${end}T00:00:00`);
+  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime()) || e < s) {
+    return { valid: false, days: 0, weeks: 0, sessions: 0 };
+  }
+  let days = 0;
+  let total = 0;
+  for (const d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+    total += 1;
+    if (d.getDay() !== 0) days += 1;
+  }
+  return { valid: days > 0, days, weeks: Math.max(1, Math.ceil(total / 7)), sessions: days * 2 };
+}
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
 
 function AdminBlocks() {
   const qc = useQueryClient();
@@ -81,19 +98,27 @@ function AdminBlocks() {
   };
 
   const save = useMutation({
-    mutationFn: (v: FormState) =>
-      saveFn({
+    mutationFn: (v: FormState) => {
+      const d = derive(v.start_date, v.end_date);
+      if (!d.valid) throw new Error("Enter a start date and an end date that comes after it.");
+      const typed = Number(v.percent_input);
+      if (!v.percent_input.trim() || !Number.isFinite(typed) || typed <= 0) {
+        throw new Error("Enter how many percent one full 2.0 session is worth.");
+      }
+      return saveFn({
         data: {
           ...(v.id ? { id: v.id } : {}),
           name: v.name,
           start_date: v.start_date,
           end_date: v.end_date,
-          weeks: Number(v.weeks),
-          meditation_days: Number(v.meditation_days),
+          weeks: d.weeks,
+          meditation_days: d.days,
           status: v.status,
           cohort_id: v.cohort_id || null,
+          percent_per_session: typed,
         },
-      }),
+      });
+    },
     onSuccess: () => refresh("Block saved"),
     onError: (e: Error) => toast.error(e.message),
   });
@@ -179,10 +204,12 @@ function AdminBlocks() {
                       name: b.name,
                       start_date: b.start_date,
                       end_date: b.end_date,
-                      weeks: b.weeks,
-                      meditation_days: b.meditation_days,
                       status: b.status,
                       cohort_id: b.cohort_id ?? "",
+                      percent_input:
+                        (b as any).percent_per_session > 0
+                          ? String((b as any).percent_per_session)
+                          : String(round1(100 / Math.max(1, b.meditation_days * 2))),
                     })
                   }
                 >
@@ -263,27 +290,35 @@ function AdminBlocks() {
                   onChange={(e) => setForm({ ...form, end_date: e.target.value })}
                 />
               </Field>
-              <Field label="Weeks (2–6 typical)">
-                <Input
-                  type="number"
-                  min={1}
-                  max={52}
-                  required
-                  value={form.weeks}
-                  onChange={(e) => setForm({ ...form, weeks: Number(e.target.value) })}
-                />
-              </Field>
-              <Field label="Meditation days">
-                <Input
-                  type="number"
-                  min={1}
-                  max={400}
-                  required
-                  value={form.meditation_days}
-                  onChange={(e) => setForm({ ...form, meditation_days: Number(e.target.value) })}
-                />
-              </Field>
             </div>
+            <Field label="Percent each full session (2.0) is worth">
+              <Input
+                type="number"
+                min={0.1}
+                max={100}
+                step={0.1}
+                required
+                placeholder="e.g. 2.5"
+                value={form.percent_input}
+                onChange={(e) => setForm({ ...form, percent_input: e.target.value })}
+              />
+            </Field>
+            {(() => {
+              const d = derive(form.start_date, form.end_date);
+              if (!d.valid) return null;
+              return (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() =>
+                    setForm({ ...form, percent_input: String(round1(100 / d.sessions)) })
+                  }
+                >
+                  Use even split ({round1(100 / d.sessions)}% per session)
+                </Button>
+              );
+            })()}
             <Field label="Cohort">
               <Select
                 value={form.cohort_id}
@@ -307,11 +342,42 @@ function AdminBlocks() {
                 <option value="closed">Closed (locked)</option>
               </Select>
             </Field>
-            <p className="text-xs text-muted-foreground">
-              {form.meditation_days * 2} total sessions ·{" "}
-              {Math.round((100 / Math.max(1, form.meditation_days * 2)) * 10) / 10}% per session ·
-              80% required to pass.
-            </p>
+            {(() => {
+              const d = derive(form.start_date, form.end_date);
+              const per = Number(form.percent_input);
+              if (!d.valid) {
+                return (
+                  <p className="text-xs text-muted-foreground">
+                    Enter the start and end dates and the system works out the length of the block.
+                  </p>
+                );
+              }
+              const valid = Number.isFinite(per) && per > 0;
+              const totalPercent = valid ? round1(per * d.sessions) : 0;
+              return (
+                <div className="rounded-2xl bg-muted/50 p-3 text-xs text-muted-foreground">
+                  <p className="font-medium text-foreground">Calculated for this block</p>
+                  <p className="mt-1">
+                    {d.weeks} week{d.weeks === 1 ? "" : "s"} · {d.days} meditation days (Sundays
+                    excluded) · {d.sessions} sessions · {round1(d.sessions * 2)} points available
+                  </p>
+                  {valid ? (
+                    <>
+                      <p className="mt-1">
+                        {per}% per full 2.0 session · {round1(per / 2)}% per 1.0 ·{" "}
+                        {totalPercent}% if every session is attended
+                      </p>
+                      <p className="mt-1">
+                        80% to pass = {round1((80 / per) * 1)} full sessions ·{" "}
+                        {round1(d.sessions * 2 * 0.8)} points
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-1">Enter the percent one full session is worth.</p>
+                  )}
+                </div>
+              );
+            })()}
             <div className="mt-2 flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setForm(null)}>
                 Cancel
