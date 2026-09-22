@@ -61,7 +61,12 @@ export const saveBlock = createServerFn({ method: "POST" })
     const c = context as unknown as Ctx;
     await assertAdmin(c);
     const inst = await myInstitution(c);
-    const payload = { ...data, cohort_id: data.cohort_id ?? null, institution: inst };
+    const payload = {
+      ...data,
+      cohort_id: data.cohort_id ?? null,
+      percent_per_session: data.percent_per_session ?? 0,
+      institution: inst,
+    };
     delete (payload as any).id;
 
     if (data.status === "active") {
