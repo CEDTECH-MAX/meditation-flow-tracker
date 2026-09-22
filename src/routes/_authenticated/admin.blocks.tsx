@@ -15,6 +15,7 @@ import {
   Spinner,
 } from "@/components/ui-kit";
 import { useBlocks, useCohorts } from "@/lib/admin-hooks";
+import { parseBlockTemplate, type BlockTemplateInfo } from "@/lib/block-template";
 import { deleteBlock, resetBlockAttendance, saveBlock, setBlockStatus } from "@/lib/data.functions";
 import { blockProgress, dateKey, formatDate, todayKey, type Block, type BlockStatus } from "@/lib/attendance";
 
@@ -93,6 +94,15 @@ function AdminBlocks() {
           meditation_days: Number(v.meditation_days),
           status: v.status,
           cohort_id: v.cohort_id || null,
+          ...(v.template
+            ? {
+                session_point_value: v.template.sessionPointValue,
+                weekly_required_points: v.template.weeklyRequiredPoints,
+                weekly_reference_points: v.template.weeklyReferencePoints,
+                schedule: v.template as unknown as Record<string, unknown>,
+                schedule_source: v.template.fileName,
+              }
+            : {}),
         },
       }),
     onSuccess: () => refresh("Block saved"),
