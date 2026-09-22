@@ -42,21 +42,38 @@ type FormState = {
   name: string;
   start_date: string;
   end_date: string;
-  weeks: number;
-  meditation_days: number;
   status: BlockStatus;
   cohort_id: string;
+  percent_input: string;
 };
 
 const empty: FormState = {
   name: "",
-  start_date: todayKey(),
-  end_date: dateKey(new Date(Date.now() + 27 * 864e5)),
-  weeks: 4,
-  meditation_days: 20,
+  start_date: "",
+  end_date: "",
   status: "upcoming",
   cohort_id: "",
+  percent_input: "",
 };
+
+/** Meditation days = every day in the range except Sundays. */
+function derive(start: string, end: string) {
+  if (!start || !end) return { valid: false, days: 0, weeks: 0, sessions: 0 };
+  const s = new Date(`${start}T00:00:00`);
+  const e = new Date(`${end}T00:00:00`);
+  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime()) || e < s) {
+    return { valid: false, days: 0, weeks: 0, sessions: 0 };
+  }
+  let days = 0;
+  let total = 0;
+  for (const d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+    total += 1;
+    if (d.getDay() !== 0) days += 1;
+  }
+  return { valid: days > 0, days, weeks: Math.max(1, Math.ceil(total / 7)), sessions: days * 2 };
+}
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
 
 function AdminBlocks() {
   const qc = useQueryClient();
