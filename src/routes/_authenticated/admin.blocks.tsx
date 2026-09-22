@@ -204,10 +204,12 @@ function AdminBlocks() {
                       name: b.name,
                       start_date: b.start_date,
                       end_date: b.end_date,
-                      weeks: b.weeks,
-                      meditation_days: b.meditation_days,
                       status: b.status,
                       cohort_id: b.cohort_id ?? "",
+                      percent_input:
+                        (b as any).percent_per_session > 0
+                          ? String((b as any).percent_per_session)
+                          : String(round1(100 / Math.max(1, b.meditation_days * 2))),
                     })
                   }
                 >
