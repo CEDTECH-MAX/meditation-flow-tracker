@@ -68,6 +68,31 @@ function AdminBlocks() {
     (cohorts ?? []).find((c) => c.id === id)?.name ?? null;
   const [form, setForm] = useState<FormState | null>(null);
   const [confirm, setConfirm] = useState<{ kind: "delete" | "reset"; block: Block } | null>(null);
+  const [parsing, setParsing] = useState(false);
+
+  const handleTemplate = async (file: File) => {
+    setParsing(true);
+    try {
+      const info = await parseBlockTemplate(file);
+      setForm((prev) =>
+        prev
+          ? {
+              ...prev,
+              start_date: info.startDate,
+              end_date: info.endDate,
+              weeks: info.weeks,
+              meditation_days: info.meditationDays,
+              template: info,
+            }
+          : prev,
+      );
+      toast.success(`Template read: ${info.weeks} weeks · ${info.totalSessions} sessions`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setParsing(false);
+    }
+  };
 
   const saveFn = useServerFn(saveBlock);
   const statusFn = useServerFn(setBlockStatus);
