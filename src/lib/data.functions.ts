@@ -501,6 +501,8 @@ export const markAttendance = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const c = context as unknown as Ctx;
     await assertAdmin(c);
+    await assertMarkingEnabled(c);
+
 
     if (data.points === null) {
       const { error } = await c.supabase

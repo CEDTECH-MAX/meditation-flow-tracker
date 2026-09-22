@@ -229,7 +229,16 @@ export const markAsMarker = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const c = context as unknown as Ctx;
+    const { data: pause } = await c.supabase
+      .from("system_controls")
+      .select("enabled")
+      .eq("key", "disable_marking")
+      .maybeSingle();
+    if (pause?.enabled) {
+      throw new Error("Marking is temporarily paused. Please try again later.");
+    }
     const scope = await markerScope(c);
+
 
     const blocks = await scopedBlocks(scope);
     const block = blocks.find((b: any) => b.id === data.block_id);
