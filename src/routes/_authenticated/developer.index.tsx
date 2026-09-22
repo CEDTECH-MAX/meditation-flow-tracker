@@ -88,7 +88,7 @@ function DeveloperDashboard() {
           <p className="text-sm font-semibold text-destructive">Emergency controls are active</p>
           <p className="text-xs text-muted-foreground">
             {activeControls.map((c: any) => c.label).join(", ")} ·{" "}
-            <Link to="/developer/$section" params={{ section: "emergency" }} className="underline">
+            <Link to="/developer/emergency" className="underline">
               manage
             </Link>
           </p>
@@ -120,7 +120,7 @@ function DeveloperDashboard() {
           title="Security alerts"
           subtitle="Permission denials and unauthorised attempts."
           action={
-            <Link to="/developer/$section" params={{ section: "security" }} className="text-xs text-primary underline">
+            <Link to="/developer/security" className="text-xs text-primary underline">
               View all
             </Link>
           }
@@ -146,7 +146,7 @@ function DeveloperDashboard() {
           title="Recent sign-in activity"
           subtitle="Who signed in, and when."
           action={
-            <Link to="/developer/$section" params={{ section: "audit" }} className="text-xs text-primary underline">
+            <Link to="/developer/audit" className="text-xs text-primary underline">
               View all
             </Link>
           }
@@ -174,7 +174,7 @@ function DeveloperDashboard() {
         title="Recent audit events"
         subtitle="Every action, immutable."
         action={
-          <Link to="/developer/$section" params={{ section: "audit" }} className="text-xs text-primary underline">
+          <Link to="/developer/audit" className="text-xs text-primary underline">
             View all
           </Link>
         }
