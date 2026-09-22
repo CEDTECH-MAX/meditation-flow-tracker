@@ -33,19 +33,33 @@ export function SignInPanel({ institution }: { institution: Institution }) {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    const address = email.trim();
     const { data, error: authError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: address,
       password,
     });
     if (authError || !data.user) {
+      // Recorded for the developer portal's sign-in activity — no password is sent.
+      await recordAuthEvent({
+        data: { email: address, succeeded: false, reason: "Incorrect email or password", portal: institution },
+      }).catch(() => null);
       setError("Incorrect email or password.");
       setBusy(false);
       return;
     }
     const ok = await routeByRole(data.user.id, institution, navigate);
+    await recordAuthEvent({
+      data: {
+        email: address,
+        succeeded: ok,
+        ...(ok ? {} : { reason: "Wrong institution for this account" }),
+        portal: institution,
+      },
+    }).catch(() => null);
     if (!ok) setError(mismatchMessage(institution));
     setBusy(false);
   }
+
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
