@@ -89,7 +89,7 @@ export function AppShell({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isUniversity = ((me as any)?.institution as Institution | undefined) === "MIU";
   const items = (staff ? staffNav : marker ? markerNav : admin ? adminNav : studentNav).filter(
-    (item) => isUniversity || (item.to !== "/admin/classes" && item.to !== "/classes"),
+    () => true,
   );
 
 
