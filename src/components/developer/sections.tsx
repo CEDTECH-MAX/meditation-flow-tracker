@@ -129,7 +129,7 @@ export function SearchSection() {
                     <td className="py-2 pr-4">{p.institution}</td>
                     <td className="py-2 pr-4">{p.cohort?.name ?? "—"}</td>
                     <td className="py-2 pr-4">
-                      <Badge tone={p.is_active === false ? "danger" : "success"}>
+                      <Badge tone={p.is_active === false ? "red" : "green"}>
                         {p.is_active === false ? "Inactive" : "Active"}
                       </Badge>
                     </td>
@@ -270,10 +270,10 @@ export function UsersSection() {
                 <td className="py-2 pr-4">{p.cohort?.name ?? "—"}</td>
                 <td className="py-2 pr-4 text-xs text-muted-foreground">{when(p.last_login)}</td>
                 <td className="py-2 pr-4">
-                  {p.failed_logins ? <Badge tone="warning">{p.failed_logins}</Badge> : <span className="text-muted-foreground">0</span>}
+                  {p.failed_logins ? <Badge tone="amber">{p.failed_logins}</Badge> : <span className="text-muted-foreground">0</span>}
                 </td>
                 <td className="py-2 pr-4">
-                  <Badge tone={p.is_active === false ? "danger" : "success"}>
+                  <Badge tone={p.is_active === false ? "red" : "green"}>
                     {p.is_active === false ? "Inactive" : "Active"}
                   </Badge>
                 </td>
@@ -309,7 +309,7 @@ export function UsersSection() {
       </Panel>
 
       {temp ? (
-        <Modal title="Temporary password" onClose={() => setTemp(null)}>
+        <Modal open title="Temporary password" onClose={() => setTemp(null)}>
           <p className="text-sm">
             Give this one-time password to {temp.name}. They will be asked to change it after signing in. It is shown
             once and is never stored in the activity history.
@@ -352,7 +352,7 @@ export function SecuritySection() {
               <tr key={l.email}>
                 <td className="py-2 pr-4">{l.email}</td>
                 <td className="py-2 pr-4">
-                  <Badge tone="danger">{l.attempts}</Badge>
+                  <Badge tone="red">{l.attempts}</Badge>
                 </td>
               </tr>
             ))}
@@ -370,7 +370,7 @@ export function SecuritySection() {
                 <td className="py-2 pr-4 text-xs text-muted-foreground">{when(e.created_at)}</td>
                 <td className="py-2 pr-4">{e.kind}</td>
                 <td className="py-2 pr-4">
-                  <Badge tone={e.severity === "critical" ? "danger" : e.severity === "warning" ? "warning" : "neutral"}>
+                  <Badge tone={e.severity === "critical" ? "red" : e.severity === "warning" ? "amber" : "neutral"}>
                     {e.severity}
                   </Badge>
                 </td>
@@ -378,7 +378,7 @@ export function SecuritySection() {
                 <td className="py-2 pr-4">{e.institution ?? "—"}</td>
                 <td className="py-2 pr-4">
                   {e.resolved_at ? (
-                    <Badge tone="success">Handled</Badge>
+                    <Badge tone="green">Handled</Badge>
                   ) : (
                     <Button size="sm" variant="outline" onClick={() => resolve.mutate(e.id)}>
                       Mark handled
@@ -455,7 +455,7 @@ export function AuditSection() {
                 <td className="py-2 pr-4 text-xs text-muted-foreground">{when(s.created_at)}</td>
                 <td className="py-2 pr-4">{s.email ?? "—"}</td>
                 <td className="py-2 pr-4">
-                  <Badge tone={s.succeeded ? "success" : "danger"}>{s.succeeded ? "Success" : "Failed"}</Badge>
+                  <Badge tone={s.succeeded ? "green" : "red"}>{s.succeeded ? "Success" : "Failed"}</Badge>
                 </td>
                 <td className="py-2 pr-4">{s.institution ?? "—"}</td>
                 <td className="py-2 pr-4">{s.role ?? "—"}</td>
@@ -641,7 +641,7 @@ export function SupportSection() {
             </Button>
           }
         >
-          <Badge tone="warning">Developer support mode · read-only</Badge>
+          <Badge tone="amber">Developer support mode · read-only</Badge>
           <p className="mt-3 text-sm text-muted-foreground">
             {view.data.profile?.institution} · {view.data.profile?.cohort?.name ?? "no cohort"} ·{" "}
             {view.data.roles.join(", ") || "no role"}
@@ -695,7 +695,7 @@ export function SupportSection() {
                 <td className="py-2 pr-4 text-xs">{s.reason}</td>
                 <td className="py-2 pr-4 text-xs text-muted-foreground">{when(s.expires_at)}</td>
                 <td className="py-2 pr-4">
-                  <Badge tone={s.ended_at ? "neutral" : new Date(s.expires_at) < new Date() ? "warning" : "success"}>
+                  <Badge tone={s.ended_at ? "neutral" : new Date(s.expires_at) < new Date() ? "amber" : "green"}>
                     {s.ended_at ? "Closed" : new Date(s.expires_at) < new Date() ? "Expired" : "Open"}
                   </Badge>
                 </td>
@@ -738,7 +738,7 @@ export function IntegritySection() {
           <Panel
             key={issue.kind}
             title={issue.label}
-            action={<Badge tone={issue.severity === "error" ? "danger" : "warning"}>{issue.items.length}</Badge>}
+            action={<Badge tone={issue.severity === "error" ? "red" : "amber"}>{issue.items.length}</Badge>}
           >
             <ul className="grid gap-1 text-sm">
               {issue.items.map((i: string, idx: number) => (
@@ -809,10 +809,10 @@ export function EmailSection() {
                   <Badge
                     tone={
                       e.status === "failed" || e.status === "bounced"
-                        ? "danger"
+                        ? "red"
                         : e.status === "pending"
-                          ? "warning"
-                          : "success"
+                          ? "amber"
+                          : "green"
                     }
                   >
                     {e.status}
@@ -903,7 +903,7 @@ export function ToolsSection() {
       </Panel>
 
       {confirming ? (
-        <Modal title="Sign everyone out?" onClose={() => setConfirming(false)}>
+        <Modal open title="Sign everyone out?" onClose={() => setConfirming(false)}>
           <p className="text-sm">
             Everyone signed in — students, markers, staff and admins at both institutions — will need to sign in again.
             This is recorded against your account.
@@ -998,7 +998,7 @@ export function FlagsSection() {
               </td>
               <td className="py-2 pr-4">{f.institution ?? "Both"}</td>
               <td className="py-2 pr-4">
-                <Badge tone={f.enabled ? "success" : "neutral"}>{f.enabled ? "On" : "Off"}</Badge>
+                <Badge tone={f.enabled ? "green" : "neutral"}>{f.enabled ? "On" : "Off"}</Badge>
               </td>
               <td className="py-2 pr-4">
                 <Button size="sm" variant="outline" onClick={() => update.mutate({ id: f.id, enabled: !f.enabled })}>
@@ -1053,7 +1053,7 @@ export function EmergencySection() {
                   <span className="block text-xs text-muted-foreground">{c.description ?? c.key}</span>
                 </td>
                 <td className="py-2 pr-4">
-                  <Badge tone={c.enabled ? "danger" : "success"}>{c.enabled ? "Active" : "Normal"}</Badge>
+                  <Badge tone={c.enabled ? "red" : "green"}>{c.enabled ? "Active" : "Normal"}</Badge>
                 </td>
                 <td className="py-2 pr-4 text-xs text-muted-foreground">{c.note ?? "—"}</td>
                 <td className="py-2 pr-4">
@@ -1068,7 +1068,7 @@ export function EmergencySection() {
       </Panel>
 
       {pending ? (
-        <Modal title={pending.enabled ? `Turn off ${pending.label}?` : `Turn on ${pending.label}?`} onClose={() => setPending(null)}>
+        <Modal open title={pending.enabled ? `Turn off ${pending.label}?` : `Turn on ${pending.label}?`} onClose={() => setPending(null)}>
           <p className="text-sm">
             This affects everyone at both institutions immediately. Type <span className="font-mono">CONFIRM</span> to
             continue.
