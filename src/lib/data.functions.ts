@@ -51,6 +51,7 @@ const blockInput = z.object({
   meditation_days: z.number().int().min(1).max(400),
   status: z.enum(["upcoming", "active", "closed"]),
   cohort_id: z.string().uuid().nullable().optional(),
+  percent_per_session: z.number().min(0).max(100).optional(),
 });
 
 export const saveBlock = createServerFn({ method: "POST" })
