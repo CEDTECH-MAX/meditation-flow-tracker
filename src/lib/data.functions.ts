@@ -51,11 +51,6 @@ const blockInput = z.object({
   meditation_days: z.number().int().min(1).max(400),
   status: z.enum(["upcoming", "active", "closed"]),
   cohort_id: z.string().uuid().nullable().optional(),
-  session_point_value: z.number().min(0.1).max(10).optional(),
-  weekly_required_points: z.number().min(0).max(200).optional(),
-  weekly_reference_points: z.number().min(0).max(200).optional(),
-  schedule: z.any().optional(),
-  schedule_source: z.string().max(200).nullable().optional(),
 });
 
 export const saveBlock = createServerFn({ method: "POST" })

@@ -15,7 +15,6 @@ import {
   Spinner,
 } from "@/components/ui-kit";
 import { useBlocks, useCohorts } from "@/lib/admin-hooks";
-import { parseBlockTemplate, type BlockTemplateInfo } from "@/lib/block-template";
 import { deleteBlock, resetBlockAttendance, saveBlock, setBlockStatus } from "@/lib/data.functions";
 import { blockProgress, dateKey, formatDate, todayKey, type Block, type BlockStatus } from "@/lib/attendance";
 
@@ -47,7 +46,6 @@ type FormState = {
   meditation_days: number;
   status: BlockStatus;
   cohort_id: string;
-  template?: BlockTemplateInfo | null;
 };
 
 const empty: FormState = {
@@ -68,31 +66,6 @@ function AdminBlocks() {
     (cohorts ?? []).find((c) => c.id === id)?.name ?? null;
   const [form, setForm] = useState<FormState | null>(null);
   const [confirm, setConfirm] = useState<{ kind: "delete" | "reset"; block: Block } | null>(null);
-  const [parsing, setParsing] = useState(false);
-
-  const handleTemplate = async (file: File) => {
-    setParsing(true);
-    try {
-      const info = await parseBlockTemplate(file);
-      setForm((prev) =>
-        prev
-          ? {
-              ...prev,
-              start_date: info.startDate,
-              end_date: info.endDate,
-              weeks: info.weeks,
-              meditation_days: info.meditationDays,
-              template: info,
-            }
-          : prev,
-      );
-      toast.success(`Template read: ${info.weeks} weeks · ${info.totalSessions} sessions`);
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setParsing(false);
-    }
-  };
 
   const saveFn = useServerFn(saveBlock);
   const statusFn = useServerFn(setBlockStatus);
@@ -119,15 +92,6 @@ function AdminBlocks() {
           meditation_days: Number(v.meditation_days),
           status: v.status,
           cohort_id: v.cohort_id || null,
-          ...(v.template
-            ? {
-                session_point_value: v.template.sessionPointValue,
-                weekly_required_points: v.template.weeklyRequiredPoints,
-                weekly_reference_points: v.template.weeklyReferencePoints,
-                schedule: v.template as unknown as Record<string, unknown>,
-                schedule_source: v.template.fileName,
-              }
-            : {}),
         },
       }),
     onSuccess: () => refresh("Block saved"),
@@ -333,41 +297,6 @@ function AdminBlocks() {
                 ))}
               </Select>
             </Field>
-            <Field label="Week template (optional)">
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                disabled={parsing}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) void handleTemplate(file);
-                }}
-                className="w-full rounded-2xl border border-border/60 bg-background/60 px-3 py-2 text-sm"
-              />
-            </Field>
-            {parsing ? (
-              <p className="text-xs text-muted-foreground">Reading the template…</p>
-            ) : null}
-            {form.template ? (
-              <div className="rounded-2xl bg-muted/50 p-3 text-xs text-muted-foreground">
-                <p className="font-medium text-foreground">{form.template.fileName}</p>
-                <p className="mt-1">
-                  {form.template.weeks} week{form.template.weeks === 1 ? "" : "s"} ·{" "}
-                  {form.template.sessionsPerWeek} sessions a week ·{" "}
-                  {form.template.totalSessions} sessions in total
-                </p>
-                <p>
-                  Each full session is worth {form.template.sessionPointValue.toFixed(1)} points ={" "}
-                  {form.template.percentPerSession}% of the block · weekly target{" "}
-                  {form.template.weeklyRequiredPoints} of {form.template.weeklyReferencePoints}{" "}
-                  points
-                </p>
-                <p>
-                  Dates filled in: {formatDate(form.template.startDate)} →{" "}
-                  {formatDate(form.template.endDate)}
-                </p>
-              </div>
-            ) : null}
             <Field label="Status">
               <Select
                 value={form.status}
