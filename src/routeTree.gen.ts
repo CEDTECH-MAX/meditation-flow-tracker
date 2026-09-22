@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as DeveloperSigninRouteImport } from './routes/developer-signin'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as MarkerSigninRouteImport } from './routes/marker-signin'
 import { Route as MiiRouteImport } from './routes/mii'
@@ -21,6 +22,7 @@ import { Route as AuthenticatedAdvisorRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedAppealsRouteImport } from './routes/_authenticated/appeals'
 import { Route as AuthenticatedClassesRouteImport } from './routes/_authenticated/classes'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedDeveloperRouteImport } from './routes/_authenticated/developer'
 import { Route as AuthenticatedMailRouteImport } from './routes/_authenticated/mail'
 import { Route as AuthenticatedMarkerRouteImport } from './routes/_authenticated/marker'
 import { Route as AuthenticatedPasswordRouteImport } from './routes/_authenticated/password'
@@ -35,6 +37,19 @@ import { Route as AuthenticatedAdminFeedbackRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminMarkersRouteImport } from './routes/_authenticated/admin.markers'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin.reports'
 import { Route as AuthenticatedAdminStudentsRouteImport } from './routes/_authenticated/admin.students'
+import { Route as AuthenticatedDeveloperIndexRouteImport } from './routes/_authenticated/developer.index'
+import { Route as AuthenticatedDeveloperAuditRouteImport } from './routes/_authenticated/developer.audit'
+import { Route as AuthenticatedDeveloperEmailRouteImport } from './routes/_authenticated/developer.email'
+import { Route as AuthenticatedDeveloperEmergencyRouteImport } from './routes/_authenticated/developer.emergency'
+import { Route as AuthenticatedDeveloperFlagsRouteImport } from './routes/_authenticated/developer.flags'
+import { Route as AuthenticatedDeveloperHealthRouteImport } from './routes/_authenticated/developer.health'
+import { Route as AuthenticatedDeveloperIntegrityRouteImport } from './routes/_authenticated/developer.integrity'
+import { Route as AuthenticatedDeveloperPermissionsRouteImport } from './routes/_authenticated/developer.permissions'
+import { Route as AuthenticatedDeveloperSearchRouteImport } from './routes/_authenticated/developer.search'
+import { Route as AuthenticatedDeveloperSecurityRouteImport } from './routes/_authenticated/developer.security'
+import { Route as AuthenticatedDeveloperSupportRouteImport } from './routes/_authenticated/developer.support'
+import { Route as AuthenticatedDeveloperToolsRouteImport } from './routes/_authenticated/developer.tools'
+import { Route as AuthenticatedDeveloperUsersRouteImport } from './routes/_authenticated/developer.users'
 import { Route as AuthenticatedMarkerIndexRouteImport } from './routes/_authenticated/marker.index'
 import { Route as AuthenticatedMarkerAppealsRouteImport } from './routes/_authenticated/marker.appeals'
 import { Route as AuthenticatedMarkerPasswordRouteImport } from './routes/_authenticated/marker.password'
@@ -46,6 +61,11 @@ const IndexRoute = IndexRouteImport.update({
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeveloperSigninRoute = DeveloperSigninRouteImport.update({
+  id: '/developer-signin',
+  path: '/developer-signin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
@@ -96,6 +116,11 @@ const AuthenticatedClassesRoute = AuthenticatedClassesRouteImport.update({
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDeveloperRoute = AuthenticatedDeveloperRouteImport.update({
+  id: '/developer',
+  path: '/developer',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedMailRoute = AuthenticatedMailRouteImport.update({
@@ -178,6 +203,84 @@ const AuthenticatedAdminStudentsRoute =
     path: '/students',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedDeveloperIndexRoute =
+  AuthenticatedDeveloperIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedDeveloperRoute,
+  } as any)
+const AuthenticatedDeveloperAuditRoute =
+  AuthenticatedDeveloperAuditRouteImport.update({
+    id: '/audit',
+    path: '/audit',
+    getParentRoute: () => AuthenticatedDeveloperRoute,
+  } as any)
+const AuthenticatedDeveloperEmailRoute =
+  AuthenticatedDeveloperEmailRouteImport.update({
+    id: '/email',
+    path: '/email',
+    getParentRoute: () => AuthenticatedDeveloperRoute,
+  } as any)
+const AuthenticatedDeveloperEmergencyRoute =
+  AuthenticatedDeveloperEmergencyRouteImport.update({
+    id: '/emergency',
+    path: '/emergency',
+    getParentRoute: () => AuthenticatedDeveloperRoute,
+  } as any)
+const AuthenticatedDeveloperFlagsRoute =
+  AuthenticatedDeveloperFlagsRouteImport.update({
+    id: '/flags',
+    path: '/flags',
+    getParentRoute: () => AuthenticatedDeveloperRoute,
+  } as any)
+const AuthenticatedDeveloperHealthRoute =
+  AuthenticatedDeveloperHealthRouteImport.update({
+    id: '/health',
+    path: '/health',
+    getParentRoute: () => AuthenticatedDeveloperRoute,
+  } as any)
+const AuthenticatedDeveloperIntegrityRoute =
+  AuthenticatedDeveloperIntegrityRouteImport.update({
+    id: '/integrity',
+    path: '/integrity',
+    getParentRoute: () => AuthenticatedDeveloperRoute,
+  } as any)
+const AuthenticatedDeveloperPermissionsRoute =
+  AuthenticatedDeveloperPermissionsRouteImport.update({
+    id: '/permissions',
+    path: '/permissions',
+    getParentRoute: () => AuthenticatedDeveloperRoute,
+  } as any)
+const AuthenticatedDeveloperSearchRoute =
+  AuthenticatedDeveloperSearchRouteImport.update({
+    id: '/search',
+    path: '/search',
+    getParentRoute: () => AuthenticatedDeveloperRoute,
+  } as any)
+const AuthenticatedDeveloperSecurityRoute =
+  AuthenticatedDeveloperSecurityRouteImport.update({
+    id: '/security',
+    path: '/security',
+    getParentRoute: () => AuthenticatedDeveloperRoute,
+  } as any)
+const AuthenticatedDeveloperSupportRoute =
+  AuthenticatedDeveloperSupportRouteImport.update({
+    id: '/support',
+    path: '/support',
+    getParentRoute: () => AuthenticatedDeveloperRoute,
+  } as any)
+const AuthenticatedDeveloperToolsRoute =
+  AuthenticatedDeveloperToolsRouteImport.update({
+    id: '/tools',
+    path: '/tools',
+    getParentRoute: () => AuthenticatedDeveloperRoute,
+  } as any)
+const AuthenticatedDeveloperUsersRoute =
+  AuthenticatedDeveloperUsersRouteImport.update({
+    id: '/users',
+    path: '/users',
+    getParentRoute: () => AuthenticatedDeveloperRoute,
+  } as any)
 const AuthenticatedMarkerIndexRoute =
   AuthenticatedMarkerIndexRouteImport.update({
     id: '/',
@@ -199,6 +302,7 @@ const AuthenticatedMarkerPasswordRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/developer-signin': typeof DeveloperSigninRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/marker-signin': typeof MarkerSigninRoute
   '/mii': typeof MiiRoute
@@ -209,6 +313,7 @@ export interface FileRoutesByFullPath {
   '/appeals': typeof AuthenticatedAppealsRoute
   '/classes': typeof AuthenticatedClassesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/developer': typeof AuthenticatedDeveloperRouteWithChildren
   '/mail': typeof AuthenticatedMailRoute
   '/marker': typeof AuthenticatedMarkerRouteWithChildren
   '/password': typeof AuthenticatedPasswordRoute
@@ -222,13 +327,27 @@ export interface FileRoutesByFullPath {
   '/admin/markers': typeof AuthenticatedAdminMarkersRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
+  '/developer/audit': typeof AuthenticatedDeveloperAuditRoute
+  '/developer/email': typeof AuthenticatedDeveloperEmailRoute
+  '/developer/emergency': typeof AuthenticatedDeveloperEmergencyRoute
+  '/developer/flags': typeof AuthenticatedDeveloperFlagsRoute
+  '/developer/health': typeof AuthenticatedDeveloperHealthRoute
+  '/developer/integrity': typeof AuthenticatedDeveloperIntegrityRoute
+  '/developer/permissions': typeof AuthenticatedDeveloperPermissionsRoute
+  '/developer/search': typeof AuthenticatedDeveloperSearchRoute
+  '/developer/security': typeof AuthenticatedDeveloperSecurityRoute
+  '/developer/support': typeof AuthenticatedDeveloperSupportRoute
+  '/developer/tools': typeof AuthenticatedDeveloperToolsRoute
+  '/developer/users': typeof AuthenticatedDeveloperUsersRoute
   '/marker/appeals': typeof AuthenticatedMarkerAppealsRoute
   '/marker/password': typeof AuthenticatedMarkerPasswordRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/developer/': typeof AuthenticatedDeveloperIndexRoute
   '/marker/': typeof AuthenticatedMarkerIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/developer-signin': typeof DeveloperSigninRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/marker-signin': typeof MarkerSigninRoute
   '/mii': typeof MiiRoute
@@ -250,15 +369,29 @@ export interface FileRoutesByTo {
   '/admin/markers': typeof AuthenticatedAdminMarkersRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
+  '/developer/audit': typeof AuthenticatedDeveloperAuditRoute
+  '/developer/email': typeof AuthenticatedDeveloperEmailRoute
+  '/developer/emergency': typeof AuthenticatedDeveloperEmergencyRoute
+  '/developer/flags': typeof AuthenticatedDeveloperFlagsRoute
+  '/developer/health': typeof AuthenticatedDeveloperHealthRoute
+  '/developer/integrity': typeof AuthenticatedDeveloperIntegrityRoute
+  '/developer/permissions': typeof AuthenticatedDeveloperPermissionsRoute
+  '/developer/search': typeof AuthenticatedDeveloperSearchRoute
+  '/developer/security': typeof AuthenticatedDeveloperSecurityRoute
+  '/developer/support': typeof AuthenticatedDeveloperSupportRoute
+  '/developer/tools': typeof AuthenticatedDeveloperToolsRoute
+  '/developer/users': typeof AuthenticatedDeveloperUsersRoute
   '/marker/appeals': typeof AuthenticatedMarkerAppealsRoute
   '/marker/password': typeof AuthenticatedMarkerPasswordRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/developer': typeof AuthenticatedDeveloperIndexRoute
   '/marker': typeof AuthenticatedMarkerIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/developer-signin': typeof DeveloperSigninRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/marker-signin': typeof MarkerSigninRoute
   '/mii': typeof MiiRoute
@@ -269,6 +402,7 @@ export interface FileRoutesById {
   '/_authenticated/appeals': typeof AuthenticatedAppealsRoute
   '/_authenticated/classes': typeof AuthenticatedClassesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/developer': typeof AuthenticatedDeveloperRouteWithChildren
   '/_authenticated/mail': typeof AuthenticatedMailRoute
   '/_authenticated/marker': typeof AuthenticatedMarkerRouteWithChildren
   '/_authenticated/password': typeof AuthenticatedPasswordRoute
@@ -282,15 +416,29 @@ export interface FileRoutesById {
   '/_authenticated/admin/markers': typeof AuthenticatedAdminMarkersRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/students': typeof AuthenticatedAdminStudentsRoute
+  '/_authenticated/developer/audit': typeof AuthenticatedDeveloperAuditRoute
+  '/_authenticated/developer/email': typeof AuthenticatedDeveloperEmailRoute
+  '/_authenticated/developer/emergency': typeof AuthenticatedDeveloperEmergencyRoute
+  '/_authenticated/developer/flags': typeof AuthenticatedDeveloperFlagsRoute
+  '/_authenticated/developer/health': typeof AuthenticatedDeveloperHealthRoute
+  '/_authenticated/developer/integrity': typeof AuthenticatedDeveloperIntegrityRoute
+  '/_authenticated/developer/permissions': typeof AuthenticatedDeveloperPermissionsRoute
+  '/_authenticated/developer/search': typeof AuthenticatedDeveloperSearchRoute
+  '/_authenticated/developer/security': typeof AuthenticatedDeveloperSecurityRoute
+  '/_authenticated/developer/support': typeof AuthenticatedDeveloperSupportRoute
+  '/_authenticated/developer/tools': typeof AuthenticatedDeveloperToolsRoute
+  '/_authenticated/developer/users': typeof AuthenticatedDeveloperUsersRoute
   '/_authenticated/marker/appeals': typeof AuthenticatedMarkerAppealsRoute
   '/_authenticated/marker/password': typeof AuthenticatedMarkerPasswordRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/developer/': typeof AuthenticatedDeveloperIndexRoute
   '/_authenticated/marker/': typeof AuthenticatedMarkerIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/developer-signin'
     | '/forgot-password'
     | '/marker-signin'
     | '/mii'
@@ -301,6 +449,7 @@ export interface FileRouteTypes {
     | '/appeals'
     | '/classes'
     | '/dashboard'
+    | '/developer'
     | '/mail'
     | '/marker'
     | '/password'
@@ -314,13 +463,27 @@ export interface FileRouteTypes {
     | '/admin/markers'
     | '/admin/reports'
     | '/admin/students'
+    | '/developer/audit'
+    | '/developer/email'
+    | '/developer/emergency'
+    | '/developer/flags'
+    | '/developer/health'
+    | '/developer/integrity'
+    | '/developer/permissions'
+    | '/developer/search'
+    | '/developer/security'
+    | '/developer/support'
+    | '/developer/tools'
+    | '/developer/users'
     | '/marker/appeals'
     | '/marker/password'
     | '/admin/'
+    | '/developer/'
     | '/marker/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/developer-signin'
     | '/forgot-password'
     | '/marker-signin'
     | '/mii'
@@ -342,14 +505,28 @@ export interface FileRouteTypes {
     | '/admin/markers'
     | '/admin/reports'
     | '/admin/students'
+    | '/developer/audit'
+    | '/developer/email'
+    | '/developer/emergency'
+    | '/developer/flags'
+    | '/developer/health'
+    | '/developer/integrity'
+    | '/developer/permissions'
+    | '/developer/search'
+    | '/developer/security'
+    | '/developer/support'
+    | '/developer/tools'
+    | '/developer/users'
     | '/marker/appeals'
     | '/marker/password'
     | '/admin'
+    | '/developer'
     | '/marker'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/developer-signin'
     | '/forgot-password'
     | '/marker-signin'
     | '/mii'
@@ -360,6 +537,7 @@ export interface FileRouteTypes {
     | '/_authenticated/appeals'
     | '/_authenticated/classes'
     | '/_authenticated/dashboard'
+    | '/_authenticated/developer'
     | '/_authenticated/mail'
     | '/_authenticated/marker'
     | '/_authenticated/password'
@@ -373,15 +551,29 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/markers'
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/students'
+    | '/_authenticated/developer/audit'
+    | '/_authenticated/developer/email'
+    | '/_authenticated/developer/emergency'
+    | '/_authenticated/developer/flags'
+    | '/_authenticated/developer/health'
+    | '/_authenticated/developer/integrity'
+    | '/_authenticated/developer/permissions'
+    | '/_authenticated/developer/search'
+    | '/_authenticated/developer/security'
+    | '/_authenticated/developer/support'
+    | '/_authenticated/developer/tools'
+    | '/_authenticated/developer/users'
     | '/_authenticated/marker/appeals'
     | '/_authenticated/marker/password'
     | '/_authenticated/admin/'
+    | '/_authenticated/developer/'
     | '/_authenticated/marker/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  DeveloperSigninRoute: typeof DeveloperSigninRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   MarkerSigninRoute: typeof MarkerSigninRoute
   MiiRoute: typeof MiiRoute
@@ -403,6 +595,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/developer-signin': {
+      id: '/developer-signin'
+      path: '/developer-signin'
+      fullPath: '/developer-signin'
+      preLoaderRoute: typeof DeveloperSigninRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forgot-password': {
@@ -473,6 +672,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/developer': {
+      id: '/_authenticated/developer'
+      path: '/developer'
+      fullPath: '/developer'
+      preLoaderRoute: typeof AuthenticatedDeveloperRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/mail': {
@@ -573,6 +779,97 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminStudentsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/developer/': {
+      id: '/_authenticated/developer/'
+      path: '/'
+      fullPath: '/developer/'
+      preLoaderRoute: typeof AuthenticatedDeveloperIndexRouteImport
+      parentRoute: typeof AuthenticatedDeveloperRoute
+    }
+    '/_authenticated/developer/audit': {
+      id: '/_authenticated/developer/audit'
+      path: '/audit'
+      fullPath: '/developer/audit'
+      preLoaderRoute: typeof AuthenticatedDeveloperAuditRouteImport
+      parentRoute: typeof AuthenticatedDeveloperRoute
+    }
+    '/_authenticated/developer/email': {
+      id: '/_authenticated/developer/email'
+      path: '/email'
+      fullPath: '/developer/email'
+      preLoaderRoute: typeof AuthenticatedDeveloperEmailRouteImport
+      parentRoute: typeof AuthenticatedDeveloperRoute
+    }
+    '/_authenticated/developer/emergency': {
+      id: '/_authenticated/developer/emergency'
+      path: '/emergency'
+      fullPath: '/developer/emergency'
+      preLoaderRoute: typeof AuthenticatedDeveloperEmergencyRouteImport
+      parentRoute: typeof AuthenticatedDeveloperRoute
+    }
+    '/_authenticated/developer/flags': {
+      id: '/_authenticated/developer/flags'
+      path: '/flags'
+      fullPath: '/developer/flags'
+      preLoaderRoute: typeof AuthenticatedDeveloperFlagsRouteImport
+      parentRoute: typeof AuthenticatedDeveloperRoute
+    }
+    '/_authenticated/developer/health': {
+      id: '/_authenticated/developer/health'
+      path: '/health'
+      fullPath: '/developer/health'
+      preLoaderRoute: typeof AuthenticatedDeveloperHealthRouteImport
+      parentRoute: typeof AuthenticatedDeveloperRoute
+    }
+    '/_authenticated/developer/integrity': {
+      id: '/_authenticated/developer/integrity'
+      path: '/integrity'
+      fullPath: '/developer/integrity'
+      preLoaderRoute: typeof AuthenticatedDeveloperIntegrityRouteImport
+      parentRoute: typeof AuthenticatedDeveloperRoute
+    }
+    '/_authenticated/developer/permissions': {
+      id: '/_authenticated/developer/permissions'
+      path: '/permissions'
+      fullPath: '/developer/permissions'
+      preLoaderRoute: typeof AuthenticatedDeveloperPermissionsRouteImport
+      parentRoute: typeof AuthenticatedDeveloperRoute
+    }
+    '/_authenticated/developer/search': {
+      id: '/_authenticated/developer/search'
+      path: '/search'
+      fullPath: '/developer/search'
+      preLoaderRoute: typeof AuthenticatedDeveloperSearchRouteImport
+      parentRoute: typeof AuthenticatedDeveloperRoute
+    }
+    '/_authenticated/developer/security': {
+      id: '/_authenticated/developer/security'
+      path: '/security'
+      fullPath: '/developer/security'
+      preLoaderRoute: typeof AuthenticatedDeveloperSecurityRouteImport
+      parentRoute: typeof AuthenticatedDeveloperRoute
+    }
+    '/_authenticated/developer/support': {
+      id: '/_authenticated/developer/support'
+      path: '/support'
+      fullPath: '/developer/support'
+      preLoaderRoute: typeof AuthenticatedDeveloperSupportRouteImport
+      parentRoute: typeof AuthenticatedDeveloperRoute
+    }
+    '/_authenticated/developer/tools': {
+      id: '/_authenticated/developer/tools'
+      path: '/tools'
+      fullPath: '/developer/tools'
+      preLoaderRoute: typeof AuthenticatedDeveloperToolsRouteImport
+      parentRoute: typeof AuthenticatedDeveloperRoute
+    }
+    '/_authenticated/developer/users': {
+      id: '/_authenticated/developer/users'
+      path: '/users'
+      fullPath: '/developer/users'
+      preLoaderRoute: typeof AuthenticatedDeveloperUsersRouteImport
+      parentRoute: typeof AuthenticatedDeveloperRoute
+    }
     '/_authenticated/marker/': {
       id: '/_authenticated/marker/'
       path: '/'
@@ -628,6 +925,45 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
 const AuthenticatedAdminRouteWithChildren =
   AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
 
+interface AuthenticatedDeveloperRouteChildren {
+  AuthenticatedDeveloperAuditRoute: typeof AuthenticatedDeveloperAuditRoute
+  AuthenticatedDeveloperEmailRoute: typeof AuthenticatedDeveloperEmailRoute
+  AuthenticatedDeveloperEmergencyRoute: typeof AuthenticatedDeveloperEmergencyRoute
+  AuthenticatedDeveloperFlagsRoute: typeof AuthenticatedDeveloperFlagsRoute
+  AuthenticatedDeveloperHealthRoute: typeof AuthenticatedDeveloperHealthRoute
+  AuthenticatedDeveloperIntegrityRoute: typeof AuthenticatedDeveloperIntegrityRoute
+  AuthenticatedDeveloperPermissionsRoute: typeof AuthenticatedDeveloperPermissionsRoute
+  AuthenticatedDeveloperSearchRoute: typeof AuthenticatedDeveloperSearchRoute
+  AuthenticatedDeveloperSecurityRoute: typeof AuthenticatedDeveloperSecurityRoute
+  AuthenticatedDeveloperSupportRoute: typeof AuthenticatedDeveloperSupportRoute
+  AuthenticatedDeveloperToolsRoute: typeof AuthenticatedDeveloperToolsRoute
+  AuthenticatedDeveloperUsersRoute: typeof AuthenticatedDeveloperUsersRoute
+  AuthenticatedDeveloperIndexRoute: typeof AuthenticatedDeveloperIndexRoute
+}
+
+const AuthenticatedDeveloperRouteChildren: AuthenticatedDeveloperRouteChildren =
+  {
+    AuthenticatedDeveloperAuditRoute: AuthenticatedDeveloperAuditRoute,
+    AuthenticatedDeveloperEmailRoute: AuthenticatedDeveloperEmailRoute,
+    AuthenticatedDeveloperEmergencyRoute: AuthenticatedDeveloperEmergencyRoute,
+    AuthenticatedDeveloperFlagsRoute: AuthenticatedDeveloperFlagsRoute,
+    AuthenticatedDeveloperHealthRoute: AuthenticatedDeveloperHealthRoute,
+    AuthenticatedDeveloperIntegrityRoute: AuthenticatedDeveloperIntegrityRoute,
+    AuthenticatedDeveloperPermissionsRoute:
+      AuthenticatedDeveloperPermissionsRoute,
+    AuthenticatedDeveloperSearchRoute: AuthenticatedDeveloperSearchRoute,
+    AuthenticatedDeveloperSecurityRoute: AuthenticatedDeveloperSecurityRoute,
+    AuthenticatedDeveloperSupportRoute: AuthenticatedDeveloperSupportRoute,
+    AuthenticatedDeveloperToolsRoute: AuthenticatedDeveloperToolsRoute,
+    AuthenticatedDeveloperUsersRoute: AuthenticatedDeveloperUsersRoute,
+    AuthenticatedDeveloperIndexRoute: AuthenticatedDeveloperIndexRoute,
+  }
+
+const AuthenticatedDeveloperRouteWithChildren =
+  AuthenticatedDeveloperRoute._addFileChildren(
+    AuthenticatedDeveloperRouteChildren,
+  )
+
 interface AuthenticatedMarkerRouteChildren {
   AuthenticatedMarkerAppealsRoute: typeof AuthenticatedMarkerAppealsRoute
   AuthenticatedMarkerPasswordRoute: typeof AuthenticatedMarkerPasswordRoute
@@ -649,6 +985,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppealsRoute: typeof AuthenticatedAppealsRoute
   AuthenticatedClassesRoute: typeof AuthenticatedClassesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDeveloperRoute: typeof AuthenticatedDeveloperRouteWithChildren
   AuthenticatedMailRoute: typeof AuthenticatedMailRoute
   AuthenticatedMarkerRoute: typeof AuthenticatedMarkerRouteWithChildren
   AuthenticatedPasswordRoute: typeof AuthenticatedPasswordRoute
@@ -660,6 +997,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppealsRoute: AuthenticatedAppealsRoute,
   AuthenticatedClassesRoute: AuthenticatedClassesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDeveloperRoute: AuthenticatedDeveloperRouteWithChildren,
   AuthenticatedMailRoute: AuthenticatedMailRoute,
   AuthenticatedMarkerRoute: AuthenticatedMarkerRouteWithChildren,
   AuthenticatedPasswordRoute: AuthenticatedPasswordRoute,
@@ -671,6 +1009,7 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  DeveloperSigninRoute: DeveloperSigninRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   MarkerSigninRoute: MarkerSigninRoute,
   MiiRoute: MiiRoute,

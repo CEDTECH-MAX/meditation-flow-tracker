@@ -2,31 +2,27 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { recordAuthEvent } from "@/lib/developer.functions";
-import { Button, Card, Field, Input } from "@/components/ui-kit";
+import { Button, Field, Input } from "@/components/ui-kit";
 
-
-export const Route = createFileRoute("/marker-signin")({
+export const Route = createFileRoute("/developer-signin")({
   head: () => ({
     meta: [
-      { title: "Marker Sign In · Attendance Management" },
+      { title: "Developer sign in · MII / MIU platform oversight" },
       {
         name: "description",
         content:
-          "Markers sign in with their email and password. The system automatically loads the institution and cohort the administrator assigned to them.",
+          "Sign in to the MII / MIU developer portal for platform-wide oversight of accounts, security activity and system health.",
       },
-      { property: "og:title", content: "Marker Sign In" },
-      {
-        property: "og:description",
-        content: "Sign in to mark attendance for your assigned cohort.",
-      },
+      { property: "og:title", content: "Developer sign in · MII / MIU" },
+      { property: "og:description", content: "Platform-wide oversight for the attendance system." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: MarkerSignIn,
+  component: DeveloperSignIn,
 });
 
-function MarkerSignIn() {
+function DeveloperSignIn() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -44,46 +40,42 @@ function MarkerSignIn() {
     });
     if (authError || !data.user) {
       await recordAuthEvent({
-        data: { email: address, succeeded: false, reason: "Incorrect email or password", portal: "marker" },
+        data: { email: address, succeeded: false, reason: "Incorrect email or password", portal: "developer" },
       }).catch(() => null);
       setError("Incorrect email or password.");
       setBusy(false);
       return;
     }
-    const { data: roles } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", data.user.id);
-    const isMarker = (roles ?? []).some((r) => r.role === "marker");
-    if (!isMarker) {
+    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", data.user.id);
+    const isDeveloper = (roles ?? []).some((r) => r.role === "developer");
+    if (!isDeveloper) {
       await supabase.auth.signOut();
       await recordAuthEvent({
-        data: { email: address, succeeded: false, reason: "Not a marker account", portal: "marker" },
+        data: { email: address, succeeded: false, reason: "Not a developer account", portal: "developer" },
       }).catch(() => null);
-      setError("This is not a marker account. Please use your institution's sign-in page.");
+      setError("This is not a developer account. Please use your institution's sign-in page.");
       setBusy(false);
       return;
     }
-    await recordAuthEvent({ data: { email: address, succeeded: true, portal: "marker" } }).catch(() => null);
-    navigate({ to: "/marker", replace: true });
+    await recordAuthEvent({ data: { email: address, succeeded: true, portal: "developer" } }).catch(() => null);
+    navigate({ to: "/developer", replace: true });
     setBusy(false);
   }
 
-
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-10">
+    <div className="dev-portal flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
-          <span className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gold font-display text-lg font-bold text-gold-foreground shadow-soft">
-            M
+          <span className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-primary/15 font-display text-lg font-bold text-primary">
+            DEV
           </span>
-          <h1 className="font-display text-3xl font-semibold text-gradient-green">Marker sign in</h1>
+          <h1 className="font-display text-3xl font-semibold">Developer portal</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Your cohort loads automatically once you sign in.
+            Platform-wide oversight of MII and MIU. Every action here is recorded.
           </p>
         </div>
 
-        <Card className="animate-rise">
+        <div className="dev-card animate-rise p-6">
           <form onSubmit={onSubmit} className="space-y-4">
             <Field label="EMAIL ADDRESS">
               <Input
@@ -106,27 +98,18 @@ function MarkerSignIn() {
               />
             </Field>
             {error ? (
-              <p className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {error}
-              </p>
+              <p className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
             ) : null}
             <Button type="submit" size="lg" className="w-full" disabled={busy}>
               {busy ? "Signing in…" : "Sign in"}
             </Button>
           </form>
-          <div className="mt-4 flex flex-col items-center gap-1 text-sm">
-            <Link to="/forgot-password" className="text-muted-foreground hover:underline">
-              Forgot password?
-            </Link>
-            <p className="text-center text-xs text-muted-foreground">
-              Marker accounts are created by the administrator. Change your password once you are
-              signed in.
-            </p>
-            <Link to="/" className="mt-2 text-xs text-muted-foreground hover:underline">
+          <div className="mt-4 text-center">
+            <Link to="/" className="text-xs text-muted-foreground hover:underline">
               ← Back to the portals
             </Link>
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { assertAdmin, audit, internalEmail, myInstitution, statusFromPoints, type Ctx } from "./data.helpers";
+import { assertAdmin, assertMarkingEnabled, audit, internalEmail, myInstitution, statusFromPoints, type Ctx } from "./data.helpers";
 
 /* ---------------------------------- me ---------------------------------- */
 
@@ -501,6 +501,8 @@ export const markAttendance = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const c = context as unknown as Ctx;
     await assertAdmin(c);
+    await assertMarkingEnabled(c);
+
 
     if (data.points === null) {
       const { error } = await c.supabase

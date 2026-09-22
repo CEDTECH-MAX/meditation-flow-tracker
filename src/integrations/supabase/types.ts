@@ -247,6 +247,48 @@ export type Database = {
         }
         Relationships: []
       }
+      auth_events: {
+        Row: {
+          created_at: string
+          email: string | null
+          event: string
+          id: string
+          institution: string | null
+          ip: string | null
+          reason: string | null
+          role: string | null
+          succeeded: boolean
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          event: string
+          id?: string
+          institution?: string | null
+          ip?: string | null
+          reason?: string | null
+          role?: string | null
+          succeeded?: boolean
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          event?: string
+          id?: string
+          institution?: string | null
+          ip?: string | null
+          reason?: string | null
+          role?: string | null
+          succeeded?: boolean
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       blocks: {
         Row: {
           cohort_id: string | null
@@ -491,6 +533,84 @@ export type Database = {
           institution?: Database["public"]["Enums"]["institution"]
           name?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      email_events: {
+        Row: {
+          attempts: number
+          created_at: string
+          error: string | null
+          id: string
+          institution: string | null
+          recipient: string
+          related_user_id: string | null
+          status: string
+          subject: string
+          template: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          error?: string | null
+          id?: string
+          institution?: string | null
+          recipient: string
+          related_user_id?: string | null
+          status?: string
+          subject: string
+          template?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          error?: string | null
+          id?: string
+          institution?: string | null
+          recipient?: string
+          related_user_id?: string | null
+          status?: string
+          subject?: string
+          template?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      feature_flags: {
+        Row: {
+          created_at: string
+          description: string | null
+          enabled: boolean
+          id: string
+          institution: string | null
+          key: string
+          label: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          institution?: string | null
+          key: string
+          label: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          institution?: string | null
+          key?: string
+          label?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -888,6 +1008,48 @@ export type Database = {
           },
         ]
       }
+      security_events: {
+        Row: {
+          created_at: string
+          detail: string | null
+          email: string | null
+          id: string
+          institution: string | null
+          ip: string | null
+          kind: string
+          resolved_at: string | null
+          severity: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          email?: string | null
+          id?: string
+          institution?: string | null
+          ip?: string | null
+          kind: string
+          resolved_at?: string | null
+          severity?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          email?: string | null
+          id?: string
+          institution?: string | null
+          ip?: string | null
+          kind?: string
+          resolved_at?: string | null
+          severity?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       session_reviews: {
         Row: {
           block_id: string
@@ -952,6 +1114,69 @@ export type Database = {
           },
         ]
       }
+      support_sessions: {
+        Row: {
+          created_at: string
+          developer_id: string
+          ended_at: string | null
+          expires_at: string
+          id: string
+          read_only: boolean
+          reason: string
+          target_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          developer_id: string
+          ended_at?: string | null
+          expires_at: string
+          id?: string
+          read_only?: boolean
+          reason: string
+          target_user_id: string
+        }
+        Update: {
+          created_at?: string
+          developer_id?: string
+          ended_at?: string | null
+          expires_at?: string
+          id?: string
+          read_only?: boolean
+          reason?: string
+          target_user_id?: string
+        }
+        Relationships: []
+      }
+      system_controls: {
+        Row: {
+          description: string | null
+          enabled: boolean
+          key: string
+          label: string
+          note: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          description?: string | null
+          enabled?: boolean
+          key: string
+          label: string
+          note?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          description?: string | null
+          enabled?: boolean
+          key?: string
+          label?: string
+          note?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -986,6 +1211,7 @@ export type Database = {
         Args: { _role: string; _user_id: string }
         Returns: boolean
       }
+      is_developer: { Args: { _user_id: string }; Returns: boolean }
       is_message_recipient: {
         Args: { _message_id: string; _user_id: string }
         Returns: boolean
@@ -1029,7 +1255,13 @@ export type Database = {
         | "late_arrival"
         | "unexcused"
         | "other"
-      app_role: "admin" | "student" | "marker" | "head_of_meditation" | "staff"
+      app_role:
+        | "admin"
+        | "student"
+        | "marker"
+        | "head_of_meditation"
+        | "staff"
+        | "developer"
       appeal_status:
         | "submitted"
         | "reviewed"
@@ -1177,7 +1409,14 @@ export const Constants = {
         "unexcused",
         "other",
       ],
-      app_role: ["admin", "student", "marker", "head_of_meditation", "staff"],
+      app_role: [
+        "admin",
+        "student",
+        "marker",
+        "head_of_meditation",
+        "staff",
+        "developer",
+      ],
       appeal_status: [
         "submitted",
         "reviewed",
