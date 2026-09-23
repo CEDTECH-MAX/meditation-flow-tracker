@@ -282,7 +282,6 @@ export const markAsMarker = createServerFn({ method: "POST" })
       throw new Error("Forbidden: this student is outside your assigned cohort");
     }
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     if (data.points === null) {
       const { error } = await supabaseAdmin
