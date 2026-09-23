@@ -229,7 +229,8 @@ export const markAsMarker = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const c = context as unknown as Ctx;
-    const { data: pause } = await c.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: pause } = await supabaseAdmin
       .from("system_controls")
       .select("enabled")
       .eq("key", "disable_marking")
