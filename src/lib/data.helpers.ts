@@ -58,8 +58,9 @@ export async function myInstitution(context: Ctx): Promise<"MII" | "MIU"> {
  * Emergency control: the platform developer can pause all marking.
  * Checked server-side so pausing cannot be bypassed from the browser.
  */
-export async function assertMarkingEnabled(c: Ctx) {
-  const { data } = await c.supabase
+export async function assertMarkingEnabled(_c: Ctx) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
     .from("system_controls")
     .select("enabled")
     .eq("key", "disable_marking")

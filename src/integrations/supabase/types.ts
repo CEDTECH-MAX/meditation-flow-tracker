@@ -1224,6 +1224,7 @@ export type Database = {
         Args: { _block_id: string; _marker_id: string; _student_id: string }
         Returns: boolean
       }
+      my_institution: { Args: never; Returns: string }
       session_review_comments: {
         Args: { _institution: Database["public"]["Enums"]["institution"] }
         Returns: {
