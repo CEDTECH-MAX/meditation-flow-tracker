@@ -190,6 +190,7 @@ function AdminMarkers() {
             first_name: f.first_name,
             surname: f.surname,
             cohort_id: f.cohort_id,
+            email: f.email,
             password: f.password,
           },
         });
@@ -513,7 +514,7 @@ function AdminMarkers() {
                 />
               </Field>
             </div>
-            {form.id ? null : (
+            {(
               <Field label="EMAIL">
                 <Input
                   type="email"
