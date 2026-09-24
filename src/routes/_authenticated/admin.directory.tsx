@@ -159,7 +159,7 @@ function AdminDirectory() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [busyPhoto, setBusyPhoto] = useState<string | null>(null);
   const [staffEdit, setStaffEdit] = useState<
-    { id: string; first_name: string; surname: string; department_id: string; job_title: string } | null
+    { id: string; first_name: string; surname: string; email: string; department_id: string; job_title: string } | null
   >(null);
   const [reset, setReset] = useState<{ id: string; name: string; password: string } | null>(null);
   const [filter, setFilter] = useState("");
@@ -390,6 +390,7 @@ function AdminDirectory() {
                               id: p.id,
                               first_name: (p.full_name ?? "").split(" ")[0] ?? "",
                               surname: (p.full_name ?? "").split(" ").slice(1).join(" "),
+                              email: p.email ?? "",
                               department_id: p.department_id ?? "",
                               job_title: p.job_title ?? "",
                             })
@@ -565,6 +566,14 @@ function AdminDirectory() {
                 />
               </Field>
             </div>
+            <Field label="EMAIL">
+              <Input
+                type="email"
+                required
+                value={staffEdit.email}
+                onChange={(e) => setStaffEdit({ ...staffEdit, email: e.target.value })}
+              />
+            </Field>
             <Field label="DEPARTMENT">
               <Select
                 required

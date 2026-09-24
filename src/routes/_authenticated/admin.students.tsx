@@ -196,6 +196,7 @@ function AdminStudents() {
             id: v.id,
             full_name: v.full_name,
             student_number: v.student_number,
+            email: v.email,
             password: v.password,
             cohort_id: v.cohort_id || null,
             programme: v.programme,
@@ -427,7 +428,6 @@ function AdminStudents() {
               <Input
                 type="email"
                 required
-                disabled={Boolean(form.id)}
                 maxLength={255}
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}

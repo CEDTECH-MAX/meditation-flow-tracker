@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { assertAdmin, audit, statusFromPoints, type Ctx } from "./data.helpers";
+import { assertAdmin, audit, changeAccountEmail, statusFromPoints, type Ctx } from "./data.helpers";
 
 /**
  * Markers are staff accounts that may only ever mark the students of the
@@ -476,6 +476,7 @@ export const updateMarker = createServerFn({ method: "POST" })
         first_name: z.string().trim().min(1).max(60),
         surname: z.string().trim().min(1).max(60),
         cohort_id: z.string().uuid(),
+        email: z.string().trim().toLowerCase().max(255).email("Please enter a complete email address, for example name@example.com").optional(),
         password: z.string().min(8).max(72).or(z.literal("")).optional(),
       })
       .parse(d),
@@ -509,6 +510,7 @@ export const updateMarker = createServerFn({ method: "POST" })
     await supabaseAdmin
       .from("marker_assignments")
       .insert({ marker_id: data.id, cohort_id: data.cohort_id, is_active: true });
+    await changeAccountEmail(c, data.id, data.email);
 
     if (data.password) {
       const { error: aErr } = await supabaseAdmin.auth.admin.updateUserById(data.id, {
