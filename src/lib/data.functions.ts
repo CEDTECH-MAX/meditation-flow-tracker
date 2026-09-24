@@ -399,6 +399,7 @@ export const updateStudent = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         full_name: z.string().trim().min(2).max(120),
         student_number: z.string().trim().min(1).max(40),
+        email: z.string().trim().toLowerCase().max(255).email("Please enter a complete email address, for example name@example.com").optional(),
         password: z.string().min(8).max(72).or(z.literal("")).optional(),
         cohort_id: z.string().uuid().nullable().optional(),
         programme: z.string().trim().max(120).or(z.literal("")).optional(),
@@ -425,8 +426,7 @@ export const updateStudent = createServerFn({ method: "POST" })
       })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
-
-
+    await changeAccountEmail(c, data.id, data.email);
 
     if (data.password) {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

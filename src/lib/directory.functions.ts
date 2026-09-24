@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { assertAdmin, audit, myInstitution, type Ctx } from "./data.helpers";
+import { assertAdmin, audit, changeAccountEmail, myInstitution, type Ctx } from "./data.helpers";
 
 /**
  * Staff directory. Administrators name the departments themselves and add the
@@ -210,6 +210,7 @@ export const updateStaff = createServerFn({ method: "POST" })
         surname: nameField,
         department_id: uuid,
         job_title: z.string().trim().max(120).optional(),
+        email: emailField.optional(),
       })
       .parse(d),
   )
@@ -217,6 +218,7 @@ export const updateStaff = createServerFn({ method: "POST" })
     const c = context as unknown as Ctx;
     await assertAdmin(c);
     const inst = await myInstitution(c);
+    await changeAccountEmail(c, data.id, data.email);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
       .from("profiles")

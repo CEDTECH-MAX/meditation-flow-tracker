@@ -69,3 +69,35 @@ export async function assertMarkingEnabled(_c: Ctx) {
     throw new Error("Marking is temporarily paused. Please try again later.");
   }
 }
+
+/**
+ * Corrects the sign-in email of an account inside the administrator's own
+ * institution. Updates both the sign-in account and the profile.
+ */
+export async function changeAccountEmail(c: Ctx, userId: string, email: string | undefined) {
+  if (!email) return false;
+  const next = email.trim().toLowerCase();
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const inst = await myInstitution(c);
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("email, institution")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!profile || profile.institution !== inst)
+    throw new Error("That account is outside your institution.");
+  if ((profile.email ?? "").toLowerCase() === next) return false;
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    email: next,
+    email_confirm: true,
+  });
+  if (error)
+    throw new Error(
+      /already|registered|exists/i.test(error.message)
+        ? "That email address already has an account."
+        : error.message,
+    );
+  await supabaseAdmin.from("profiles").update({ email: next }).eq("id", userId);
+  await audit(c, "change_email", "account", userId, { from: profile.email, to: next });
+  return true;
+}
