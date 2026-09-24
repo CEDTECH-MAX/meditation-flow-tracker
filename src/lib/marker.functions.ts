@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { assertAdmin, audit, statusFromPoints, type Ctx } from "./data.helpers";
+import { assertAdmin, audit, changeAccountEmail, statusFromPoints, type Ctx } from "./data.helpers";
 
 /**
  * Markers are staff accounts that may only ever mark the students of the
