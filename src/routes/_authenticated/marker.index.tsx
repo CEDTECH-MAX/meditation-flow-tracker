@@ -97,6 +97,8 @@ function MarkerHome() {
 
   const [date, setDate] = useState(skipSunday(todayKey()));
   const [search, setSearch] = useState("");
+  const [cohortFilter, setCohortFilter] = useState<string>("all");
+  const cohorts = (scope?.cohorts ?? []) as { id: string; name: string }[];
   const [reasonFor, setReasonFor] = useState<{
     student_id: string;
     name: string;
@@ -145,6 +147,7 @@ function MarkerHome() {
         (s) =>
           !block?.cohort_id || s.cohort_id === block.cohort_id,
       )
+      .filter((s) => cohortFilter === "all" || s.cohort_id === cohortFilter)
       .filter(
         (s) =>
           !q ||
@@ -160,7 +163,7 @@ function MarkerHome() {
           (records ?? []).filter((r) => r.student_id === s.id),
         ),
       }));
-  }, [scope, search, dayMap, records, block]);
+  }, [scope, search, dayMap, records, block, cohortFilter]);
 
   const marked = rows.filter((r) => r.morning || r.afternoon).length;
   const dayClosed = date !== today && !(access?.unlocked ?? []).includes(date);
@@ -202,7 +205,17 @@ function MarkerHome() {
           </div>
 
           <Card className="mb-4">
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-4">
+              <Field label="Cohort">
+                <Select value={cohortFilter} onChange={(e) => setCohortFilter(e.target.value)}>
+                  <option value="all">All my cohorts</option>
+                  {cohorts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
               <Field label="Block">
                 <Select value={block.id} onChange={(e) => setBlockId(e.target.value)}>
                   {blocks.map((b) => (
