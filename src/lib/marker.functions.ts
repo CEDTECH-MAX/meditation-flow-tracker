@@ -342,10 +342,12 @@ export const listAllCohorts = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const c = context as unknown as Ctx;
     await assertAdmin(c);
+    const inst = await myInstitution(c);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin
       .from("cohorts")
       .select("id, name, institution")
+      .eq("institution", inst)
       .order("name", { ascending: true });
     return data ?? [];
   });
@@ -355,6 +357,7 @@ export const listMarkers = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const c = context as unknown as Ctx;
     await assertAdmin(c);
+    const inst = await myInstitution(c);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: roleRows } = await supabaseAdmin
@@ -369,6 +372,7 @@ export const listMarkers = createServerFn({ method: "GET" })
         supabaseAdmin
           .from("profiles")
           .select("id, full_name, email, institution, is_active, job_title, staff_id")
+          .eq("institution", inst)
           .in("id", ids),
         supabaseAdmin.from("marker_assignments").select("*").in("marker_id", ids),
         supabaseAdmin.from("marker_presence").select("*").in("marker_id", ids),
@@ -398,6 +402,11 @@ export const listMarkers = createServerFn({ method: "GET" })
       .sort((a, b) => a.full_name.localeCompare(b.full_name));
   });
 
+const cohortIdsField = z
+  .array(z.string().uuid())
+  .min(1, "Choose at least one cohort")
+  .max(50);
+
 const markerInput = z.object({
   first_name: z.string().trim().min(1).max(60),
   surname: z.string().trim().min(1).max(60),
@@ -408,9 +417,36 @@ const markerInput = z.object({
     .max(255)
     .email("Please enter a complete email address, for example rifumo@example.com"),
   password: z.string().min(8).max(72),
-  institution: z.enum(["MII", "MIU"]),
-  cohort_id: z.string().uuid(),
+  cohort_ids: cohortIdsField,
 });
+
+/** All cohorts must exist and belong to the administrator's own institution. */
+async function assertOwnCohorts(ids: string[], inst: "MII" | "MIU") {
+  const unique = [...new Set(ids)];
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
+    .from("cohorts")
+    .select("id")
+    .in("id", unique)
+    .eq("institution", inst);
+  if ((data ?? []).length !== unique.length)
+    throw new Error("Every cohort must belong to your own institution.");
+  return unique;
+}
+
+/** The marker must be a marker inside the administrator's own institution. */
+async function assertOwnMarker(c: Ctx, id: string) {
+  const inst = await myInstitution(c);
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
+    .from("profiles")
+    .select("institution")
+    .eq("id", id)
+    .maybeSingle();
+  if (!data || (data as any).institution !== inst)
+    throw new Error("That marker is outside your institution.");
+  return inst;
+}
 
 export const createMarker = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -418,15 +454,9 @@ export const createMarker = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const c = context as unknown as Ctx;
     await assertAdmin(c);
+    const inst = await myInstitution(c);
+    const cohortIds = await assertOwnCohorts(data.cohort_ids, inst);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    const { data: cohort } = await supabaseAdmin
-      .from("cohorts")
-      .select("id, institution")
-      .eq("id", data.cohort_id)
-      .maybeSingle();
-    if (!cohort || (cohort as any).institution !== data.institution)
-      throw new Error("That cohort does not belong to the chosen institution");
 
     const full_name = `${data.first_name} ${data.surname}`.trim();
     const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
@@ -435,15 +465,20 @@ export const createMarker = createServerFn({ method: "POST" })
       email_confirm: true,
       user_metadata: { full_name },
     });
-    if (error || !created.user) throw new Error(error?.message ?? "Could not create account");
+    if (error || !created.user)
+      throw new Error(
+        /already|registered|exists/i.test(error?.message ?? "")
+          ? "That email address already has an account."
+          : (error?.message ?? "Could not create account"),
+      );
     const id = created.user.id;
 
     const { error: pErr } = await supabaseAdmin.from("profiles").insert({
       id,
       full_name,
       email: data.email,
-      institution: data.institution,
-      cohort_id: data.cohort_id,
+      institution: inst,
+      cohort_id: cohortIds[0],
       job_title: "Marker",
       is_active: true,
     });
@@ -453,16 +488,14 @@ export const createMarker = createServerFn({ method: "POST" })
     }
 
     await supabaseAdmin.from("user_roles").insert({ user_id: id, role: "marker" });
-    await supabaseAdmin.from("marker_assignments").insert({
-      marker_id: id,
-      cohort_id: data.cohort_id,
-      is_active: true,
-    });
+    await supabaseAdmin
+      .from("marker_assignments")
+      .insert(cohortIds.map((cohort_id) => ({ marker_id: id, cohort_id, is_active: true })));
 
     await audit(c, "create", "marker", id, {
       email: data.email,
-      institution: data.institution,
-      cohort_id: data.cohort_id,
+      institution: inst,
+      cohort_ids: cohortIds,
     });
     return { id };
   });
@@ -475,7 +508,7 @@ export const updateMarker = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         first_name: z.string().trim().min(1).max(60),
         surname: z.string().trim().min(1).max(60),
-        cohort_id: z.string().uuid(),
+        cohort_ids: cohortIdsField,
         email: z.string().trim().toLowerCase().max(255).email("Please enter a complete email address, for example name@example.com").optional(),
         password: z.string().min(8).max(72).or(z.literal("")).optional(),
       })
@@ -484,32 +517,21 @@ export const updateMarker = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const c = context as unknown as Ctx;
     await assertAdmin(c);
+    const inst = await assertOwnMarker(c, data.id);
+    const cohortIds = await assertOwnCohorts(data.cohort_ids, inst);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    const { data: marker } = await supabaseAdmin
-      .from("profiles")
-      .select("institution")
-      .eq("id", data.id)
-      .maybeSingle();
-    const { data: cohort } = await supabaseAdmin
-      .from("cohorts")
-      .select("institution")
-      .eq("id", data.cohort_id)
-      .maybeSingle();
-    if (!marker || !cohort || (marker as any).institution !== (cohort as any).institution)
-      throw new Error("That cohort does not belong to this marker's institution");
 
     const full_name = `${data.first_name} ${data.surname}`.trim();
     const { error } = await supabaseAdmin
       .from("profiles")
-      .update({ full_name, cohort_id: data.cohort_id })
+      .update({ full_name, cohort_id: cohortIds[0] })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
 
     await supabaseAdmin.from("marker_assignments").delete().eq("marker_id", data.id);
     await supabaseAdmin
       .from("marker_assignments")
-      .insert({ marker_id: data.id, cohort_id: data.cohort_id, is_active: true });
+      .insert(cohortIds.map((cohort_id) => ({ marker_id: data.id, cohort_id, is_active: true })));
     await changeAccountEmail(c, data.id, data.email);
 
     if (data.password) {
@@ -521,7 +543,7 @@ export const updateMarker = createServerFn({ method: "POST" })
 
     await audit(c, "update", "marker", data.id, {
       full_name,
-      cohort_id: data.cohort_id,
+      cohort_ids: cohortIds,
       password_reset: Boolean(data.password),
     });
     return { ok: true };
@@ -535,6 +557,7 @@ export const setMarkerActive = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const c = context as unknown as Ctx;
     await assertAdmin(c);
+    await assertOwnMarker(c, data.id);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await supabaseAdmin.from("profiles").update({ is_active: data.is_active }).eq("id", data.id);
     await supabaseAdmin
@@ -551,6 +574,7 @@ export const deleteMarker = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const c = context as unknown as Ctx;
     await assertAdmin(c);
+    await assertOwnMarker(c, data.id);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.id);
     if (error) throw new Error(error.message);
@@ -597,7 +621,9 @@ export const markerProgress = createServerFn({ method: "POST" })
         .eq("slot", data.slot),
     ]);
 
+    const adminInst = await myInstitution(c);
     const instOf = new Map((markerProfiles ?? []).map((p: any) => [p.id, p.institution]));
+    const ownMarkerIds = markerIds.filter((id: string) => instOf.get(id) === adminInst);
     const cohortIdsByMarker = new Map<string, string[]>();
     for (const a of assignments ?? []) {
       if (!a.cohort_id) continue;
@@ -616,7 +642,7 @@ export const markerProgress = createServerFn({ method: "POST" })
 
     const markedIds = new Set((attendance ?? []).map((r: any) => r.student_id));
 
-    return markerIds.map((markerId: string) => {
+    return ownMarkerIds.map((markerId: string) => {
       const cohortIds = cohortIdsByMarker.get(markerId) ?? [];
       const inst = instOf.get(markerId);
       const assigned = (students ?? []).filter(
