@@ -163,7 +163,7 @@ function MarkerHome() {
           (records ?? []).filter((r) => r.student_id === s.id),
         ),
       }));
-  }, [scope, search, dayMap, records, block]);
+  }, [scope, search, dayMap, records, block, cohortFilter]);
 
   const marked = rows.filter((r) => r.morning || r.afternoon).length;
   const dayClosed = date !== today && !(access?.unlocked ?? []).includes(date);
@@ -205,7 +205,17 @@ function MarkerHome() {
           </div>
 
           <Card className="mb-4">
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-4">
+              <Field label="Cohort">
+                <Select value={cohortFilter} onChange={(e) => setCohortFilter(e.target.value)}>
+                  <option value="all">All my cohorts</option>
+                  {cohorts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
               <Field label="Block">
                 <Select value={block.id} onChange={(e) => setBlockId(e.target.value)}>
                   {blocks.map((b) => (
