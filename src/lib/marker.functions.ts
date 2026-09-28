@@ -478,7 +478,7 @@ export const createMarker = createServerFn({ method: "POST" })
       full_name,
       email: data.email,
       institution: inst,
-      cohort_id: cohortIds[0],
+      cohort_id: cohortIds[0] ?? null,
       job_title: "Marker",
       is_active: true,
     });
@@ -524,7 +524,7 @@ export const updateMarker = createServerFn({ method: "POST" })
     const full_name = `${data.first_name} ${data.surname}`.trim();
     const { error } = await supabaseAdmin
       .from("profiles")
-      .update({ full_name, cohort_id: cohortIds[0] })
+      .update({ full_name, cohort_id: cohortIds[0] ?? null })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
 
