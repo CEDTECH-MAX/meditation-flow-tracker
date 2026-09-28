@@ -97,6 +97,8 @@ function MarkerHome() {
 
   const [date, setDate] = useState(skipSunday(todayKey()));
   const [search, setSearch] = useState("");
+  const [cohortFilter, setCohortFilter] = useState<string>("all");
+  const cohorts = (scope?.cohorts ?? []) as { id: string; name: string }[];
   const [reasonFor, setReasonFor] = useState<{
     student_id: string;
     name: string;
@@ -145,6 +147,7 @@ function MarkerHome() {
         (s) =>
           !block?.cohort_id || s.cohort_id === block.cohort_id,
       )
+      .filter((s) => cohortFilter === "all" || s.cohort_id === cohortFilter)
       .filter(
         (s) =>
           !q ||
