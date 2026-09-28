@@ -612,9 +612,16 @@ export const getAuditLogs = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const c = context as unknown as Ctx;
     await assertAdmin(c);
+    const inst = await myInstitution(c);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: people } = await supabaseAdmin.from("profiles").select("id").eq("institution", inst);
+    const ids = (people ?? []).map((p: any) => p.id as string);
+    if (ids.length === 0) return [];
     const { data, error } = await c.supabase
       .from("audit_logs")
       .select("*")
+      .in("actor_id", ids)
+      .not("action", "like", "developer:%")
       .order("created_at", { ascending: false })
       .limit(300);
     if (error) throw new Error(error.message);

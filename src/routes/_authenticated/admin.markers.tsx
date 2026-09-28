@@ -37,7 +37,7 @@ export const Route = createFileRoute("/_authenticated/admin/markers")({
       {
         name: "description",
         content:
-          "Create marker accounts, assign each marker to one cohort inside their institution, and follow how many students they have marked for a session.",
+          "Create marker accounts, assign each marker to one or more cohorts inside their institution, and follow how many students they have marked for a session.",
       },
       { property: "og:title", content: "Markers" },
       {
@@ -117,7 +117,7 @@ function AdminMarkers() {
     email: string;
     password: string;
     institution: "MII" | "MIU";
-    cohort_id: string;
+    cohort_ids: string[];
   } | null>(null);
 
   const createFn = useServerFn(createMarker);
@@ -189,7 +189,7 @@ function AdminMarkers() {
             id: f.id,
             first_name: f.first_name,
             surname: f.surname,
-            cohort_id: f.cohort_id,
+            cohort_ids: f.cohort_ids,
             email: f.email,
             password: f.password,
           },
@@ -201,8 +201,7 @@ function AdminMarkers() {
           surname: f.surname,
           email: f.email,
           password: f.password,
-          institution: f.institution,
-          cohort_id: f.cohort_id,
+          cohort_ids: f.cohort_ids,
         },
       });
     },
@@ -232,9 +231,7 @@ function AdminMarkers() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const formCohorts = (cohorts ?? []).filter(
-    (c) => !form || c.institution === form.institution,
-  );
+  const formCohorts = cohorts ?? [];
 
   const totalAssigned = (progress ?? []).reduce((a, p) => a + p.assigned, 0);
   const totalMarked = (progress ?? []).reduce((a, p) => a + p.marked, 0);
@@ -255,7 +252,7 @@ function AdminMarkers() {
                 email: "",
                 password: "",
                 institution: "MII",
-                cohort_id: "",
+                cohort_ids: [],
               })
             }
           >
@@ -444,7 +441,7 @@ function AdminMarkers() {
                                 email: m.email ?? "",
                                 password: "",
                                 institution: m.institution,
-                                cohort_id: m.cohort_ids[0] ?? "",
+                                cohort_ids: m.cohort_ids,
                               });
                             }}
                           >
@@ -487,8 +484,8 @@ function AdminMarkers() {
             className="grid gap-3"
             onSubmit={(e) => {
               e.preventDefault();
-              if (!form.cohort_id) {
-                toast.error("Choose a cohort for this marker.");
+              if (form.cohort_ids.length === 0) {
+                toast.error("Choose at least one cohort for this marker.");
                 return;
               }
               if (!form.id && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email.trim())) {
@@ -524,39 +521,34 @@ function AdminMarkers() {
                 />
               </Field>
             )}
-            <div className="grid gap-3 sm:grid-cols-2">
-              {form.id ? null : (
-                <Field label="INSTITUTION">
-                  <Select
-                    value={form.institution}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        institution: e.target.value as "MII" | "MIU",
-                        cohort_id: "",
-                      })
-                    }
-                  >
-                    <option value="MII">MII · Maharishi Invincibility Institute</option>
-                    <option value="MIU">MIU · Maharishi Invincibility University</option>
-                  </Select>
-                </Field>
-              )}
-              <Field label="COHORT">
-                <Select
-                  required
-                  value={form.cohort_id}
-                  onChange={(e) => setForm({ ...form, cohort_id: e.target.value })}
-                >
-                  <option value="">Choose a cohort</option>
-                  {formCohorts.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            </div>
+            <Field label="COHORTS (TICK ONE OR MORE)">
+              <div className="grid max-h-48 gap-1 overflow-y-auto rounded-md border border-border p-2 sm:grid-cols-2">
+                {formCohorts.length === 0 ? (
+                  <span className="text-sm text-muted-foreground">No cohorts yet — create one first.</span>
+                ) : (
+                  formCohorts.map((c) => {
+                    const on = form.cohort_ids.includes(c.id);
+                    return (
+                      <label key={c.id} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={on}
+                          onChange={() =>
+                            setForm({
+                              ...form,
+                              cohort_ids: on
+                                ? form.cohort_ids.filter((x) => x !== c.id)
+                                : [...form.cohort_ids, c.id],
+                            })
+                          }
+                        />
+                        {c.name}
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+            </Field>
             <Field label={form.id ? "NEW PASSWORD (OPTIONAL)" : "TEMPORARY PASSWORD"}>
               <Input
                 type="text"

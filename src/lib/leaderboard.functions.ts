@@ -43,7 +43,7 @@ export const getLeaderboard = createServerFn({ method: "GET" })
 
     const { data: profile } = await c.supabase
       .from("profiles")
-      .select("id, cohort_id, classification, gender, cohort:cohorts(name)")
+      .select("id, cohort_id, classification, gender, institution, cohort:cohorts(name)")
       .eq("id", c.userId)
       .maybeSingle();
 
@@ -58,6 +58,7 @@ export const getLeaderboard = createServerFn({ method: "GET" })
       .from("blocks")
       .select("id, name, meditation_days")
       .eq("status", "active")
+      .eq("institution", (profile as any).institution)
       .order("start_date", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -78,6 +79,7 @@ export const getLeaderboard = createServerFn({ method: "GET" })
       .from("profiles")
       .select("id, full_name")
       .eq("cohort_id", profile.cohort_id)
+      .eq("institution", (profile as any).institution)
       .eq("classification", profile.classification)
       .eq("gender", profile.gender);
 
