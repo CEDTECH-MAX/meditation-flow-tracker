@@ -368,8 +368,9 @@ function AdminBlocks() {
                 <div className="rounded-2xl bg-muted/50 p-3 text-xs text-muted-foreground">
                   <p className="font-medium text-foreground">Calculated for this block</p>
                   <p className="mt-1">
-                    {d.weeks} week{d.weeks === 1 ? "" : "s"} · {d.days} meditation days (Sundays
-                    excluded) · {d.sessions} sessions · {round1(d.sessions * 2)} points available
+                    {d.weeks} week{d.weeks === 1 ? "" : "s"} · {d.days} meditation days (
+                    {institution === "MIU" ? "Monday–Thursday only" : "Sundays excluded"}) ·{" "}
+                    {d.sessions} sessions · {round1(d.sessions * 2)} points available
                   </p>
                   {valid ? (
                     <>
