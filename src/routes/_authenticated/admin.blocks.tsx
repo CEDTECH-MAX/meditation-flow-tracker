@@ -15,6 +15,7 @@ import {
   Spinner,
 } from "@/components/ui-kit";
 import { useBlocks, useCohorts } from "@/lib/admin-hooks";
+import { useMe } from "@/components/AppShell";
 import { deleteBlock, resetBlockAttendance, saveBlock, setBlockStatus } from "@/lib/data.functions";
 import { blockProgress, formatDate, type Block, type BlockStatus } from "@/lib/attendance";
 
@@ -56,8 +57,12 @@ const empty: FormState = {
   percent_input: "",
 };
 
-/** Meditation days = every day in the range except Sundays. */
-function derive(start: string, end: string) {
+/**
+ * Meditation days in the range. Sundays never exist. MII also has optional
+ * Friday/Saturday sessions; MIU attends Monday–Thursday only, so Fridays and
+ * Saturdays do not exist for MIU blocks.
+ */
+function derive(start: string, end: string, institution?: string | null) {
   if (!start || !end) return { valid: false, days: 0, weeks: 0, sessions: 0 };
   const s = new Date(`${start}T00:00:00`);
   const e = new Date(`${end}T00:00:00`);
@@ -68,7 +73,10 @@ function derive(start: string, end: string) {
   let total = 0;
   for (const d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
     total += 1;
-    if (d.getDay() !== 0) days += 1;
+    const dow = d.getDay();
+    if (dow === 0) continue;
+    if (institution === "MIU" && dow >= 5) continue;
+    days += 1;
   }
   return { valid: days > 0, days, weeks: Math.max(1, Math.ceil(total / 7)), sessions: days * 2 };
 }
