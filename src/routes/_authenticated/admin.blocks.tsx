@@ -15,6 +15,7 @@ import {
   Spinner,
 } from "@/components/ui-kit";
 import { useBlocks, useCohorts } from "@/lib/admin-hooks";
+import { useMe } from "@/components/AppShell";
 import { deleteBlock, resetBlockAttendance, saveBlock, setBlockStatus } from "@/lib/data.functions";
 import { blockProgress, formatDate, type Block, type BlockStatus } from "@/lib/attendance";
 
@@ -56,8 +57,12 @@ const empty: FormState = {
   percent_input: "",
 };
 
-/** Meditation days = every day in the range except Sundays. */
-function derive(start: string, end: string) {
+/**
+ * Meditation days in the range. Sundays never exist. MII also has optional
+ * Friday/Saturday sessions; MIU attends Monday–Thursday only, so Fridays and
+ * Saturdays do not exist for MIU blocks.
+ */
+function derive(start: string, end: string, institution?: string | null) {
   if (!start || !end) return { valid: false, days: 0, weeks: 0, sessions: 0 };
   const s = new Date(`${start}T00:00:00`);
   const e = new Date(`${end}T00:00:00`);
@@ -68,7 +73,10 @@ function derive(start: string, end: string) {
   let total = 0;
   for (const d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
     total += 1;
-    if (d.getDay() !== 0) days += 1;
+    const dow = d.getDay();
+    if (dow === 0) continue;
+    if (institution === "MIU" && dow >= 5) continue;
+    days += 1;
   }
   return { valid: days > 0, days, weeks: Math.max(1, Math.ceil(total / 7)), sessions: days * 2 };
 }
@@ -79,6 +87,8 @@ function AdminBlocks() {
   const qc = useQueryClient();
   const { data: blocks, isLoading } = useBlocks();
   const { data: cohorts } = useCohorts();
+  const { data: me } = useMe();
+  const institution = (me as any)?.institution as string | undefined;
   const cohortName = (id: string | null | undefined) =>
     (cohorts ?? []).find((c) => c.id === id)?.name ?? null;
   const [form, setForm] = useState<FormState | null>(null);
@@ -99,7 +109,7 @@ function AdminBlocks() {
 
   const save = useMutation({
     mutationFn: (v: FormState) => {
-      const d = derive(v.start_date, v.end_date);
+      const d = derive(v.start_date, v.end_date, institution);
       if (!d.valid) throw new Error("Enter a start date and an end date that comes after it.");
       const typed = Number(v.percent_input);
       if (!v.percent_input.trim() || !Number.isFinite(typed) || typed <= 0) {
@@ -304,7 +314,7 @@ function AdminBlocks() {
               />
             </Field>
             {(() => {
-              const d = derive(form.start_date, form.end_date);
+              const d = derive(form.start_date, form.end_date, institution);
               if (!d.valid) return null;
               return (
                 <Button
@@ -343,7 +353,7 @@ function AdminBlocks() {
               </Select>
             </Field>
             {(() => {
-              const d = derive(form.start_date, form.end_date);
+              const d = derive(form.start_date, form.end_date, institution);
               const per = Number(form.percent_input);
               if (!d.valid) {
                 return (
@@ -358,8 +368,9 @@ function AdminBlocks() {
                 <div className="rounded-2xl bg-muted/50 p-3 text-xs text-muted-foreground">
                   <p className="font-medium text-foreground">Calculated for this block</p>
                   <p className="mt-1">
-                    {d.weeks} week{d.weeks === 1 ? "" : "s"} · {d.days} meditation days (Sundays
-                    excluded) · {d.sessions} sessions · {round1(d.sessions * 2)} points available
+                    {d.weeks} week{d.weeks === 1 ? "" : "s"} · {d.days} meditation days (
+                    {institution === "MIU" ? "Monday–Thursday only" : "Sundays excluded"}) ·{" "}
+                    {d.sessions} sessions · {round1(d.sessions * 2)} points available
                   </p>
                   {valid ? (
                     <>
