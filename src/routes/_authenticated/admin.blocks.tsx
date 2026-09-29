@@ -314,7 +314,7 @@ function AdminBlocks() {
               />
             </Field>
             {(() => {
-              const d = derive(form.start_date, form.end_date);
+              const d = derive(form.start_date, form.end_date, institution);
               if (!d.valid) return null;
               return (
                 <Button
@@ -353,7 +353,7 @@ function AdminBlocks() {
               </Select>
             </Field>
             {(() => {
-              const d = derive(form.start_date, form.end_date);
+              const d = derive(form.start_date, form.end_date, institution);
               const per = Number(form.percent_input);
               if (!d.valid) {
                 return (
