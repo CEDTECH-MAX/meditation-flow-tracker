@@ -270,7 +270,7 @@ function StudentDashboard() {
               title="Attendance calendar"
               subtitle="Morning and afternoon sessions for every day of the block"
             />
-            <AttendanceCalendar cells={calendar} />
+            <AttendanceCalendar cells={calendar} institution={(selected as any)?.institution} />
           </Card>
 
           <div className="mt-6">

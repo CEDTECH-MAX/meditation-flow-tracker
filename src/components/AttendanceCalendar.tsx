@@ -10,7 +10,10 @@ function slotClass(status: AttendanceStatus | null, future: boolean) {
 }
 
 /** Month-by-month grid of the block, split into morning / afternoon halves. */
-export function AttendanceCalendar({ cells }: { cells: DayCell[] }) {
+export function AttendanceCalendar({ cells, institution }: { cells: DayCell[]; institution?: string | null }) {
+  const miu = institution === "MIU";
+  const weekdays = miu ? WEEKDAYS.slice(0, 4) : WEEKDAYS;
+  const cols = weekdays.length;
   if (cells.length === 0)
     return <p className="text-sm text-muted-foreground">No dates in this block yet.</p>;
 
@@ -26,14 +29,14 @@ export function AttendanceCalendar({ cells }: { cells: DayCell[] }) {
     <div className="space-y-6">
       {[...months.entries()].map(([month, days]) => {
         const first = new Date(days[0]!.date + "T00:00:00");
-        const offset = Math.min((first.getDay() + 6) % 7, 5);
+        const offset = Math.min((first.getDay() + 6) % 7, cols - 1);
         return (
           <div key={month}>
             <p className="mb-2 text-sm font-semibold">
               {first.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
             </p>
-            <div className="grid grid-cols-6 gap-1.5 text-center">
-              {WEEKDAYS.map((d) => (
+            <div className={`grid ${miu ? "grid-cols-4" : "grid-cols-6"} gap-1.5 text-center`}>
+              {weekdays.map((d) => (
                 <span key={d} className="text-[10px] font-semibold uppercase text-muted-foreground">
                   {d}
                 </span>
@@ -67,7 +70,7 @@ export function AttendanceCalendar({ cells }: { cells: DayCell[] }) {
         <Legend className="bg-gold" label="Excused" />
         <Legend className="bg-border" label="Not recorded" />
         <Legend className="bg-muted" label="Upcoming" />
-        <span>Each day shows morning (left) and afternoon (right). Sundays are excluded.</span>
+        <span>Each day shows morning (left) and afternoon (right). {miu ? "Sessions run Monday to Thursday only." : "Sundays are excluded."}</span>
       </div>
     </div>
   );
