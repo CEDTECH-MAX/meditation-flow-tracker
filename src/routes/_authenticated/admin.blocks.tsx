@@ -87,6 +87,8 @@ function AdminBlocks() {
   const qc = useQueryClient();
   const { data: blocks, isLoading } = useBlocks();
   const { data: cohorts } = useCohorts();
+  const { data: me } = useMe();
+  const institution = (me as any)?.institution as string | undefined;
   const cohortName = (id: string | null | undefined) =>
     (cohorts ?? []).find((c) => c.id === id)?.name ?? null;
   const [form, setForm] = useState<FormState | null>(null);
@@ -107,7 +109,7 @@ function AdminBlocks() {
 
   const save = useMutation({
     mutationFn: (v: FormState) => {
-      const d = derive(v.start_date, v.end_date);
+      const d = derive(v.start_date, v.end_date, institution);
       if (!d.valid) throw new Error("Enter a start date and an end date that comes after it.");
       const typed = Number(v.percent_input);
       if (!v.percent_input.trim() || !Number.isFinite(typed) || typed <= 0) {
