@@ -12,7 +12,7 @@ function slotClass(status: AttendanceStatus | null, future: boolean) {
 /** Month-by-month grid of the block, split into morning / afternoon halves. */
 export function AttendanceCalendar({ cells, institution }: { cells: DayCell[]; institution?: string | null }) {
   const miu = institution === "MIU";
-  const weekdays = miu ? WEEKDAYS.slice(0, 4) : WEEKDAYS;
+  const weekdays = miu ? WEEKDAYS.slice(0, 5) : WEEKDAYS;
   const cols = weekdays.length;
   if (cells.length === 0)
     return <p className="text-sm text-muted-foreground">No dates in this block yet.</p>;

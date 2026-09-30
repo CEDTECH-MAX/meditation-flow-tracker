@@ -119,8 +119,12 @@ export type SessionKind = "compulsory" | "optional" | "none";
 export function sessionKind(date: string, slot: SessionSlot, institution?: string | null): SessionKind {
   const day = new Date(date + "T00:00:00").getDay(); // 0 = Sun … 6 = Sat
   if (day === 0) return "none";
-  // MIU attends Monday–Thursday only: Friday and Saturday do not exist.
-  if (institution === "MIU") return day >= 5 ? "none" : "compulsory";
+  // MIU: Monday–Thursday both sessions, Friday morning only, no Saturday.
+  if (institution === "MIU") {
+    if (day === 6) return "none";
+    if (day === 5) return slot === "morning" ? "compulsory" : "none";
+    return "compulsory";
+  }
   if (day === 6) return "optional";
   if (day === 5) return slot === "morning" ? "compulsory" : "optional";
   return "compulsory";
@@ -297,7 +301,7 @@ export function blockDates(block: Pick<Block, "start_date" | "end_date"> & { ins
   const end = new Date(block.end_date + "T00:00:00");
   while (cur <= end && out.length < 400) {
     const dow = cur.getDay();
-    if (dow !== 0 && !(miu && dow >= 5)) out.push(dateKey(cur));
+    if (dow !== 0 && !(miu && dow === 6)) out.push(dateKey(cur));
     cur.setDate(cur.getDate() + 1);
   }
   return out;

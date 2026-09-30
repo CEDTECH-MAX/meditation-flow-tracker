@@ -71,14 +71,17 @@ function derive(start: string, end: string, institution?: string | null) {
   }
   let days = 0;
   let total = 0;
+  let sessions = 0;
   for (const d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
     total += 1;
     const dow = d.getDay();
     if (dow === 0) continue;
-    if (institution === "MIU" && dow >= 5) continue;
+    if (institution === "MIU" && dow === 6) continue;
     days += 1;
+    // MIU Friday has a morning session only.
+    sessions += institution === "MIU" && dow === 5 ? 1 : 2;
   }
-  return { valid: days > 0, days, weeks: Math.max(1, Math.ceil(total / 7)), sessions: days * 2 };
+  return { valid: days > 0, days, weeks: Math.max(1, Math.ceil(total / 7)), sessions };
 }
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -369,7 +372,7 @@ function AdminBlocks() {
                   <p className="font-medium text-foreground">Calculated for this block</p>
                   <p className="mt-1">
                     {d.weeks} week{d.weeks === 1 ? "" : "s"} · {d.days} meditation days (
-                    {institution === "MIU" ? "Monday–Thursday only" : "Sundays excluded"}) ·{" "}
+                    {institution === "MIU" ? "Monday–Thursday + Friday morning" : "Sundays excluded"}) ·{" "}
                     {d.sessions} sessions · {round1(d.sessions * 2)} points available
                   </p>
                   {valid ? (
