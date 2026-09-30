@@ -230,16 +230,18 @@ export const markAsMarker = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const c = context as unknown as Ctx;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: pause } = await supabaseAdmin
-      .from("system_controls")
-      .select("enabled")
-      .eq("key", "disable_marking")
-      .maybeSingle();
+    const [{ data: pause }, scope, { data: allowed }] = await Promise.all([
+      supabaseAdmin.from("system_controls").select("enabled").eq("key", "disable_marking").maybeSingle(),
+      markerScope(c),
+      c.supabase.rpc("marker_can_mark_student", {
+        _marker_id: c.userId,
+        _student_id: data.student_id,
+        _block_id: data.block_id,
+      }),
+    ]);
     if (pause?.enabled) {
       throw new Error("Marking is temporarily paused. Please try again later.");
     }
-    const scope = await markerScope(c);
-
 
     const blocks = await scopedBlocks(scope);
     const block = blocks.find((b: any) => b.id === data.block_id);
@@ -269,11 +271,6 @@ export const markAsMarker = createServerFn({ method: "POST" })
       }
     }
 
-    const { data: allowed } = await c.supabase.rpc("marker_can_mark_student", {
-      _marker_id: c.userId,
-      _student_id: data.student_id,
-      _block_id: data.block_id,
-    });
     if (!allowed) {
       await audit(c, "denied", "attendance", data.student_id, {
         reason: "student outside marker scope",
@@ -317,8 +314,10 @@ export const markAsMarker = createServerFn({ method: "POST" })
     );
     if (error) throw new Error(error.message);
 
-    await audit(c, "mark", "attendance", data.student_id, data as any);
-    await touchPresence(c, "marking", data.block_id, (block as any).cohort_id ?? null);
+    await Promise.all([
+      audit(c, "mark", "attendance", data.student_id, data as any),
+      touchPresence(c, "marking", data.block_id, (block as any).cohort_id ?? null),
+    ]);
     return { ok: true };
   });
 
