@@ -314,8 +314,10 @@ export const markAsMarker = createServerFn({ method: "POST" })
     );
     if (error) throw new Error(error.message);
 
-    await audit(c, "mark", "attendance", data.student_id, data as any);
-    await touchPresence(c, "marking", data.block_id, (block as any).cohort_id ?? null);
+    await Promise.all([
+      audit(c, "mark", "attendance", data.student_id, data as any),
+      touchPresence(c, "marking", data.block_id, (block as any).cohort_id ?? null),
+    ]);
     return { ok: true };
   });
 
