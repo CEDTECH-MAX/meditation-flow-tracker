@@ -238,11 +238,12 @@ export const listStudents = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const c = context as unknown as Ctx;
     await assertAdmin(c);
-    const { data: adminRows } = await c.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: roleRows } = await supabaseAdmin
       .from("user_roles")
-      .select("user_id")
-      .eq("role", "admin");
-    const adminIds = new Set((adminRows ?? []).map((r: any) => r.user_id));
+      .select("user_id, role")
+      .neq("role", "student");
+    const nonStudentIds = new Set((roleRows ?? []).map((r: any) => r.user_id));
     const inst = await myInstitution(c);
     const { data, error } = await c.supabase
       .from("profiles")
@@ -250,7 +251,7 @@ export const listStudents = createServerFn({ method: "GET" })
       .eq("institution", inst)
       .order("full_name", { ascending: true });
     if (error) throw new Error(error.message);
-    return (data ?? []).filter((p: any) => !adminIds.has(p.id));
+    return (data ?? []).filter((p: any) => !nonStudentIds.has(p.id));
   });
 
 const studentInput = z.object({
