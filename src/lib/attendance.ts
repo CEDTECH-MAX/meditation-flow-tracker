@@ -66,6 +66,7 @@ export type Block = {
   status: BlockStatus;
   cohort_id?: string | null;
   institution?: "MII" | "MIU" | null;
+  percent_per_session?: number | null;
 };
 
 export type AttendanceRecord = {
@@ -152,7 +153,7 @@ export function blockSessions(block: Pick<Block, "start_date" | "end_date"> & { 
  * leave the denominator so they never penalise the student.
  */
 export function summarise(
-  block: (Pick<Block, "start_date" | "end_date" | "meditation_days"> & { institution?: string | null }) | null,
+  block: (Pick<Block, "start_date" | "end_date" | "meditation_days"> & { institution?: string | null; percent_per_session?: number | null }) | null,
   records: Pick<AttendanceRecord, "slot" | "status" | "points" | "session_date">[],
 ): AttendanceSummary {
   const sessions = block
@@ -200,11 +201,23 @@ export function summarise(
   const countedSessions = Math.max(0, totalSessions - excusedCompulsory);
   const pointsPossible = round1(countedSessions * MAX_SESSION_POINTS);
 
-  const percentage = pointsPossible > 0 ? round1((pointsEarned / pointsPossible) * 100) : 0;
+  // When the block defines a custom percent per full 2.0 session (set at
+  // block creation), score with it: each session contributes
+  // (points / 2.0) × percent_per_session. Otherwise fall back to the
+  // even-split points ratio so existing blocks keep working unchanged.
+  const customPer = Math.max(0, Number(block?.percent_per_session ?? 0));
+  const percentage =
+    customPer > 0
+      ? round1((pointsEarned / MAX_SESSION_POINTS) * customPer)
+      : pointsPossible > 0
+        ? round1((pointsEarned / pointsPossible) * 100)
+        : 0;
   const maxPossible =
-    pointsPossible > 0
-      ? round1(((pointsEarned + remainingSessions * MAX_SESSION_POINTS) / pointsPossible) * 100)
-      : 0;
+    customPer > 0
+      ? round1((pointsEarned / MAX_SESSION_POINTS + remainingSessions) * customPer)
+      : pointsPossible > 0
+        ? round1(((pointsEarned + remainingSessions * MAX_SESSION_POINTS) / pointsPossible) * 100)
+        : 0;
 
   const percentageNeeded = round1(Math.max(0, PASS_MARK - percentage));
   const pointsNeeded = round1(
