@@ -72,7 +72,7 @@ function AdvisorPage() {
           const path = `${uid}/${Date.now()}-${safe}`;
           const { error } = await supabase.storage
             .from(ADVISOR_BUCKET)
-            .upload(path, f, { contentType: f.type || undefined });
+            .upload(path, f, { contentType: f.type || "application/octet-stream" });
           if (error) throw new Error(`Could not upload ${f.name}: ${error.message}`);
           attachments.push({ path, name: f.name, type: f.type || "file" });
         }
