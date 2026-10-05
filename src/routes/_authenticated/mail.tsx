@@ -18,6 +18,7 @@ import {
   FileEdit,
 } from "lucide-react";
 import { AppShell, useMe } from "@/components/AppShell";
+import { AttachmentLinks } from "@/components/AttachmentLinks";
 import { Badge, Button, Card, Field, Input, Modal, Select, Spinner } from "@/components/ui-kit";
 import { listDirectory, type DirectoryEntry } from "@/lib/directory.functions";
 import {
@@ -398,6 +399,7 @@ function Mailbox() {
                       </span>
                     </div>
                     <p className="whitespace-pre-wrap text-sm">{m.body}</p>
+                    <AttachmentLinks attachments={(m as any).attachments} messageId={m.id} />
                   </div>
                 ))}
               </div>
