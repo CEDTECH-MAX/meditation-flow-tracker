@@ -378,8 +378,12 @@ function AdminBlocks() {
                   {valid ? (
                     <>
                       <p className="mt-1">
-                        {per}% per full 2.0 session · {round1(per / 2)}% per 1.0 ·{" "}
-                        {totalPercent}% if every session is attended
+                        Each session is worth {per}% when marked 2.0 · {totalPercent}% if every
+                        session is attended
+                      </p>
+                      <p className="mt-1">
+                        Per mark: 2.0 = {per}% · 1.5 = {round1(per * 0.75)}% · 1.0 ={" "}
+                        {round1(per / 2)}% · 0.5 = {round1(per * 0.25)}% · 0 = 0%
                       </p>
                       <p className="mt-1">
                         80% to pass = {round1((80 / per) * 1)} full sessions ·{" "}
