@@ -5,3 +5,6 @@
 - [x] Sign-in activity recorded for institution, marker and developer sign-ins
 - [x] Emergency "disable marking" control enforced server-side for admins and markers
 - [ ] Email alerts (below 80%, weekly 16-point miss) — blocked until notify.tmprototype.com DNS is live
+
+## Account management
+- [x] Required gender dropdowns for student, marker, and staff account forms; spreadsheet gender import supported

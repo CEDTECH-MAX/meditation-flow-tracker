@@ -29,6 +29,7 @@ import {
 } from "@/lib/directory.functions";
 import { PersonPhoto } from "@/components/PersonPhoto";
 import { uploadPhoto } from "@/lib/photos";
+import { GENDERS, genderLabel, type Gender } from "@/lib/attendance";
 
 export const Route = createFileRoute("/_authenticated/admin/directory")({
   head: () => ({
@@ -151,6 +152,7 @@ function AdminDirectory() {
     surname: "",
     email: "",
     password: "",
+    gender: "" as "" | Gender,
     department_id: "",
     job_title: "",
   };
@@ -159,7 +161,7 @@ function AdminDirectory() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [busyPhoto, setBusyPhoto] = useState<string | null>(null);
   const [staffEdit, setStaffEdit] = useState<
-    { id: string; first_name: string; surname: string; email: string; department_id: string; job_title: string } | null
+    { id: string; first_name: string; surname: string; email: string; gender: "" | Gender; department_id: string; job_title: string } | null
   >(null);
   const [reset, setReset] = useState<{ id: string; name: string; password: string } | null>(null);
   const [filter, setFilter] = useState("");
@@ -331,6 +333,7 @@ function AdminDirectory() {
                   <th className="py-2">Photo</th>
                   <th className="py-2">Name</th>
                   <th className="py-2">Email</th>
+                  <th className="py-2">Gender</th>
                   <th className="py-2">Department</th>
                   <th className="py-2">Role / title</th>
                   <th className="py-2">Status</th>
@@ -371,6 +374,7 @@ function AdminDirectory() {
                     </td>
                     <td className="py-2 font-medium">{p.full_name}</td>
                     <td className="py-2 text-muted-foreground">{p.email}</td>
+                    <td className="py-2">{genderLabel(p.gender)}</td>
                     <td className="py-2">{p.department?.name ?? "—"}</td>
                     <td className="py-2 text-muted-foreground">{p.job_title || "—"}</td>
                     <td className="py-2">
@@ -391,6 +395,7 @@ function AdminDirectory() {
                               first_name: (p.full_name ?? "").split(" ")[0] ?? "",
                               surname: (p.full_name ?? "").split(" ").slice(1).join(" "),
                               email: p.email ?? "",
+                              gender: p.gender ?? "",
                               department_id: p.department_id ?? "",
                               job_title: p.job_title ?? "",
                             })
@@ -459,6 +464,20 @@ function AdminDirectory() {
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               placeholder="thabo@example.com"
             />
+          </Field>
+          <Field label="GENDER">
+            <Select
+              required
+              value={form.gender}
+              onChange={(e) => setForm({ ...form, gender: e.target.value as "" | Gender })}
+            >
+              <option value="">Select gender</option>
+              {GENDERS.map((gender) => (
+                <option key={gender.value} value={gender.value}>
+                  {gender.label}
+                </option>
+              ))}
+            </Select>
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="DEPARTMENT">
@@ -573,6 +592,22 @@ function AdminDirectory() {
                 value={staffEdit.email}
                 onChange={(e) => setStaffEdit({ ...staffEdit, email: e.target.value })}
               />
+            </Field>
+            <Field label="GENDER">
+              <Select
+                required
+                value={staffEdit.gender}
+                onChange={(e) =>
+                  setStaffEdit({ ...staffEdit, gender: e.target.value as "" | Gender })
+                }
+              >
+                <option value="">Select gender</option>
+                {GENDERS.map((gender) => (
+                  <option key={gender.value} value={gender.value}>
+                    {gender.label}
+                  </option>
+                ))}
+              </Select>
             </Field>
             <Field label="DEPARTMENT">
               <Select

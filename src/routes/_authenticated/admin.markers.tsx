@@ -29,6 +29,7 @@ import {
   updateMarker,
 } from "@/lib/marker.functions";
 import { blockDates, formatDate, skipSunday, todayKey, type SessionSlot } from "@/lib/attendance";
+import { GENDERS, genderLabel, type Gender } from "@/lib/attendance";
 
 export const Route = createFileRoute("/_authenticated/admin/markers")({
   head: () => ({
@@ -55,6 +56,7 @@ type MarkerRow = {
   id: string;
   full_name: string;
   email: string | null;
+  gender: Gender | null;
   institution: "MII" | "MIU";
   is_active: boolean;
   cohort_ids: string[];
@@ -117,6 +119,7 @@ function AdminMarkers() {
     email: string;
     password: string;
     institution: "MII" | "MIU";
+    gender: "" | Gender;
     cohort_ids: string[];
   } | null>(null);
 
@@ -192,6 +195,7 @@ function AdminMarkers() {
             cohort_ids: f.cohort_ids,
             email: f.email,
             password: f.password,
+            gender: f.gender as Gender,
           },
         });
       }
@@ -201,6 +205,7 @@ function AdminMarkers() {
           surname: f.surname,
           email: f.email,
           password: f.password,
+          gender: f.gender as Gender,
           cohort_ids: f.cohort_ids,
         },
       });
@@ -252,6 +257,7 @@ function AdminMarkers() {
                 email: "",
                 password: "",
                 institution: "MII",
+                gender: "",
                 cohort_ids: [],
               })
             }
@@ -384,6 +390,7 @@ function AdminMarkers() {
                 <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="pb-2">Marker</th>
                   <th className="pb-2">Institution</th>
+                  <th className="pb-2">Gender</th>
                   <th className="pb-2">Cohort</th>
                   <th className="pb-2">Progress</th>
                   <th className="pb-2">Last activity</th>
@@ -410,6 +417,7 @@ function AdminMarkers() {
                           {m.institution}
                         </Badge>
                       </td>
+                      <td className="py-3">{genderLabel(m.gender)}</td>
                       <td className="py-3">{m.cohort_names.join(", ") || "—"}</td>
                       <td className="py-3">
                         <span className="block text-xs text-muted-foreground">
@@ -441,6 +449,7 @@ function AdminMarkers() {
                                 email: m.email ?? "",
                                 password: "",
                                 institution: m.institution,
+                                gender: m.gender ?? "",
                                 cohort_ids: m.cohort_ids,
                               });
                             }}
@@ -521,6 +530,20 @@ function AdminMarkers() {
                 />
               </Field>
             )}
+            <Field label="GENDER">
+              <Select
+                required
+                value={form.gender}
+                onChange={(e) => setForm({ ...form, gender: e.target.value as "" | Gender })}
+              >
+                <option value="">Select gender</option>
+                {GENDERS.map((gender) => (
+                  <option key={gender.value} value={gender.value}>
+                    {gender.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
             <Field label="COHORTS (TICK ONE OR MORE)">
               <div className="grid max-h-48 gap-1 overflow-y-auto rounded-md border border-border p-2 sm:grid-cols-2">
                 {formCohorts.length === 0 ? (

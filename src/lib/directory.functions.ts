@@ -123,7 +123,7 @@ export const listStaff = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("profiles")
-      .select("id, full_name, email, job_title, staff_id, is_active, photo_url, department_id, department:departments(id,name)")
+      .select("id, full_name, email, job_title, staff_id, is_active, photo_url, department_id, gender, department:departments(id,name)")
       .eq("institution", inst)
       .in("id", ids)
       .order("full_name", { ascending: true });
@@ -148,6 +148,7 @@ export const createStaff = createServerFn({ method: "POST" })
         surname: nameField,
         email: emailField,
         password: z.string().min(8, "Use at least 8 characters").max(72),
+        gender: z.enum(["male", "female"]),
         department_id: uuid,
         job_title: z.string().trim().max(120).optional(),
       })
@@ -188,6 +189,7 @@ export const createStaff = createServerFn({ method: "POST" })
       email: data.email,
       job_title: data.job_title || null,
       department_id: data.department_id,
+      gender: data.gender,
       institution: inst,
       is_active: true,
     });
@@ -209,6 +211,7 @@ export const updateStaff = createServerFn({ method: "POST" })
         first_name: nameField,
         surname: nameField,
         department_id: uuid,
+        gender: z.enum(["male", "female"]),
         job_title: z.string().trim().max(120).optional(),
         email: emailField.optional(),
       })
@@ -225,6 +228,7 @@ export const updateStaff = createServerFn({ method: "POST" })
       .update({
         full_name: `${data.first_name} ${data.surname}`.trim(),
         department_id: data.department_id,
+        gender: data.gender,
         job_title: data.job_title || null,
       })
       .eq("id", data.id)
