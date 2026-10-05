@@ -66,6 +66,7 @@ export type Block = {
   status: BlockStatus;
   cohort_id?: string | null;
   institution?: "MII" | "MIU" | null;
+  percent_per_session?: number | null;
 };
 
 export type AttendanceRecord = {
@@ -152,7 +153,7 @@ export function blockSessions(block: Pick<Block, "start_date" | "end_date"> & { 
  * leave the denominator so they never penalise the student.
  */
 export function summarise(
-  block: (Pick<Block, "start_date" | "end_date" | "meditation_days"> & { institution?: string | null }) | null,
+  block: (Pick<Block, "start_date" | "end_date" | "meditation_days"> & { institution?: string | null; percent_per_session?: number | null }) | null,
   records: Pick<AttendanceRecord, "slot" | "status" | "points" | "session_date">[],
 ): AttendanceSummary {
   const sessions = block
