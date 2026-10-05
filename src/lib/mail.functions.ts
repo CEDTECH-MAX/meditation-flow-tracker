@@ -47,7 +47,7 @@ async function decorate(c: Ctx, rows: any[]) {
 }
 
 const MESSAGE_SELECT =
-  "id, thread_id, parent_id, sender_id, subject, body, is_draft, sender_folder, sender_starred, sent_at, created_at, recipients:message_recipients(id, recipient_id, kind, folder, read_at, is_starred)";
+  "id, thread_id, parent_id, sender_id, subject, body, attachments, is_draft, sender_folder, sender_starred, sent_at, created_at, recipients:message_recipients(id, recipient_id, kind, folder, read_at, is_starred)";
 
 /** One mailbox folder for the signed-in user. */
 export const listMailbox = createServerFn({ method: "POST" })
