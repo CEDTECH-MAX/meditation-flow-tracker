@@ -370,7 +370,7 @@ export const listMarkers = createServerFn({ method: "GET" })
       await Promise.all([
         supabaseAdmin
           .from("profiles")
-          .select("id, full_name, email, institution, is_active, job_title, staff_id")
+          .select("id, full_name, email, institution, is_active, job_title, staff_id, gender")
           .eq("institution", inst)
           .in("id", ids),
         supabaseAdmin.from("marker_assignments").select("*").in("marker_id", ids),
@@ -388,6 +388,7 @@ export const listMarkers = createServerFn({ method: "GET" })
           id: p.id as string,
           full_name: p.full_name as string,
           email: (p.email as string | null) ?? null,
+          gender: (p.gender as "male" | "female" | null) ?? null,
           institution: (p.institution as "MII" | "MIU") ?? "MII",
           is_active: p.is_active !== false,
           cohort_ids: mine.map((a: any) => a.cohort_id).filter(Boolean) as string[],
@@ -416,6 +417,7 @@ const markerInput = z.object({
     .max(255)
     .email("Please enter a complete email address, for example rifumo@example.com"),
   password: z.string().min(8).max(72),
+  gender: z.enum(["male", "female"]),
   cohort_ids: cohortIdsField,
 });
 
@@ -478,6 +480,7 @@ export const createMarker = createServerFn({ method: "POST" })
       email: data.email,
       institution: inst,
       cohort_id: cohortIds[0] ?? null,
+      gender: data.gender,
       job_title: "Marker",
       is_active: true,
     });
@@ -508,6 +511,7 @@ export const updateMarker = createServerFn({ method: "POST" })
         first_name: z.string().trim().min(1).max(60),
         surname: z.string().trim().min(1).max(60),
         cohort_ids: cohortIdsField,
+        gender: z.enum(["male", "female"]),
         email: z.string().trim().toLowerCase().max(255).email("Please enter a complete email address, for example name@example.com").optional(),
         password: z.string().min(8).max(72).or(z.literal("")).optional(),
       })
@@ -523,7 +527,7 @@ export const updateMarker = createServerFn({ method: "POST" })
     const full_name = `${data.first_name} ${data.surname}`.trim();
     const { error } = await supabaseAdmin
       .from("profiles")
-      .update({ full_name, cohort_id: cohortIds[0] ?? null })
+      .update({ full_name, cohort_id: cohortIds[0] ?? null, gender: data.gender })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
 

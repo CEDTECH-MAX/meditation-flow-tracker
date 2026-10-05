@@ -77,7 +77,12 @@ const empty: FormState = {
   gender: "",
 };
 
-type ImportRow = { full_name: string; email: string; student_number?: string };
+type ImportRow = {
+  full_name: string;
+  email: string;
+  student_number?: string;
+  gender?: Gender;
+};
 
 function pick(row: Record<string, unknown>, keys: string[]) {
   for (const k of Object.keys(row)) {
@@ -108,11 +113,23 @@ async function parseSpreadsheet(file: File): Promise<{ rows: ImportRow[]; skippe
           .filter(Boolean)
           .join(" ");
       const number = pick(raw, ["studentnumber", "studentno", "miuid", "id", "no", "nr"]);
+      const genderValue = pick(raw, ["gender", "sex"]).toLowerCase();
+      const gender =
+        genderValue === "male" || genderValue === "m"
+          ? "male"
+          : genderValue === "female" || genderValue === "f"
+            ? "female"
+            : undefined;
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || full.trim().length < 2) {
         if (email || full) skipped += 1;
         continue;
       }
-      rows.push({ full_name: full.trim(), email, ...(number ? { student_number: number } : {}) });
+      rows.push({
+        full_name: full.trim(),
+        email,
+        ...(number ? { student_number: number } : {}),
+        ...(gender ? { gender } : {}),
+      });
     }
     if (rows.length > 0) break;
   }
