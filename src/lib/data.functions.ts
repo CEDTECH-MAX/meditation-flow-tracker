@@ -52,6 +52,7 @@ const blockInput = z.object({
   status: z.enum(["upcoming", "active", "closed"]),
   cohort_id: z.string().uuid().nullable().optional(),
   percent_per_session: z.number().min(0).max(100).optional(),
+  rounding_dates: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).max(400).optional(),
 });
 
 export const saveBlock = createServerFn({ method: "POST" })
@@ -65,6 +66,7 @@ export const saveBlock = createServerFn({ method: "POST" })
       ...data,
       cohort_id: data.cohort_id ?? null,
       percent_per_session: data.percent_per_session ?? 0,
+      rounding_dates: (data.rounding_dates ?? []).filter((d) => d >= data.start_date && d <= data.end_date),
       institution: inst,
     };
     delete (payload as any).id;
