@@ -217,7 +217,7 @@ export const markAsMarker = createServerFn({ method: "POST" })
         block_id: z.string().uuid(),
         student_id: z.string().uuid(),
         session_date: z.string().min(10).max(10),
-        slot: z.enum(["morning", "afternoon"]),
+        slot: z.enum(["morning", "afternoon", "evening"]),
         points: POINTS.nullable(),
         absence_reason: z
           .enum(["sick_leave", "approved_leave", "late_arrival", "unexcused", "other"])
@@ -593,7 +593,7 @@ export const markerProgress = createServerFn({ method: "POST" })
       .object({
         block_id: z.string().uuid(),
         session_date: z.string().min(10).max(10),
-        slot: z.enum(["morning", "afternoon"]),
+        slot: z.enum(["morning", "afternoon", "evening"]),
       })
       .parse(d),
   )

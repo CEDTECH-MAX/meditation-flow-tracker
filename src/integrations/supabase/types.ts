@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
@@ -306,6 +306,7 @@ export type Database = {
           name: string
           percent_per_session: number
           precision_digits: number
+          rounding_dates: string[]
           rounding_day: boolean
           rounding_day_points: number
           saturday_mode: string
@@ -334,6 +335,7 @@ export type Database = {
           name: string
           percent_per_session?: number
           precision_digits?: number
+          rounding_dates?: string[]
           rounding_day?: boolean
           rounding_day_points?: number
           saturday_mode?: string
@@ -362,6 +364,7 @@ export type Database = {
           name?: string
           percent_per_session?: number
           precision_digits?: number
+          rounding_dates?: string[]
           rounding_day?: boolean
           rounding_day_points?: number
           saturday_mode?: string
@@ -1279,7 +1282,7 @@ export type Database = {
       attendance_status: "present" | "absent" | "excused"
       block_status: "upcoming" | "active" | "closed"
       institution: "MII" | "MIU"
-      session_slot: "morning" | "afternoon"
+      session_slot: "morning" | "afternoon" | "evening"
       student_classification: "meditator" | "rising_siddha" | "siddha"
       student_gender: "male" | "female"
     }
@@ -1435,7 +1438,7 @@ export const Constants = {
       attendance_status: ["present", "absent", "excused"],
       block_status: ["upcoming", "active", "closed"],
       institution: ["MII", "MIU"],
-      session_slot: ["morning", "afternoon"],
+      session_slot: ["morning", "afternoon", "evening"],
       student_classification: ["meditator", "rising_siddha", "siddha"],
       student_gender: ["male", "female"],
     },

@@ -1,3 +1,4 @@
+import { slotsFor } from "@/lib/attendance";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -153,6 +154,8 @@ function AdminAttendance() {
     return map;
   }, [records, date]);
 
+  const daySlots = slotsFor(date, (block as any)?.rounding_dates);
+
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
     return (students ?? [])
@@ -175,6 +178,7 @@ function AdminAttendance() {
         student: s,
         morning: dayMap.get(`${s.id}:morning`) ?? null,
         afternoon: dayMap.get(`${s.id}:afternoon`) ?? null,
+        evening: dayMap.get(`${s.id}:evening`) ?? null,
         summary: summarise(
           block,
           (records ?? []).filter((r) => r.student_id === s.id),
@@ -292,7 +296,7 @@ function AdminAttendance() {
               </p>
             ) : (
               <div className="mt-4 flex flex-wrap gap-2">
-                {(["morning", "afternoon"] as SessionSlot[]).map((slot) => (
+                {daySlots.map((slot) => (
                   <Button
                     key={slot}
                     size="sm"
@@ -302,7 +306,7 @@ function AdminAttendance() {
                     All {slot} 2.0
                   </Button>
                 ))}
-                {(["morning", "afternoon"] as SessionSlot[]).map((slot) => (
+                {daySlots.map((slot) => (
                   <Button
                     key={`${slot}-zero`}
                     size="sm"
@@ -344,11 +348,12 @@ function AdminAttendance() {
                       <th className="pb-2">
                         Afternoon{sessionKind(date, "afternoon") === "optional" ? " (optional)" : ""}
                       </th>
+                      {daySlots.includes("evening") ? <th className="pb-2">Evening (rounding)</th> : null}
                       <th className="pb-2 text-right">Block %</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map(({ student, morning, afternoon, summary }, index) => (
+                    {rows.map(({ student, morning, afternoon, evening, summary }, index) => (
                       <tr key={student.id} className="border-t border-border/60">
                         <td className="py-2">
                           <span className="block font-medium">{student.full_name}</span>
@@ -356,8 +361,8 @@ function AdminAttendance() {
                             {student.student_number ?? "—"}
                           </span>
                         </td>
-                        {(["morning", "afternoon"] as SessionSlot[]).map((slot) => {
-                          const rec = slot === "morning" ? morning : afternoon;
+                        {daySlots.map((slot) => {
+                          const rec = slot === "morning" ? morning : slot === "afternoon" ? afternoon : evening;
                           const value = rec ? (Number(rec.points) as Points) : null;
                           return (
                             <td
