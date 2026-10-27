@@ -1,3 +1,4 @@
+import { slotsFor } from "@/lib/attendance";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -134,6 +135,8 @@ function MarkerHome() {
     return map;
   }, [records, date]);
 
+  const daySlots = slotsFor(date, (block as any)?.rounding_dates);
+
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
     const students = (scope?.students ?? []) as {
@@ -158,6 +161,7 @@ function MarkerHome() {
         student: s,
         morning: dayMap.get(`${s.id}:morning`) ?? null,
         afternoon: dayMap.get(`${s.id}:afternoon`) ?? null,
+        evening: dayMap.get(`${s.id}:evening`) ?? null,
         summary: summarise(
           block,
           (records ?? []).filter((r) => r.student_id === s.id),
@@ -287,11 +291,12 @@ function MarkerHome() {
                       <th className="pb-2">
                         Afternoon{sessionKind(date, "afternoon") === "optional" ? " (optional)" : ""}
                       </th>
+                      {daySlots.includes("evening") ? <th className="pb-2">Evening (rounding)</th> : null}
                       <th className="pb-2 text-right">Block %</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map(({ student, morning, afternoon, summary }) => (
+                    {rows.map(({ student, morning, afternoon, evening, summary }) => (
                       <tr key={student.id} className="border-t border-border/60">
                         <td className="py-2">
                           <span className="block font-medium">{student.full_name}</span>
@@ -299,8 +304,8 @@ function MarkerHome() {
                             {student.student_number ?? "—"}
                           </span>
                         </td>
-                        {(["morning", "afternoon"] as SessionSlot[]).map((slot) => {
-                          const rec = slot === "morning" ? morning : afternoon;
+                        {daySlots.map((slot) => {
+                          const rec = slot === "morning" ? morning : slot === "afternoon" ? afternoon : evening;
                           const value = rec ? (Number(rec.points) as Points) : null;
                           return (
                             <td key={slot} className="py-2 pr-4">
