@@ -1,5 +1,14 @@
 export type AttendanceStatus = "present" | "absent" | "excused";
-export type SessionSlot = "morning" | "afternoon";
+export type SessionSlot = "morning" | "afternoon" | "evening";
+
+/** Slots shown on a date: rounding days get a third (evening) session. */
+export function slotsFor(date: string, roundingDates?: string[] | null): SessionSlot[] {
+  return (roundingDates ?? []).includes(date) ? ["morning", "afternoon", "evening"] : ["morning", "afternoon"];
+}
+
+export function slotLabel(slot: SessionSlot) {
+  return slot === "morning" ? "Morning" : slot === "afternoon" ? "Afternoon" : "Evening (rounding)";
+}
 export type BlockStatus = "upcoming" | "active" | "closed";
 export type AbsenceReason =
   | "sick_leave"
@@ -67,6 +76,7 @@ export type Block = {
   cohort_id?: string | null;
   institution?: "MII" | "MIU" | null;
   percent_per_session?: number | null;
+  rounding_dates?: string[] | null;
 };
 
 export type AttendanceRecord = {
@@ -117,7 +127,15 @@ export type SessionKind = "compulsory" | "optional" | "none";
  * Friday afternoon and both Saturday sessions are optional bonus sessions.
  * Sundays do not exist in this system.
  */
-export function sessionKind(date: string, slot: SessionSlot, institution?: string | null): SessionKind {
+export function sessionKind(
+  date: string,
+  slot: SessionSlot,
+  institution?: string | null,
+  roundingDates?: string[] | null,
+): SessionKind {
+  // Rounding days: all three sessions (6 points) are compulsory.
+  if ((roundingDates ?? []).includes(date)) return "compulsory";
+  if (slot === "evening") return "none";
   const day = new Date(date + "T00:00:00").getDay(); // 0 = Sun … 6 = Sat
   if (day === 0) return "none";
   // MIU: Monday–Thursday both sessions, Friday morning only, no Saturday.
@@ -132,12 +150,12 @@ export function sessionKind(date: string, slot: SessionSlot, institution?: strin
 }
 
 /** Every compulsory / optional session in a block. */
-export function blockSessions(block: Pick<Block, "start_date" | "end_date"> & { institution?: string | null }) {
+export function blockSessions(block: Pick<Block, "start_date" | "end_date"> & { institution?: string | null; rounding_dates?: string[] | null }) {
   const compulsory: { date: string; slot: SessionSlot }[] = [];
   const optional: { date: string; slot: SessionSlot }[] = [];
   for (const date of blockDates(block)) {
-    for (const slot of ["morning", "afternoon"] as SessionSlot[]) {
-      const kind = sessionKind(date, slot, block.institution);
+    for (const slot of slotsFor(date, block.rounding_dates)) {
+      const kind = sessionKind(date, slot, block.institution, block.rounding_dates);
       if (kind === "compulsory") compulsory.push({ date, slot });
       else if (kind === "optional") optional.push({ date, slot });
     }
@@ -153,7 +171,7 @@ export function blockSessions(block: Pick<Block, "start_date" | "end_date"> & { 
  * leave the denominator so they never penalise the student.
  */
 export function summarise(
-  block: (Pick<Block, "start_date" | "end_date" | "meditation_days"> & { institution?: string | null; percent_per_session?: number | null }) | null,
+  block: (Pick<Block, "start_date" | "end_date" | "meditation_days"> & { institution?: string | null; percent_per_session?: number | null; rounding_dates?: string[] | null }) | null,
   records: Pick<AttendanceRecord, "slot" | "status" | "points" | "session_date">[],
 ): AttendanceSummary {
   const sessions = block
@@ -173,7 +191,7 @@ export function summarise(
   let recordedCompulsory = 0;
 
   for (const r of records) {
-    const kind = sessionKind(r.session_date, r.slot, block?.institution);
+    const kind = sessionKind(r.session_date, r.slot, block?.institution, block?.rounding_dates);
     if (kind === "none") continue;
     const pts = Number(r.points ?? 0);
     if (r.status === "excused") {
@@ -190,7 +208,7 @@ export function summarise(
     if (pts > 0) {
       present += 1;
       if (r.slot === "morning") morningPresent += 1;
-      else afternoonPresent += 1;
+      else if (r.slot === "afternoon") afternoonPresent += 1;
     } else absent += 1;
   }
 
@@ -307,7 +325,7 @@ export function skipSunday(date: string) {
 }
 
 /** Every session date inside a block, inclusive, excluding Sundays. */
-export function blockDates(block: Pick<Block, "start_date" | "end_date"> & { institution?: string | null }) {
+export function blockDates(block: Pick<Block, "start_date" | "end_date"> & { institution?: string | null; rounding_dates?: string[] | null }) {
   const miu = block.institution === "MIU";
   const out: string[] = [];
   const cur = new Date(block.start_date + "T00:00:00");

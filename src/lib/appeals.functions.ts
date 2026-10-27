@@ -19,7 +19,7 @@ import { assertAdmin, audit, myInstitution, type Ctx } from "./data.helpers";
 
 const uuid = z.string().uuid();
 const dateStr = z.string().min(10).max(10);
-const slot = z.enum(["morning", "afternoon"]);
+const slot = z.enum(["morning", "afternoon", "evening"]);
 
 type Slot = "morning" | "afternoon";
 
