@@ -113,7 +113,7 @@ function StudentAppeals() {
     mutationFn: (v: {
       block_id: string;
       session_date: string;
-      slot: "morning" | "afternoon";
+      slot: "morning" | "afternoon" | "evening";
       reason: string;
       comment: string;
     }) => appealFn({ data: { ...v, register: "meditation" } }),
@@ -131,7 +131,7 @@ function StudentAppeals() {
     mutationFn: (v: {
       block_id: string;
       session_date: string;
-      slot: "morning" | "afternoon";
+      slot: "morning" | "afternoon" | "evening";
       rating: number;
       comment: string;
     }) => reviewSendFn({ data: v }),
