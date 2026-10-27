@@ -87,14 +87,18 @@ export const getLeaderboard = createServerFn({ method: "GET" })
     group.peers = peerList.length;
     if (peerList.length === 0) return { ...empty, group, reason: "No peers in your group yet." };
 
-    const { data: rows } = await supabaseAdmin
-      .from("attendance")
-      .select("student_id, status, slot, points, session_date")
-      .eq("block_id", block.id)
-      .in(
-        "student_id",
-        peerList.map((p) => p.id),
-      );
+    const { fetchAllRows } = await import("./data.helpers");
+    const rows = await fetchAllRows<any>(() =>
+      supabaseAdmin
+        .from("attendance")
+        .select("id, student_id, status, slot, points, session_date")
+        .eq("block_id", block.id)
+        .in(
+          "student_id",
+          peerList.map((p) => p.id),
+        )
+        .order("id", { ascending: true }),
+    );
 
     const byStudent = new Map<string, any[]>();
     for (const p of peerList) byStudent.set(p.id, []);

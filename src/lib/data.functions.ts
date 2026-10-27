@@ -466,13 +466,15 @@ export const listAttendance = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ block_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const c = context as unknown as Ctx;
-    const { data: rows, error } = await c.supabase
-      .from("attendance")
-      .select("*")
-      .eq("block_id", data.block_id)
-      .order("session_date", { ascending: true });
-    if (error) throw new Error(error.message);
-    return rows ?? [];
+    const { fetchAllRows } = await import("./data.helpers");
+    return await fetchAllRows(() =>
+      c.supabase
+        .from("attendance")
+        .select("*")
+        .eq("block_id", data.block_id)
+        .order("session_date", { ascending: true })
+        .order("id", { ascending: true }),
+    );
   });
 
 const POINTS = z.union([
