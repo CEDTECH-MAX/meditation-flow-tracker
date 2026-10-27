@@ -332,7 +332,7 @@ function AdminBlocks() {
               {form.rounding ? (
                 form.start_date && form.end_date ? (
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {blockDates({ start_date: form.start_date, end_date: form.end_date, institution }).map((d) => {
+                    {blockDates({ start_date: form.start_date, end_date: form.end_date, institution: institution ?? null }).map((d) => {
                       const on = form.rounding_dates.includes(d);
                       return (
                         <button
