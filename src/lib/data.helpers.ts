@@ -1,5 +1,25 @@
 export type Ctx = { supabase: any; userId: string; claims: Record<string, any> };
 
+/**
+ * The database returns at most 1000 rows per request. Block-wide attendance
+ * easily exceeds that (students × days × sessions), which silently dropped the
+ * newest days. Fetch every page. `build` must return a fresh ordered query.
+ */
+export async function fetchAllRows<T = any>(
+  build: () => any,
+  pageSize = 1000,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; from < 200_000; from += pageSize) {
+    const { data, error } = await build().range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as T[];
+    out.push(...rows);
+    if (rows.length < pageSize) break;
+  }
+  return out;
+}
+
 export async function assertAdmin(context: Ctx) {
   const { data, error } = await context.supabase.rpc("has_role", {
     _user_id: context.userId,

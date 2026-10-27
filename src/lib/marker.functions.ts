@@ -191,14 +191,16 @@ export const listMarkerAttendance = createServerFn({ method: "POST" })
     const ids = (studentRows ?? []).map((s: any) => s.id);
     if (ids.length === 0) return [];
 
-    const { data: rows, error } = await supabaseAdmin
-      .from("attendance")
-      .select("*")
-      .eq("block_id", data.block_id)
-      .in("student_id", ids)
-      .order("session_date", { ascending: true });
-    if (error) throw new Error(error.message);
-    return rows ?? [];
+    const { fetchAllRows } = await import("./data.helpers");
+    return await fetchAllRows(() =>
+      supabaseAdmin
+        .from("attendance")
+        .select("*")
+        .eq("block_id", data.block_id)
+        .in("student_id", ids)
+        .order("session_date", { ascending: true })
+        .order("id", { ascending: true }),
+    );
   });
 
 const POINTS = z.union([
