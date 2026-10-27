@@ -17,7 +17,7 @@ import {
 import { useBlocks, useCohorts } from "@/lib/admin-hooks";
 import { useMe } from "@/components/AppShell";
 import { deleteBlock, resetBlockAttendance, saveBlock, setBlockStatus } from "@/lib/data.functions";
-import { blockProgress, formatDate, type Block, type BlockStatus } from "@/lib/attendance";
+import { blockDates, blockProgress, formatDate, type Block, type BlockStatus } from "@/lib/attendance";
 
 export const Route = createFileRoute("/_authenticated/admin/blocks")({
   head: () => ({
@@ -46,6 +46,8 @@ type FormState = {
   status: BlockStatus;
   cohort_id: string;
   percent_input: string;
+  rounding: boolean;
+  rounding_dates: string[];
 };
 
 const empty: FormState = {
@@ -55,6 +57,8 @@ const empty: FormState = {
   status: "upcoming",
   cohort_id: "",
   percent_input: "",
+  rounding: false,
+  rounding_dates: [],
 };
 
 /**
@@ -62,7 +66,7 @@ const empty: FormState = {
  * Friday/Saturday sessions; MIU attends Monday–Thursday only, so Fridays and
  * Saturdays do not exist for MIU blocks.
  */
-function derive(start: string, end: string, institution?: string | null) {
+function derive(start: string, end: string, institution?: string | null, rounding: string[] = []) {
   if (!start || !end) return { valid: false, days: 0, weeks: 0, sessions: 0 };
   const s = new Date(`${start}T00:00:00`);
   const e = new Date(`${end}T00:00:00`);
@@ -80,6 +84,12 @@ function derive(start: string, end: string, institution?: string | null) {
     days += 1;
     // MIU Friday has a morning session only.
     sessions += institution === "MIU" && dow === 5 ? 1 : 2;
+  }
+  // Each rounding day has three compulsory sessions (6 points).
+  for (const r of new Set(rounding)) {
+    if (r < start || r > end) continue;
+    const dow = new Date(`${r}T00:00:00`).getDay();
+    sessions += institution === "MIU" && dow === 5 ? 2 : 1;
   }
   return { valid: days > 0, days, weeks: Math.max(1, Math.ceil(total / 7)), sessions };
 }
@@ -112,7 +122,7 @@ function AdminBlocks() {
 
   const save = useMutation({
     mutationFn: (v: FormState) => {
-      const d = derive(v.start_date, v.end_date, institution);
+      const d = derive(v.start_date, v.end_date, institution, v.rounding ? v.rounding_dates : []);
       if (!d.valid) throw new Error("Enter a start date and an end date that comes after it.");
       const typed = Number(v.percent_input);
       if (!v.percent_input.trim() || !Number.isFinite(typed) || typed <= 0) {
@@ -129,6 +139,7 @@ function AdminBlocks() {
           status: v.status,
           cohort_id: v.cohort_id || null,
           percent_per_session: typed,
+          rounding_dates: v.rounding ? v.rounding_dates : [],
         },
       });
     },
@@ -194,7 +205,7 @@ function AdminBlocks() {
               <div className="grid grid-cols-3 gap-2 text-center text-sm">
                 <Stat label="Weeks" value={b.weeks} />
                 <Stat label="Meditation days" value={b.meditation_days} />
-                <Stat label="Sessions" value={b.meditation_days * 2} />
+                <Stat label="Sessions" value={b.meditation_days * 2 + ((b as any).rounding_dates ?? []).length} />
               </div>
 
               <div className="mt-4">
@@ -223,6 +234,8 @@ function AdminBlocks() {
                         (b as any).percent_per_session > 0
                           ? String((b as any).percent_per_session)
                           : String(round1(100 / Math.max(1, b.meditation_days * 2))),
+                      rounding: ((b as any).rounding_dates ?? []).length > 0,
+                      rounding_dates: (b as any).rounding_dates ?? [],
                     })
                   }
                 >
@@ -304,6 +317,47 @@ function AdminBlocks() {
                 />
               </Field>
             </div>
+            <div className="rounded-xl border border-border/60 bg-card/40 p-3">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={form.rounding}
+                  onChange={(e) => setForm({ ...form, rounding: e.target.checked })}
+                />
+                This block has rounding days
+              </label>
+              <p className="mt-1 text-xs text-muted-foreground">
+                A rounding day has 3 sessions (morning, afternoon, evening) worth 6 points.
+              </p>
+              {form.rounding ? (
+                form.start_date && form.end_date ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {blockDates({ start_date: form.start_date, end_date: form.end_date, institution }).map((d) => {
+                      const on = form.rounding_dates.includes(d);
+                      return (
+                        <button
+                          type="button"
+                          key={d}
+                          onClick={() =>
+                            setForm({
+                              ...form,
+                              rounding_dates: on
+                                ? form.rounding_dates.filter((x) => x !== d)
+                                : [...form.rounding_dates, d].sort(),
+                            })
+                          }
+                          className={`rounded-full border px-3 py-1 text-xs ${on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background/60"}`}
+                        >
+                          {formatDate(d)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-muted-foreground">Pick the start and end dates first.</p>
+                )
+              ) : null}
+            </div>
             <Field label="Percent each full session (2.0) is worth">
               <Input
                 type="number"
@@ -317,7 +371,7 @@ function AdminBlocks() {
               />
             </Field>
             {(() => {
-              const d = derive(form.start_date, form.end_date, institution);
+              const d = derive(form.start_date, form.end_date, institution, form.rounding ? form.rounding_dates : []);
               if (!d.valid) return null;
               return (
                 <Button
@@ -356,7 +410,7 @@ function AdminBlocks() {
               </Select>
             </Field>
             {(() => {
-              const d = derive(form.start_date, form.end_date, institution);
+              const d = derive(form.start_date, form.end_date, institution, form.rounding ? form.rounding_dates : []);
               const per = Number(form.percent_input);
               if (!d.valid) {
                 return (
