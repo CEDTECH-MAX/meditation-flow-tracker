@@ -41,7 +41,7 @@ const WeeklyTargetMissed = ({
   <Html lang="en" dir="ltr">
     <Head />
     <Preview>
-      You earned {points.toFixed(1)} of the required {requiredPoints} meditation points this week
+      {`You earned ${points.toFixed(1)} of the required ${requiredPoints} meditation points this week`}
     </Preview>
     <Body style={main}>
       <Container style={container}>
@@ -101,7 +101,7 @@ const WeeklyTargetMissed = ({
 export const template = {
   component: WeeklyTargetMissed,
   subject: (data: Record<string, any>) =>
-    `Notice: Weekly Meditation Target Not Met${data.period ? ` — ${data.period}` : ''}`,
+    `Notice: Weekly Meditation Target Not Met${data['period'] ? ` — ${data['period']}` : ''}`,
   displayName: 'Weekly meditation target not met',
   previewData: {
     name: 'Thandi Mokoena',
