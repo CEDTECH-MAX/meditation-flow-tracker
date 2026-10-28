@@ -41,6 +41,7 @@ const adminNav: { to: string; label: string; exact?: boolean }[] = [
   { to: "/admin/markers", label: "Markers" },
   { to: "/admin/appeals", label: "Appeals" },
   { to: "/admin/feedback", label: "Session feedback" },
+  { to: "/admin/notices", label: "Weekly target emails" },
   { to: "/admin/directory", label: "Staff directory" },
   { to: "/admin/cohorts", label: "Cohorts" },
   { to: "/admin/blocks", label: "Blocks" },
