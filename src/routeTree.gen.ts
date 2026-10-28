@@ -35,6 +35,7 @@ import { Route as AuthenticatedAdminCohortsRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminDirectoryRouteImport } from './routes/_authenticated/admin.directory'
 import { Route as AuthenticatedAdminFeedbackRouteImport } from './routes/_authenticated/admin.feedback'
 import { Route as AuthenticatedAdminMarkersRouteImport } from './routes/_authenticated/admin.markers'
+import { Route as AuthenticatedAdminNoticesRouteImport } from './routes/_authenticated/admin.notices'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin.reports'
 import { Route as AuthenticatedAdminStudentsRouteImport } from './routes/_authenticated/admin.students'
 import { Route as AuthenticatedDeveloperIndexRouteImport } from './routes/_authenticated/developer.index'
@@ -192,6 +193,12 @@ const AuthenticatedAdminMarkersRoute =
     path: '/markers',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminNoticesRoute =
+  AuthenticatedAdminNoticesRouteImport.update({
+    id: '/notices',
+    path: '/notices',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminReportsRoute =
   AuthenticatedAdminReportsRouteImport.update({
     id: '/reports',
@@ -332,6 +339,7 @@ export interface FileRoutesByFullPath {
   '/admin/directory': typeof AuthenticatedAdminDirectoryRoute
   '/admin/feedback': typeof AuthenticatedAdminFeedbackRoute
   '/admin/markers': typeof AuthenticatedAdminMarkersRoute
+  '/admin/notices': typeof AuthenticatedAdminNoticesRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/developer/audit': typeof AuthenticatedDeveloperAuditRoute
@@ -375,6 +383,7 @@ export interface FileRoutesByTo {
   '/admin/directory': typeof AuthenticatedAdminDirectoryRoute
   '/admin/feedback': typeof AuthenticatedAdminFeedbackRoute
   '/admin/markers': typeof AuthenticatedAdminMarkersRoute
+  '/admin/notices': typeof AuthenticatedAdminNoticesRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/developer/audit': typeof AuthenticatedDeveloperAuditRoute
@@ -423,6 +432,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/directory': typeof AuthenticatedAdminDirectoryRoute
   '/_authenticated/admin/feedback': typeof AuthenticatedAdminFeedbackRoute
   '/_authenticated/admin/markers': typeof AuthenticatedAdminMarkersRoute
+  '/_authenticated/admin/notices': typeof AuthenticatedAdminNoticesRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/_authenticated/developer/audit': typeof AuthenticatedDeveloperAuditRoute
@@ -471,6 +481,7 @@ export interface FileRouteTypes {
     | '/admin/directory'
     | '/admin/feedback'
     | '/admin/markers'
+    | '/admin/notices'
     | '/admin/reports'
     | '/admin/students'
     | '/developer/audit'
@@ -514,6 +525,7 @@ export interface FileRouteTypes {
     | '/admin/directory'
     | '/admin/feedback'
     | '/admin/markers'
+    | '/admin/notices'
     | '/admin/reports'
     | '/admin/students'
     | '/developer/audit'
@@ -561,6 +573,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/directory'
     | '/_authenticated/admin/feedback'
     | '/_authenticated/admin/markers'
+    | '/_authenticated/admin/notices'
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/students'
     | '/_authenticated/developer/audit'
@@ -779,6 +792,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminMarkersRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/notices': {
+      id: '/_authenticated/admin/notices'
+      path: '/notices'
+      fullPath: '/admin/notices'
+      preLoaderRoute: typeof AuthenticatedAdminNoticesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/reports': {
       id: '/_authenticated/admin/reports'
       path: '/reports'
@@ -924,6 +944,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminDirectoryRoute: typeof AuthenticatedAdminDirectoryRoute
   AuthenticatedAdminFeedbackRoute: typeof AuthenticatedAdminFeedbackRoute
   AuthenticatedAdminMarkersRoute: typeof AuthenticatedAdminMarkersRoute
+  AuthenticatedAdminNoticesRoute: typeof AuthenticatedAdminNoticesRoute
   AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
   AuthenticatedAdminStudentsRoute: typeof AuthenticatedAdminStudentsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
@@ -938,6 +959,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminDirectoryRoute: AuthenticatedAdminDirectoryRoute,
   AuthenticatedAdminFeedbackRoute: AuthenticatedAdminFeedbackRoute,
   AuthenticatedAdminMarkersRoute: AuthenticatedAdminMarkersRoute,
+  AuthenticatedAdminNoticesRoute: AuthenticatedAdminNoticesRoute,
   AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
   AuthenticatedAdminStudentsRoute: AuthenticatedAdminStudentsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
