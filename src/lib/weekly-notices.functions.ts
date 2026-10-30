@@ -46,7 +46,7 @@ export const sendWeeklyTargetNotices = createServerFn({ method: "POST" })
     const inst = await myInstitution(c);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { sendWeeklyNotices } = await import("./weekly-notices.server");
-    const result = await sendWeeklyNotices(supabaseAdmin, inst, data.week_start, data.student_ids);
+    const result = await sendWeeklyNotices(supabaseAdmin, inst, data.week_start, c.userId, data.student_ids);
     await audit(c, "send_weekly_target_notices", "email", null, {
       institution: inst,
       week_start: data.week_start,

@@ -181,22 +181,27 @@ export async function findFlaggedStudents(db: any, inst: Inst, monday: string) {
   return { flagged, notMarked, checked };
 }
 
-/** Sends one personal notice per flagged student and logs each outcome. */
+/**
+ * Sends one personal notice per flagged student into their internal Mail
+ * inbox (from the admin who pressed Send) and logs each outcome. External
+ * email delivery is paused until the sending domain is verified.
+ */
 export async function sendWeeklyNotices(
   db: any,
   inst: Inst,
   monday: string,
+  senderId: string,
   onlyIds?: string[],
 ) {
-  const { sendTemplateEmail } = await import("./email-templates/send-email");
   const { flagged } = await findFlaggedStudents(db, inst, monday);
   const targets = flagged.filter(
-    (f) => f.can_email && !f.already_sent && (!onlyIds || onlyIds.includes(f.student_id)),
+    (f) => !f.already_sent && (!onlyIds || onlyIds.includes(f.student_id)),
   );
   const subject = weeklySubject(monday);
   const period = weekPeriodLabel(monday);
+  const institutionName = INSTITUTION_NAMES[inst];
   let sent = 0;
-  let suppressed = 0;
+  const suppressed = 0;
   let failed = 0;
   let firstError: string | null = null;
 
@@ -204,38 +209,44 @@ export async function sendWeeklyNotices(
     let status = "sent";
     let error: string | null = null;
     try {
-      const result = await sendTemplateEmail(WEEKLY_TEMPLATE, f.email!, {
-        templateData: {
-          name: f.full_name,
-          studentNumber: f.student_number ?? undefined,
-          cohort: f.cohort_name,
-          period,
-          sessions: f.sessions,
-          points: f.points,
-          requiredSessions: f.required_sessions,
-          requiredPoints: f.required_points,
-          institutionName: INSTITUTION_NAMES[inst],
-          portalUrl: PORTAL_URL,
-        },
-        idempotencyKey: `${WEEKLY_TEMPLATE}-${f.student_id}-${monday}`,
-      });
-      if (result.sent) sent += 1;
-      else {
-        status = "suppressed";
-        error = "This address has unsubscribed or previously bounced.";
-        suppressed += 1;
-      }
+      const body = `Dear ${f.full_name},
+
+${f.student_number ? `Student Number: ${f.student_number}\n` : ""}Cohort: ${f.cohort_name}
+Period: ${period}
+
+This is an official notice that you did not meet the required weekly meditation attendance target for the week indicated above.
+
+Your attendance summary for the week:
+• Sessions attended: ${f.sessions} / ${f.required_sessions} required sessions
+• Points earned: ${f.points.toFixed(1)} / ${f.required_points.toFixed(1)} points required
+• Status: Target missed
+
+All students are required to complete at least 8 sessions (16.0 points) each week. Please ensure full attendance for all upcoming sessions and improve your attendance.
+
+If you were absent due to illness or an approved reason, submit your supporting letter or medical certificate via the student portal: ${PORTAL_URL}
+
+Warm regards,
+Consciousness Department
+${institutionName}`;
+      const { data: msg, error: mErr } = await db
+        .from("messages")
+        .insert({ sender_id: senderId, subject, body, is_draft: false, sent_at: new Date().toISOString() })
+        .select("id")
+        .single();
+      if (mErr) throw mErr;
+      const { error: rErr } = await db
+        .from("message_recipients")
+        .insert({ message_id: msg.id, recipient_id: f.student_id, kind: "to" });
+      if (rErr) throw rErr;
+      sent += 1;
     } catch (e: any) {
       status = "failed";
-      const code = e?.code ? `${e.code}: ` : "";
-      error = `${code}${e?.message ?? "Unknown error"}`.slice(0, 500);
-      firstError ??= e?.code === "domain_not_verified"
-        ? "The sending domain is not verified yet, so emails cannot go out."
-        : error;
+      error = String(e?.message ?? "Unknown error").slice(0, 500);
+      firstError ??= error;
       failed += 1;
     }
     await db.from("email_events").insert({
-      recipient: f.email,
+      recipient: f.email ?? `internal:${f.student_id}`,
       subject,
       template: WEEKLY_TEMPLATE,
       status,
@@ -246,9 +257,8 @@ export async function sendWeeklyNotices(
     });
   };
 
-  // Small batches keep the request quick without flooding the email service.
-  for (let i = 0; i < targets.length; i += 5) {
-    await Promise.all(targets.slice(i, i + 5).map(sendOne));
+  for (let i = 0; i < targets.length; i += 10) {
+    await Promise.all(targets.slice(i, i + 10).map(sendOne));
   }
 
   return { attempted: targets.length, sent, suppressed, failed, firstError };
