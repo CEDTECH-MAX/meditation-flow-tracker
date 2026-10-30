@@ -61,7 +61,7 @@ function AdminNotices() {
   });
 
   const flagged = data?.flagged ?? [];
-  const ready = flagged.filter((f) => f.can_email && !f.already_sent);
+  const ready = flagged.filter((f) => !f.already_sent);
 
   const send = useMutation({
     mutationFn: () => sendFn({ data: { week_start: week } }),
@@ -71,7 +71,7 @@ function AdminNotices() {
         toast.error(
           `${r.sent} sent, ${r.failed} could not be sent. ${r.firstError ?? ""}`.trim(),
         );
-      else toast.success(`${r.sent} email${r.sent === 1 ? "" : "s"} sent.`);
+      else toast.success(`${r.sent} notice${r.sent === 1 ? "" : "s"} sent to student Mail inboxes.`);
       qc.invalidateQueries({ queryKey: ["weekly-notices", week] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -91,7 +91,7 @@ function AdminNotices() {
     <div className="space-y-6">
       <SectionTitle
         title="Weekly target emails"
-        subtitle="Students who earned fewer than 16 points (8 sessions) in a finished week. Each student gets one personal email at their login address."
+        subtitle="Students who earned fewer than 16 points (8 sessions) in a finished week. Each student gets one personal notice in their Mail inbox on the portal."
         action={
           <Button onClick={confirmSend} disabled={ready.length === 0 || send.isPending}>
             {send.isPending ? "Sending…" : `Send to ${ready.length} student${ready.length === 1 ? "" : "s"}`}
@@ -171,7 +171,7 @@ function AdminNotices() {
                       <td className="p-4">
                         {f.already_sent ? (
                           <Badge tone="green">Sent</Badge>
-                        ) : f.can_email ? (
+                        ) : true ? (
                           <Badge tone="gold">Ready</Badge>
                         ) : (
                           <Badge tone="red">Can't email</Badge>
