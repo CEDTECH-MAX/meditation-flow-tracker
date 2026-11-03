@@ -39,10 +39,15 @@ function DeveloperSignIn() {
       password,
     });
     if (authError || !data.user) {
+      const offline = !!authError && (authError.status === 0 || /fetch|network/i.test(authError.message));
       await recordAuthEvent({
-        data: { email: address, succeeded: false, reason: "Incorrect email or password", portal: "developer" },
+        data: { email: address, succeeded: false, reason: offline ? "Sign-in service unreachable" : "Incorrect email or password", portal: "developer" },
       }).catch(() => null);
-      setError("Incorrect email or password.");
+      setError(
+        offline
+          ? "Can't connect to the sign-in service right now. Your password was not checked — please try again later."
+          : "Incorrect email or password.",
+      );
       setBusy(false);
       return;
     }
