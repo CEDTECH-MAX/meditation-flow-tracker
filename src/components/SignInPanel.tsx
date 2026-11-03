@@ -41,11 +41,16 @@ export function SignInPanel({ institution }: { institution: Institution }) {
       password,
     });
     if (authError || !data.user) {
+      const offline = !!authError && (authError.status === 0 || /fetch|network/i.test(authError.message));
       // Recorded for the developer portal's sign-in activity — no password is sent.
       await recordAuthEvent({
-        data: { email: address, succeeded: false, reason: "Incorrect email or password", portal: institution },
+        data: { email: address, succeeded: false, reason: offline ? "Sign-in service unreachable" : "Incorrect email or password", portal: institution },
       }).catch(() => null);
-      setError("Incorrect email or password.");
+      setError(
+        offline
+          ? "Can't connect to the sign-in service right now. Your password was not checked — please try again later."
+          : "Incorrect email or password.",
+      );
       setBusy(false);
       return;
     }
