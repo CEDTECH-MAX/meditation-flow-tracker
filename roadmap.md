@@ -9,6 +9,7 @@
 - [ ] Automatic weekly sending (after the domain works)
 
 ## Account management
+- [x] Meditation marking: blank admin and marker cells display 0 without creating official marks; existing 2.0, 1.5, 1.0, 0.5 and 0 values remain unchanged. Live admin register and shared marker logic verified.
 - [x] Unified sign-in with automatic role/institution routing and legacy login redirects; verified signed-in account routing and sign-out.
 - [x] Required gender dropdowns for student, marker, and staff account forms; spreadsheet gender import supported
 

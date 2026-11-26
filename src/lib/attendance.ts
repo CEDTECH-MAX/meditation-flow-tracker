@@ -45,6 +45,13 @@ export function pointsLabel(points: number | null | undefined) {
   return points.toFixed(1);
 }
 
+/** Unmarked meditation cells start at zero; saved points always win. */
+export function displayedMeditationPoints(
+  record: Pick<AttendanceRecord, "points"> | null | undefined,
+): number {
+  return record ? Number(record.points) : 0;
+}
+
 
 export const REASONS: { value: AbsenceReason; label: string }[] = [
   { value: "sick_leave", label: "Sick leave" },

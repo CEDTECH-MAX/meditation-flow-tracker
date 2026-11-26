@@ -21,6 +21,7 @@ import type { AbsenceReason, AttendanceRecord, SessionSlot } from "@/lib/attenda
 import {
   formatDate,
   blockDates,
+  displayedMeditationPoints,
   POINT_OPTIONS as ATTENDANCE_OPTIONS,
   REASONS,
   reasonLabel,
@@ -363,7 +364,7 @@ function AdminAttendance() {
                         </td>
                         {daySlots.map((slot) => {
                           const rec = slot === "morning" ? morning : slot === "afternoon" ? afternoon : evening;
-                          const value = rec ? (Number(rec.points) as Points) : null;
+                          const value = displayedMeditationPoints(rec) as Points;
                           return (
                             <td
                               key={slot}
@@ -380,7 +381,7 @@ function AdminAttendance() {
                                   aria-label={`${slot} points for ${student.full_name}`}
                                   className="w-24"
                                   disabled={locked || mark.isPending || fill.isPending}
-                                  value={value === null ? "" : String(value)}
+                                  value={String(value)}
                                   onChange={(e) => {
                                     const raw = e.target.value;
                                     if (raw === "") {
@@ -412,7 +413,7 @@ function AdminAttendance() {
                                   ))}
                                 </Select>
 
-                                {value !== null && !locked ? (
+                                {!locked ? (
                                   <button
                                     type="button"
                                     title="Drag down to give the students below the same score"
