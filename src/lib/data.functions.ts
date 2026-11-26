@@ -62,6 +62,7 @@ export const saveBlock = createServerFn({ method: "POST" })
     const c = context as unknown as Ctx;
     await assertAdmin(c);
     const inst = await myInstitution(c);
+    const actorEmail = (c.claims?.["email"] as string) ?? null;
     const payload = {
       ...data,
       cohort_id: data.cohort_id ?? null,
@@ -71,7 +72,28 @@ export const saveBlock = createServerFn({ method: "POST" })
     };
     delete (payload as any).id;
 
+    let prevStatus: string | null = null;
+    if (data.id) {
+      const { data: existing } = await c.supabase
+        .from("blocks")
+        .select("status")
+        .eq("id", data.id)
+        .eq("institution", inst)
+        .maybeSingle();
+      prevStatus = (existing?.status as string | undefined) ?? null;
+    }
+
+    let autoClosedIds: string[] = [];
     if (data.status === "active") {
+      let activeQuery = c.supabase
+        .from("blocks")
+        .select("id")
+        .eq("status", "active")
+        .eq("institution", inst);
+      if (data.id) activeQuery = activeQuery.neq("id", data.id);
+      const { data: activeRows } = await activeQuery;
+      autoClosedIds = (activeRows ?? []).map((r: any) => r.id as string);
+
       await c.supabase
         .from("blocks")
         .update({ status: "closed" })
@@ -79,20 +101,64 @@ export const saveBlock = createServerFn({ method: "POST" })
         .eq("institution", inst);
     }
 
+    let blockId = data.id ?? "";
     if (data.id) {
-      const { error } = await c.supabase.from("blocks").update(payload).eq("id", data.id);
+      const { error } = await c.supabase
+        .from("blocks")
+        .update(payload)
+        .eq("id", data.id)
+        .eq("institution", inst);
       if (error) throw new Error(error.message);
       await audit(c, "update", "block", data.id, payload);
-      return { id: data.id };
+    } else {
+      const { data: created, error } = await c.supabase
+        .from("blocks")
+        .insert(payload)
+        .select("id")
+        .single();
+      if (error) throw new Error(error.message);
+      blockId = created.id as string;
+      await audit(c, "create", "block", blockId, payload);
     }
-    const { data: created, error } = await c.supabase
-      .from("blocks")
-      .insert(payload)
-      .select("id")
-      .single();
-    if (error) throw new Error(error.message);
-    await audit(c, "create", "block", created.id, payload);
-    return { id: created.id as string };
+
+    const lockIds = [...autoClosedIds];
+    if (data.id && data.status === "closed" && prevStatus !== "closed") {
+      lockIds.push(data.id);
+    }
+    const restoreIds =
+      data.id && prevStatus === "closed" && data.status !== "closed" ? [data.id] : [];
+
+    let lockedTabs: string[] = [];
+    let restoredTabs: string[] = [];
+    const sheetWarnings: string[] = [];
+
+    if (lockIds.length > 0 || restoreIds.length > 0) {
+      const { syncSheetDropdownsForBlockStatus } = await import("@/lib/sheet-sync.server");
+      if (lockIds.length > 0) {
+        const res = await syncSheetDropdownsForBlockStatus({
+          blockIds: lockIds,
+          institution: inst,
+          mode: "remove",
+          actorId: c.userId,
+          actorEmail,
+        });
+        lockedTabs = res.updatedTabs;
+        sheetWarnings.push(...res.warnings);
+      }
+      if (restoreIds.length > 0) {
+        const res = await syncSheetDropdownsForBlockStatus({
+          blockIds: restoreIds,
+          institution: inst,
+          mode: "restore",
+          actorId: c.userId,
+          actorEmail,
+        });
+        restoredTabs = res.updatedTabs;
+        sheetWarnings.push(...res.warnings);
+      }
+    }
+
+    return { id: blockId, lockedTabs, restoredTabs, sheetWarnings };
   });
 
 export const setBlockStatus = createServerFn({ method: "POST" })
@@ -103,8 +169,27 @@ export const setBlockStatus = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const c = context as unknown as Ctx;
     await assertAdmin(c);
+    const inst = await myInstitution(c);
+    const actorEmail = (c.claims?.["email"] as string) ?? null;
+
+    const { data: existing } = await c.supabase
+      .from("blocks")
+      .select("status")
+      .eq("id", data.id)
+      .eq("institution", inst)
+      .maybeSingle();
+    const prevStatus = (existing?.status as string | undefined) ?? null;
+
+    let autoClosedIds: string[] = [];
     if (data.status === "active") {
-      const inst = await myInstitution(c);
+      const { data: activeRows } = await c.supabase
+        .from("blocks")
+        .select("id")
+        .eq("status", "active")
+        .eq("institution", inst)
+        .neq("id", data.id);
+      autoClosedIds = (activeRows ?? []).map((r: any) => r.id as string);
+
       await c.supabase
         .from("blocks")
         .update({ status: "closed" })
@@ -115,10 +200,46 @@ export const setBlockStatus = createServerFn({ method: "POST" })
     const { error } = await c.supabase
       .from("blocks")
       .update({ status: data.status })
-      .eq("id", data.id);
+      .eq("id", data.id)
+      .eq("institution", inst);
     if (error) throw new Error(error.message);
     await audit(c, "status_change", "block", data.id, { status: data.status });
-    return { ok: true };
+
+    const lockIds = [...autoClosedIds];
+    if (data.status === "closed") lockIds.push(data.id);
+    const restoreIds = prevStatus === "closed" && data.status !== "closed" ? [data.id] : [];
+
+    let lockedTabs: string[] = [];
+    let restoredTabs: string[] = [];
+    const sheetWarnings: string[] = [];
+
+    if (lockIds.length > 0 || restoreIds.length > 0) {
+      const { syncSheetDropdownsForBlockStatus } = await import("@/lib/sheet-sync.server");
+      if (lockIds.length > 0) {
+        const res = await syncSheetDropdownsForBlockStatus({
+          blockIds: lockIds,
+          institution: inst,
+          mode: "remove",
+          actorId: c.userId,
+          actorEmail,
+        });
+        lockedTabs = res.updatedTabs;
+        sheetWarnings.push(...res.warnings);
+      }
+      if (restoreIds.length > 0) {
+        const res = await syncSheetDropdownsForBlockStatus({
+          blockIds: restoreIds,
+          institution: inst,
+          mode: "restore",
+          actorId: c.userId,
+          actorEmail,
+        });
+        restoredTabs = res.updatedTabs;
+        sheetWarnings.push(...res.warnings);
+      }
+    }
+
+    return { ok: true, lockedTabs, restoredTabs, sheetWarnings };
   });
 
 export const deleteBlock = createServerFn({ method: "POST" })
@@ -127,10 +248,31 @@ export const deleteBlock = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const c = context as unknown as Ctx;
     await assertAdmin(c);
-    const { error } = await c.supabase.from("blocks").delete().eq("id", data.id);
+    const inst = await myInstitution(c);
+    const actorEmail = (c.claims?.["email"] as string) ?? null;
+
+    const { deleteLinkedSheetTabsForBlock } = await import("@/lib/sheet-sync.server");
+    const sheetRes = await deleteLinkedSheetTabsForBlock({
+      blockId: data.id,
+      institution: inst,
+      actorId: c.userId,
+      actorEmail,
+    });
+
+    const { error } = await c.supabase
+      .from("blocks")
+      .delete()
+      .eq("id", data.id)
+      .eq("institution", inst);
     if (error) throw new Error(error.message);
-    await audit(c, "delete", "block", data.id, {});
-    return { ok: true };
+    await audit(c, "delete", "block", data.id, {
+      deleted_sheet_tabs: sheetRes.deletedTabs,
+    });
+    return {
+      ok: true,
+      deletedTabs: sheetRes.deletedTabs,
+      sheetWarnings: sheetRes.warnings,
+    };
   });
 
 export const resetBlockAttendance = createServerFn({ method: "POST" })

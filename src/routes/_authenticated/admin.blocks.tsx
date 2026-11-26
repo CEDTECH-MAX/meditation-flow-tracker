@@ -213,6 +213,16 @@ function AdminBlocks() {
         qc.invalidateQueries({ queryKey: ["attendance"] });
         setForm(null);
         toast.warning(`Block saved, but creating the Google Sheet tab failed: ${res.sheetError}`);
+      } else if (res.sheetWarnings?.length) {
+        qc.invalidateQueries({ queryKey: ["blocks"] });
+        qc.invalidateQueries({ queryKey: ["attendance"] });
+        qc.invalidateQueries({ queryKey: ["sheet-links"] });
+        setForm(null);
+        toast.warning(`Block saved, with a Google Sheet warning: ${res.sheetWarnings.join(" ")}`);
+      } else if (res.lockedTabs?.length) {
+        refresh(`Block saved and dropdowns removed from Google Sheet (${res.lockedTabs.join(", ")}).`);
+      } else if (res.restoredTabs?.length) {
+        refresh(`Block saved and dropdowns restored on Google Sheet (${res.restoredTabs.join(", ")}).`);
       } else {
         refresh("Block saved");
       }
@@ -222,13 +232,39 @@ function AdminBlocks() {
 
   const changeStatus = useMutation({
     mutationFn: (v: { id: string; status: BlockStatus }) => statusFn({ data: v }),
-    onSuccess: () => refresh("Block status updated"),
+    onSuccess: (res) => {
+      if (res.sheetWarnings?.length) {
+        qc.invalidateQueries({ queryKey: ["blocks"] });
+        qc.invalidateQueries({ queryKey: ["attendance"] });
+        qc.invalidateQueries({ queryKey: ["sheet-links"] });
+        toast.warning(`Block status updated, with a Google Sheet warning: ${res.sheetWarnings.join(" ")}`);
+        return;
+      }
+      const parts: string[] = [];
+      if (res.lockedTabs?.length) parts.push(`dropdowns removed from ${res.lockedTabs.join(", ")}`);
+      if (res.restoredTabs?.length) parts.push(`dropdowns restored on ${res.restoredTabs.join(", ")}`);
+      refresh(parts.length > 0 ? `Block updated — ${parts.join("; ")}.` : "Block status updated");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const remove = useMutation({
     mutationFn: (id: string) => deleteFn({ data: { id } }),
-    onSuccess: () => refresh("Block deleted"),
+    onSuccess: (res) => {
+      if (res.sheetWarnings?.length) {
+        qc.invalidateQueries({ queryKey: ["blocks"] });
+        qc.invalidateQueries({ queryKey: ["attendance"] });
+        qc.invalidateQueries({ queryKey: ["sheet-links"] });
+        setConfirm(null);
+        toast.warning(`Block deleted. ${res.sheetWarnings.join(" ")}`);
+        return;
+      }
+      if (res.deletedTabs?.length) {
+        refresh(`Block deleted and Google Sheet tab removed (${res.deletedTabs.join(", ")}).`);
+      } else {
+        refresh("Block deleted");
+      }
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -375,17 +411,19 @@ function AdminBlocks() {
                 {b.status !== "active" ? (
                   <Button
                     size="sm"
+                    disabled={changeStatus.isPending}
                     onClick={() => changeStatus.mutate({ id: b.id, status: "active" })}
                   >
-                    Open block
+                    {changeStatus.isPending ? "Updating…" : "Open block"}
                   </Button>
                 ) : (
                   <Button
                     size="sm"
                     variant="gold"
+                    disabled={changeStatus.isPending}
                     onClick={() => changeStatus.mutate({ id: b.id, status: "closed" })}
                   >
-                    Close block
+                    {changeStatus.isPending ? "Locking…" : "Lock block"}
                   </Button>
                 )}
                 <Button
@@ -680,9 +718,18 @@ function AdminBlocks() {
         title={confirm?.kind === "delete" ? "Delete block" : "Reset attendance"}
       >
         <p className="text-sm text-muted-foreground">
-          {confirm?.kind === "delete"
-            ? `Delete ${confirm?.block.name} and every attendance record inside it? This cannot be undone.`
-            : `Clear all attendance records for ${confirm?.block.name}? Student percentages return to 0%.`}
+          {(() => {
+            if (!confirm) return "";
+            if (confirm.kind === "reset") {
+              return `Clear all attendance records for ${confirm.block.name}? Student percentages return to 0%.`;
+            }
+            const linked = availableTemplates.filter((l) => l.block_id === confirm.block.id);
+            if (linked.length > 0) {
+              const names = linked.map((l) => `"${l.sheet_name}"`).join(", ");
+              return `Delete ${confirm.block.name}, every attendance record inside it, and its linked Google Sheet tab (${names})? This cannot be undone.`;
+            }
+            return `Delete ${confirm.block.name} and every attendance record inside it? This cannot be undone.`;
+          })()}
         </p>
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="outline" onClick={() => setConfirm(null)}>

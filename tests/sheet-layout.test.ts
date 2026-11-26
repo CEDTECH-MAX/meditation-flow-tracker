@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildAttendanceClearRanges,
   buildCanonicalSpreadsheetUrl,
+  buildDropdownValidationRequests,
   buildHeaderUpdatesForNewBlock,
   createStudentMatcher,
   parseSheetColumns,
@@ -202,5 +203,57 @@ describe("new block tab helpers (real 4-week MII sheet layout)", () => {
       newStartDate: "2026-12-07",
     });
     expect(updates).toEqual([{ range: "'UGUYFY'!G3", values: [["UGUYFY"]] }]);
+  });
+
+  it("builds dropdown removal and restore requests strictly on attendance columns without touching formula columns", () => {
+    const headerRows = [[], [], realRow3, realRow4, realRow5];
+    const layout = parseSheetColumns(headerRows, "2026-11-09");
+    const leftRows = [
+      ...headerRows,
+      [1, "Bolofo", "Reamohetswe", 211005],
+      [2, "Buthelezi", "S'phokuhle", 211010],
+      ["", "TOTAL", "", "=COUNTA(D6:D7)"],
+    ];
+
+    const removeReqs = buildDropdownValidationRequests({
+      sheetId: 640080935,
+      layout,
+      leftRows,
+      rowCount: 404,
+      mode: "remove",
+    });
+    expect(removeReqs).toHaveLength(8);
+    // First span is columns G..L (indices 6..11 -> endColumnIndex 12), skipping M (12, Yellow formula)
+    expect(removeReqs[0]).toEqual({
+      setDataValidation: {
+        range: {
+          sheetId: 640080935,
+          startRowIndex: 5,
+          endRowIndex: 404,
+          startColumnIndex: 6,
+          endColumnIndex: 12,
+        },
+      },
+    });
+    expect(removeReqs.every((r) => r.setDataValidation.rule === undefined)).toBe(true);
+
+    const restoreReqs = buildDropdownValidationRequests({
+      sheetId: 640080935,
+      layout,
+      leftRows,
+      rowCount: 404,
+      mode: "restore",
+    });
+    expect(restoreReqs).toHaveLength(8);
+    expect(restoreReqs[0]?.setDataValidation.range).toEqual({
+      sheetId: 640080935,
+      startRowIndex: 5,
+      endRowIndex: 7, // rows 6-7 only (stops before row 8 TOTAL formula)
+      startColumnIndex: 6,
+      endColumnIndex: 12,
+    });
+    expect(
+      restoreReqs[0]?.setDataValidation.rule?.condition.values.map((v) => v.userEnteredValue),
+    ).toEqual(["2.0", "1.5", "1.0", "0.5", "0.0"]);
   });
 });

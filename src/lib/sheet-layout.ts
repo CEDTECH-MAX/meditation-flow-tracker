@@ -293,19 +293,10 @@ function isSummaryOrFormulaRow(row: unknown[]): boolean {
   return false;
 }
 
-/**
- * Builds minimal contiguous A1 ranges covering only mapped attendance columns
- * across student rows so `values:batchClear` removes old marks while preserving
- * all formulas, headers, student rows, formatting, and dropdown validations.
- */
-export function buildAttendanceClearRanges(
-  sheetName: string,
+export function computeStudentRowSpans(
   layout: ParsedSheetLayout,
   leftRows: unknown[][],
-): string[] {
-  if (layout.columns.length === 0) return [];
-
-  // Find last populated student row so we don't clear past real rows or hit footer totals
+): [number, number][] {
   let lastStudentRow = layout.dataStartRow - 1;
   for (let r = layout.dataStartRow - 1; r < leftRows.length; r += 1) {
     const row = leftRows[r] ?? [];
@@ -317,7 +308,6 @@ export function buildAttendanceClearRanges(
   }
   if (lastStudentRow < layout.dataStartRow) return [];
 
-  // Build contiguous clearable row spans (splitting around any mid-sheet summary/formula row)
   const rowSpans: [number, number][] = [];
   let spanStart: number | null = null;
   for (let sheetRow = layout.dataStartRow; sheetRow <= lastStudentRow; sheetRow += 1) {
@@ -332,9 +322,10 @@ export function buildAttendanceClearRanges(
     }
   }
   if (spanStart !== null) rowSpans.push([spanStart, lastStudentRow]);
-  if (rowSpans.length === 0) return [];
+  return rowSpans;
+}
 
-  // Group contiguous attendance column indices (skips formula/Yellow/summary gaps)
+export function computeAttendanceColumnSpans(layout: ParsedSheetLayout): [number, number][] {
   const sortedCols = [...layout.columns].sort((a, b) => a.colIndex - b.colIndex);
   const colSpans: [number, number][] = [];
   for (const col of sortedCols) {
@@ -345,6 +336,25 @@ export function buildAttendanceClearRanges(
       colSpans.push([col.colIndex, col.colIndex]);
     }
   }
+  return colSpans;
+}
+
+/**
+ * Builds minimal contiguous A1 ranges covering only mapped attendance columns
+ * across student rows so `values:batchClear` removes old marks while preserving
+ * all formulas, headers, student rows, formatting, and dropdown validations.
+ */
+export function buildAttendanceClearRanges(
+  sheetName: string,
+  layout: ParsedSheetLayout,
+  leftRows: unknown[][],
+): string[] {
+  if (layout.columns.length === 0) return [];
+
+  const rowSpans = computeStudentRowSpans(layout, leftRows);
+  if (rowSpans.length === 0) return [];
+
+  const colSpans = computeAttendanceColumnSpans(layout);
 
   const quoted = quoteSheetName(sheetName);
   const ranges: string[] = [];
@@ -354,6 +364,89 @@ export function buildAttendanceClearRanges(
     }
   }
   return ranges;
+}
+
+export type SheetDropdownRequest = {
+  setDataValidation: {
+    range: {
+      sheetId: number;
+      startRowIndex: number;
+      endRowIndex: number;
+      startColumnIndex: number;
+      endColumnIndex: number;
+    };
+    rule?: {
+      condition: {
+        type: "ONE_OF_LIST";
+        values: { userEnteredValue: string }[];
+      };
+      strict: boolean;
+      showCustomUi: boolean;
+    };
+  };
+};
+
+const ATTENDANCE_DROPDOWN_RULE = {
+  condition: {
+    type: "ONE_OF_LIST" as const,
+    values: ["2.0", "1.5", "1.0", "0.5", "0.0"].map((v) => ({ userEnteredValue: v })),
+  },
+  strict: true,
+  showCustomUi: true,
+};
+
+/**
+ * Builds Google Sheets `setDataValidation` batchUpdate requests for attendance columns:
+ * - `remove`: strips dropdown validation across all attendance columns from `dataStartRow`
+ *   through the bottom of the sheet while keeping every recorded mark and formula intact.
+ * - `restore`: restores the 2.0 / 1.5 / 1.0 / 0.5 / 0.0 dropdown across student rows.
+ */
+export function buildDropdownValidationRequests(opts: {
+  sheetId: number;
+  layout: ParsedSheetLayout;
+  leftRows: unknown[][];
+  rowCount: number;
+  mode: "remove" | "restore";
+}): SheetDropdownRequest[] {
+  const colSpans = computeAttendanceColumnSpans(opts.layout);
+  if (colSpans.length === 0) return [];
+
+  if (opts.mode === "remove") {
+    const startRowIndex = Math.max(0, opts.layout.dataStartRow - 1);
+    const endRowIndex = Math.max(startRowIndex + 1, opts.rowCount);
+    return colSpans.map(([cStart, cEnd]) => ({
+      setDataValidation: {
+        range: {
+          sheetId: opts.sheetId,
+          startRowIndex,
+          endRowIndex,
+          startColumnIndex: cStart,
+          endColumnIndex: cEnd + 1,
+        },
+      },
+    }));
+  }
+
+  const rowSpans = computeStudentRowSpans(opts.layout, opts.leftRows);
+  if (rowSpans.length === 0) return [];
+  const requests: SheetDropdownRequest[] = [];
+  for (const [rStart, rEnd] of rowSpans) {
+    for (const [cStart, cEnd] of colSpans) {
+      requests.push({
+        setDataValidation: {
+          range: {
+            sheetId: opts.sheetId,
+            startRowIndex: rStart - 1,
+            endRowIndex: rEnd,
+            startColumnIndex: cStart,
+            endColumnIndex: cEnd + 1,
+          },
+          rule: ATTENDANCE_DROPDOWN_RULE,
+        },
+      });
+    }
+  }
+  return requests;
 }
 
 function diffDaysIso(fromIso: string, toIso: string): number {

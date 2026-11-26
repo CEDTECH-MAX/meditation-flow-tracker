@@ -4,6 +4,7 @@ import type { SessionSlot } from "@/lib/attendance";
 import {
   buildAttendanceClearRanges,
   buildCanonicalSpreadsheetUrl,
+  buildDropdownValidationRequests,
   buildHeaderUpdatesForNewBlock,
   colIndexToLetter,
   createStudentMatcher,
@@ -268,6 +269,254 @@ export async function duplicateTemplateTabForBlock(params: {
     cleared_ranges: clearRanges.length,
     headers_updated: headerUpdates.length,
   };
+}
+
+/**
+ * Deletes linked Google Sheet tabs belonging to a block being deleted.
+ * Never deletes the sole remaining tab in a spreadsheet (Google Sheets disallows it),
+ * and preserves one template link row if no other link exists for that spreadsheet.
+ */
+export async function deleteLinkedSheetTabsForBlock(params: {
+  blockId: string;
+  institution: "MII" | "MIU";
+  actorId: string;
+  actorEmail: string | null;
+}): Promise<{ deletedTabs: string[]; warnings: string[] }> {
+  const { data: links, error } = await supabaseAdmin
+    .from("sheet_links")
+    .select("id, spreadsheet_id, spreadsheet_url, sheet_name")
+    .eq("block_id", params.blockId)
+    .eq("institution", params.institution);
+  if (error) throw new Error(error.message);
+  if (!links || links.length === 0) return { deletedTabs: [], warnings: [] };
+
+  const deletedTabs: string[] = [];
+  const warnings: string[] = [];
+
+  const bySpreadsheet = new Map<string, typeof links>();
+  for (const l of links) {
+    const list = bySpreadsheet.get(l.spreadsheet_id) ?? [];
+    list.push(l);
+    bySpreadsheet.set(l.spreadsheet_id, list);
+  }
+
+  for (const [spreadsheetId, groupLinks] of bySpreadsheet.entries()) {
+    try {
+      const meta = await fetchSpreadsheetMeta(spreadsheetId);
+      let remainingSheets = [...meta.sheets];
+
+      // Count other link rows for this spreadsheet in the same institution so we know
+      // whether we need to keep one detached template link row after deleting these tabs.
+      const deletingIds = new Set(groupLinks.map((l) => l.id));
+      const { data: allSpreadsheetLinks } = await supabaseAdmin
+        .from("sheet_links")
+        .select("id")
+        .eq("institution", params.institution)
+        .eq("spreadsheet_id", spreadsheetId);
+      let otherLinksCount = (allSpreadsheetLinks ?? []).filter((r: any) => !deletingIds.has(r.id)).length;
+
+      for (const link of groupLinks) {
+        const preferredGid = parseSpreadsheetGid(link.spreadsheet_url);
+        const targetTab =
+          remainingSheets.find((s) => s.title === link.sheet_name) ??
+          (preferredGid !== null
+            ? remainingSheets.find((s) => s.sheetId === preferredGid)
+            : undefined);
+
+        if (!targetTab) {
+          // Tab was already removed in Google Sheets; clean up the link row unless we need a template row
+          clearSheetMapCache(link.id);
+          if (otherLinksCount === 0 && remainingSheets.length > 0) {
+            const fallback = remainingSheets[remainingSheets.length - 1]!;
+            await supabaseAdmin
+              .from("sheet_links")
+              .update({
+                block_id: null,
+                label: fallback.title,
+                sheet_name: fallback.title,
+                spreadsheet_url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${fallback.sheetId}`,
+                last_sync_status: "saved as template",
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", link.id);
+            otherLinksCount += 1;
+          } else {
+            await supabaseAdmin.from("sheet_links").delete().eq("id", link.id);
+          }
+          continue;
+        }
+
+        if (remainingSheets.length <= 1) {
+          warnings.push(
+            `Kept "${targetTab.title}" in Google Sheets because it is the only tab left in the spreadsheet.`,
+          );
+          await supabaseAdmin
+            .from("sheet_links")
+            .update({
+              block_id: null,
+              last_sync_status: "kept as template (only tab in spreadsheet)",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", link.id);
+          clearSheetMapCache(link.id);
+          otherLinksCount += 1;
+          continue;
+        }
+
+        await sheetsRequest(`/spreadsheets/${spreadsheetId}:batchUpdate`, {
+          method: "POST",
+          body: JSON.stringify({
+            requests: [{ deleteSheet: { sheetId: targetTab.sheetId } }],
+          }),
+        });
+        remainingSheets = remainingSheets.filter((s) => s.sheetId !== targetTab.sheetId);
+        clearSheetMapCache(link.id);
+        deletedTabs.push(targetTab.title);
+
+        if (otherLinksCount === 0 && remainingSheets.length > 0) {
+          const fallback = remainingSheets[remainingSheets.length - 1]!;
+          await supabaseAdmin
+            .from("sheet_links")
+            .update({
+              block_id: null,
+              label: fallback.title,
+              sheet_name: fallback.title,
+              spreadsheet_url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${fallback.sheetId}`,
+              last_sync_status: "saved as template",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", link.id);
+          otherLinksCount += 1;
+        } else {
+          await supabaseAdmin.from("sheet_links").delete().eq("id", link.id);
+        }
+
+        await supabaseAdmin.from("audit_logs").insert({
+          actor_id: params.actorId,
+          actor_email: params.actorEmail,
+          action: "sheet_delete_tab",
+          entity: "sheet_links",
+          entity_id: link.id,
+          details: {
+            block_id: params.blockId,
+            spreadsheet_id: spreadsheetId,
+            deleted_tab: targetTab.title,
+          },
+        });
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`Failed deleting sheet tabs for block ${params.blockId}:`, msg);
+      warnings.push(`Could not delete linked Google Sheet tab: ${msg}`);
+    }
+  }
+
+  return { deletedTabs, warnings };
+}
+
+/**
+ * Removes (when locking/closing a block) or restores (when reopening a block)
+ * attendance dropdown data-validation rules on every Google Sheet tab linked to `blockIds`.
+ * Existing marks and formulas remain untouched.
+ */
+export async function syncSheetDropdownsForBlockStatus(params: {
+  blockIds: string[];
+  institution: "MII" | "MIU";
+  mode: "remove" | "restore";
+  actorId: string;
+  actorEmail: string | null;
+}): Promise<{ updatedTabs: string[]; warnings: string[] }> {
+  if (params.blockIds.length === 0) return { updatedTabs: [], warnings: [] };
+
+  const { data: links, error } = await supabaseAdmin
+    .from("sheet_links")
+    .select("id, block_id, spreadsheet_id, spreadsheet_url, sheet_name, block:blocks(start_date)")
+    .in("block_id", params.blockIds)
+    .eq("institution", params.institution);
+  if (error) throw new Error(error.message);
+  if (!links || links.length === 0) return { updatedTabs: [], warnings: [] };
+
+  const updatedTabs: string[] = [];
+  const warnings: string[] = [];
+
+  const metaCache = new Map<string, Awaited<ReturnType<typeof fetchSpreadsheetMeta>>>();
+
+  for (const link of links) {
+    try {
+      let meta = metaCache.get(link.spreadsheet_id);
+      if (!meta) {
+        meta = await fetchSpreadsheetMeta(link.spreadsheet_id);
+        metaCache.set(link.spreadsheet_id, meta);
+      }
+      const preferredGid = parseSpreadsheetGid(link.spreadsheet_url);
+      const targetTab =
+        meta.sheets.find((s) => s.title === link.sheet_name) ??
+        (preferredGid !== null ? meta.sheets.find((s) => s.sheetId === preferredGid) : undefined);
+      if (!targetTab) {
+        warnings.push(`Tab "${link.sheet_name}" was not found in Google Sheets.`);
+        continue;
+      }
+
+      const blockStartDate = ((link as any).block as { start_date?: string } | null)?.start_date ?? localTodayIso();
+      const [headerRows, leftRows] = await Promise.all([
+        fetchSheetValues(link.spreadsheet_id, targetTab.title, "A1:CZ8", "FORMULA"),
+        fetchSheetValues(link.spreadsheet_id, targetTab.title, "A1:H450", "FORMULA"),
+      ]);
+
+      const layout = parseSheetColumns(headerRows, blockStartDate);
+      const requests = buildDropdownValidationRequests({
+        sheetId: targetTab.sheetId,
+        layout,
+        leftRows,
+        rowCount: targetTab.rowCount,
+        mode: params.mode,
+      });
+      if (requests.length === 0) {
+        warnings.push(`No attendance columns found on "${targetTab.title}" to update dropdowns.`);
+        continue;
+      }
+
+      await sheetsRequest(`/spreadsheets/${link.spreadsheet_id}:batchUpdate`, {
+        method: "POST",
+        body: JSON.stringify({ requests }),
+      });
+
+      const nowIso = new Date().toISOString();
+      await supabaseAdmin
+        .from("sheet_links")
+        .update({
+          last_synced_at: nowIso,
+          last_sync_status:
+            params.mode === "remove"
+              ? "locked (dropdowns removed)"
+              : "open (dropdowns restored)",
+          last_sync_direction: "web_to_sheet",
+          updated_at: nowIso,
+        })
+        .eq("id", link.id);
+
+      await supabaseAdmin.from("audit_logs").insert({
+        actor_id: params.actorId,
+        actor_email: params.actorEmail,
+        action: params.mode === "remove" ? "sheet_lock_dropdowns" : "sheet_restore_dropdowns",
+        entity: "sheet_links",
+        entity_id: link.id,
+        details: {
+          block_id: link.block_id,
+          sheet_name: targetTab.title,
+          ranges_updated: requests.length,
+        },
+      });
+
+      updatedTabs.push(targetTab.title);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`Failed updating dropdowns for link ${link.id}:`, msg);
+      warnings.push(`Could not update dropdowns on "${link.sheet_name}": ${msg}`);
+    }
+  }
+
+  return { updatedTabs, warnings };
 }
 
 export async function loadInstitutionStudents(institution: "MII" | "MIU"): Promise<SheetStudentRef[]> {
