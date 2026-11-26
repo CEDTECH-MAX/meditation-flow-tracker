@@ -92,10 +92,13 @@ export async function fetchSheetValues(
 ): Promise<string[][]> {
   // Do not encode colons in the range segment — Google Sheets rejects %3A
   const fullRange = `${encodeURIComponent(quoteSheet(sheetName))}!${range}`;
-  const data = await sheetsRequest<{ values?: string[][] }>(
+  const data = await sheetsRequest<{ values?: unknown[][] }>(
     `/spreadsheets/${spreadsheetId}/values/${fullRange}?valueRenderOption=${valueRenderOption}`,
   );
-  return data.values ?? [];
+  // FORMULA mode returns raw numbers/booleans for non-formula cells; normalize every cell to string.
+  return (data.values ?? []).map((row) =>
+    Array.isArray(row) ? row.map((cell) => (cell === null || cell === undefined ? "" : String(cell))) : [],
+  );
 }
 
 async function batchUpdateCells(
@@ -173,6 +176,13 @@ export async function duplicateTemplateTabForBlock(params: {
     meta.sheets.map((s) => s.title),
   );
 
+  // Read and parse the template tab before duplicating so a parse/read failure never leaves an orphan tab
+  const [headerRows, leftRows] = await Promise.all([
+    fetchSheetValues(template.spreadsheet_id, sourceTab.title, "A1:CZ8", "FORMULA"),
+    fetchSheetValues(template.spreadsheet_id, sourceTab.title, "A1:H450", "FORMULA"),
+  ]);
+  const layout = parseSheetColumns(headerRows, params.newBlockStartDate);
+
   const dupRes = await sheetsRequest<{
     replies?: { duplicateSheet?: { properties?: { sheetId?: number; title?: string } } }[];
   }>(`/spreadsheets/${template.spreadsheet_id}:batchUpdate`, {
@@ -194,13 +204,6 @@ export async function duplicateTemplateTabForBlock(params: {
   const newSheetId = createdProps?.sheetId ?? null;
   const actualTabName = createdProps?.title ?? finalTabName;
 
-  // Read formula-preserving headers and student rows on the new tab
-  const [headerRows, leftRows] = await Promise.all([
-    fetchSheetValues(template.spreadsheet_id, actualTabName, "A1:CZ8", "FORMULA"),
-    fetchSheetValues(template.spreadsheet_id, actualTabName, "A1:H450", "FORMULA"),
-  ]);
-
-  const layout = parseSheetColumns(headerRows, params.newBlockStartDate);
   const clearRanges = buildAttendanceClearRanges(actualTabName, layout, leftRows);
   const templateBlock = (template as any).block as { name?: string; start_date?: string } | null;
   const headerUpdates = buildHeaderUpdatesForNewBlock(actualTabName, headerRows, {
@@ -325,10 +328,10 @@ async function loadSheetMap(link: {
   const rowByStudentId = new Map<string, number>();
   for (let r = layout.dataStartRow - 1; r < leftRows.length; r += 1) {
     const row = leftRows[r] ?? [];
-    const no = layout.studentNoCol >= 0 ? (row[layout.studentNoCol] ?? "") : "";
-    const last = layout.lastNameCol >= 0 ? (row[layout.lastNameCol] ?? "") : "";
-    const first = layout.firstNameCol >= 0 ? (row[layout.firstNameCol] ?? "") : "";
-    const email = layout.emailCol >= 0 ? (row[layout.emailCol] ?? "") : "";
+    const no = layout.studentNoCol >= 0 ? String(row[layout.studentNoCol] ?? "") : "";
+    const last = layout.lastNameCol >= 0 ? String(row[layout.lastNameCol] ?? "") : "";
+    const first = layout.firstNameCol >= 0 ? String(row[layout.firstNameCol] ?? "") : "";
+    const email = layout.emailCol >= 0 ? String(row[layout.emailCol] ?? "") : "";
     if (!no.trim() && !last.trim() && !first.trim()) continue;
     const student = matcher.matchSheetRow(no, last, first, email);
     if (student && !rowByStudentId.has(student.id)) {
@@ -455,10 +458,10 @@ export async function inspectSheetAgainstBlock(params: {
 
   for (let r = layout.dataStartRow - 1; r < leftRows.length; r += 1) {
     const row = leftRows[r] ?? [];
-    const no = layout.studentNoCol >= 0 ? (row[layout.studentNoCol] ?? "").trim() : "";
-    const last = layout.lastNameCol >= 0 ? (row[layout.lastNameCol] ?? "").trim() : "";
-    const first = layout.firstNameCol >= 0 ? (row[layout.firstNameCol] ?? "").trim() : "";
-    const email = layout.emailCol >= 0 ? (row[layout.emailCol] ?? "").trim() : "";
+    const no = layout.studentNoCol >= 0 ? String(row[layout.studentNoCol] ?? "").trim() : "";
+    const last = layout.lastNameCol >= 0 ? String(row[layout.lastNameCol] ?? "").trim() : "";
+    const first = layout.firstNameCol >= 0 ? String(row[layout.firstNameCol] ?? "").trim() : "";
+    const email = layout.emailCol >= 0 ? String(row[layout.emailCol] ?? "").trim() : "";
     if (!no && !last && !first) continue;
     sheetStudents += 1;
     const found = matcher.matchSheetRow(no, last, first, email);
@@ -601,10 +604,10 @@ export async function runFullSheetSync(params: {
 
   for (let r = layout.dataStartRow - 1; r < rows.length; r += 1) {
     const row = rows[r] ?? [];
-    const no = layout.studentNoCol >= 0 ? (row[layout.studentNoCol] ?? "") : "";
-    const last = layout.lastNameCol >= 0 ? (row[layout.lastNameCol] ?? "") : "";
-    const first = layout.firstNameCol >= 0 ? (row[layout.firstNameCol] ?? "") : "";
-    const email = layout.emailCol >= 0 ? (row[layout.emailCol] ?? "") : "";
+    const no = layout.studentNoCol >= 0 ? String(row[layout.studentNoCol] ?? "") : "";
+    const last = layout.lastNameCol >= 0 ? String(row[layout.lastNameCol] ?? "") : "";
+    const first = layout.firstNameCol >= 0 ? String(row[layout.firstNameCol] ?? "") : "";
+    const email = layout.emailCol >= 0 ? String(row[layout.emailCol] ?? "") : "";
     if (!no.trim() && !last.trim() && !first.trim()) continue;
     const student = matcher.matchSheetRow(no, last, first, email);
     if (!student) continue;

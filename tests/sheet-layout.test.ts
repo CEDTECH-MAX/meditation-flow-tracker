@@ -176,4 +176,31 @@ describe("new block tab helpers (real 4-week MII sheet layout)", () => {
     expect(sanitizeSheetTabName("A".repeat(120)).length).toBe(100);
     expect(sanitizeSheetTabName("   ")).toBe("New Block");
   });
+
+  it("handles raw numeric, boolean, and null cells returned by Google Sheets FORMULA render mode", () => {
+    const mixedHeaderRows: unknown[][] = [
+      [null, "GROUP NAME", 2026, true],
+      [undefined, 15, 18],
+      ["", "", "", "", "", "", "BLOCK 10", "Week 1", 15, 18],
+      ["", "", "", "", "PROGRAMMES", "", "MONDAY", "", "TUESDAY", "", "For 80% Points"],
+      ["", "LAST", "FIRST", "STUDENT NO", "TM TEACHER", "Group No", "AM", "PM", "AM", "PM", "Week Actual Points"],
+    ];
+    const layout = parseSheetColumns(mixedHeaderRows, "2026-12-07");
+    expect(layout.studentNoCol).toBe(3);
+    expect(layout.columns.map((c) => c.colLetter)).toEqual(["G", "H", "I", "J"]);
+
+    const mixedLeftRows: unknown[][] = [
+      ...mixedHeaderRows,
+      [1, "Bolofo", "Reamohetswe", 211005],
+      [2, "Buthelezi", "S'phokuhle", 211010],
+      [null, "TOTAL", null, "=COUNTA(D6:D7)"],
+    ];
+    expect(buildAttendanceClearRanges("UGUYFY", layout, mixedLeftRows)).toEqual(["'UGUYFY'!G6:J7"]);
+
+    const updates = buildHeaderUpdatesForNewBlock("UGUYFY", mixedHeaderRows, {
+      blockName: "UGUYFY",
+      newStartDate: "2026-12-07",
+    });
+    expect(updates).toEqual([{ range: "'UGUYFY'!G3", values: [["UGUYFY"]] }]);
+  });
 });

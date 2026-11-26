@@ -29,6 +29,11 @@ export type SheetStudentRef = {
 
 const VALID_POINTS = new Set([0, 0.5, 1, 1.5, 2]);
 
+function cellText(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
+}
+
 export function parseSpreadsheetId(input: string): string | null {
   const trimmed = input.trim();
   if (!trimmed) return null;
@@ -61,16 +66,15 @@ export function colIndexToLetter(index: number): string {
   return out;
 }
 
-export function normalizeStudentNo(value: string | null | undefined): string {
-  const clean = (value ?? "").trim().toLowerCase().replace(/\s+/g, "");
+export function normalizeStudentNo(value: string | number | null | undefined): string {
+  const clean = cellText(value).toLowerCase().replace(/\s+/g, "");
   if (!clean) return "";
   if (/^\d+$/.test(clean)) return clean.replace(/^0+/, "") || "0";
   return clean;
 }
 
-export function normalizeName(value: string | null | undefined): string {
-  return (value ?? "")
-    .trim()
+export function normalizeName(value: string | number | null | undefined): string {
+  return cellText(value)
     .toLowerCase()
     .replace(/[^a-z0-9\s']/g, " ")
     .replace(/\s+/g, " ");
@@ -142,7 +146,7 @@ function mondayOf(isoDate: string): string {
  * Yellow extra-points separators and 3-column Rounding days) and sheets with
  * explicit YYYY-MM-DD / DD/MM/YYYY date headers.
  */
-export function parseSheetColumns(rows: string[][], blockStartDate: string): ParsedSheetLayout {
+export function parseSheetColumns(rows: unknown[][], blockStartDate: string): ParsedSheetLayout {
   let headerRowIndex = -1;
   let studentNoCol = -1;
   let lastNameCol = -1;
@@ -153,7 +157,7 @@ export function parseSheetColumns(rows: string[][], blockStartDate: string): Par
   for (let r = 0; r < maxScan; r += 1) {
     const row = rows[r] ?? [];
     for (let c = 0; c < Math.min(row.length, 15); c += 1) {
-      const cell = (row[c] ?? "").trim().toUpperCase().replace(/\s+/g, " ");
+      const cell = cellText(row[c]).toUpperCase().replace(/\s+/g, " ");
       if (cell === "STUDENT NO" || cell === "STUDENT NUMBER" || cell === "STUDENT ID") {
         headerRowIndex = r;
         studentNoCol = c;
@@ -172,7 +176,7 @@ export function parseSheetColumns(rows: string[][], blockStartDate: string): Par
   const dayRow = rows[dayRowIndex] ?? [];
 
   for (let c = 0; c < Math.min(slotRow.length, 15); c += 1) {
-    const cell = (slotRow[c] ?? "").trim().toUpperCase().replace(/\s+/g, " ");
+    const cell = cellText(slotRow[c]).toUpperCase().replace(/\s+/g, " ");
     if (studentNoCol === -1 && (cell === "STUDENT NO" || cell === "STUDENT NUMBER")) studentNoCol = c;
     if (lastNameCol === -1 && (cell === "LAST" || cell === "SURNAME" || cell === "LAST NAME")) lastNameCol = c;
     if (firstNameCol === -1 && (cell === "FIRST" || cell === "FIRST NAME" || cell === "NAME")) firstNameCol = c;
@@ -218,8 +222,8 @@ export function parseSheetColumns(rows: string[][], blockStartDate: string): Par
   };
 
   for (let c = startCol; c < maxCols; c += 1) {
-    const rawDay = (dayRow[c] ?? "").trim();
-    const rawSlot = (slotRow[c] ?? "").trim();
+    const rawDay = cellText(dayRow[c]);
+    const rawSlot = cellText(slotRow[c]);
 
     const explicit = parseExplicitDate(rawDay);
     const dow = explicit ? null : parseWeekdayOffset(rawDay);
@@ -279,9 +283,9 @@ export function quoteSheetName(sheetName: string): string {
   return `'${sheetName.replace(/'/g, "''")}'`;
 }
 
-function isSummaryOrFormulaRow(row: string[]): boolean {
+function isSummaryOrFormulaRow(row: unknown[]): boolean {
   for (let c = 0; c < Math.min(row.length, 6); c += 1) {
-    const cell = (row[c] ?? "").trim();
+    const cell = cellText(row[c]);
     if (!cell) continue;
     if (cell.startsWith("=")) return true;
     if (/^(total|totals|grand total|subtotal|summary|average|count)\b/i.test(cell)) return true;
@@ -297,7 +301,7 @@ function isSummaryOrFormulaRow(row: string[]): boolean {
 export function buildAttendanceClearRanges(
   sheetName: string,
   layout: ParsedSheetLayout,
-  leftRows: string[][],
+  leftRows: unknown[][],
 ): string[] {
   if (layout.columns.length === 0) return [];
 
@@ -306,9 +310,9 @@ export function buildAttendanceClearRanges(
   for (let r = layout.dataStartRow - 1; r < leftRows.length; r += 1) {
     const row = leftRows[r] ?? [];
     if (isSummaryOrFormulaRow(row)) continue;
-    const no = layout.studentNoCol >= 0 ? (row[layout.studentNoCol] ?? "").trim() : "";
-    const last = layout.lastNameCol >= 0 ? (row[layout.lastNameCol] ?? "").trim() : "";
-    const first = layout.firstNameCol >= 0 ? (row[layout.firstNameCol] ?? "").trim() : "";
+    const no = layout.studentNoCol >= 0 ? cellText(row[layout.studentNoCol]) : "";
+    const last = layout.lastNameCol >= 0 ? cellText(row[layout.lastNameCol]) : "";
+    const first = layout.firstNameCol >= 0 ? cellText(row[layout.firstNameCol]) : "";
     if (no || last || first) lastStudentRow = r + 1;
   }
   if (lastStudentRow < layout.dataStartRow) return [];
@@ -379,7 +383,7 @@ function shiftFormattedDate(raw: string, deltaDays: number): string | null {
  */
 export function buildHeaderUpdatesForNewBlock(
   sheetName: string,
-  headerRows: string[][],
+  headerRows: unknown[][],
   opts: {
     blockName: string;
     templateBlockName?: string | null;
@@ -389,7 +393,7 @@ export function buildHeaderUpdatesForNewBlock(
 ): { range: string; values: string[][] }[] {
   const updates: { range: string; values: string[][] }[] = [];
   const quoted = quoteSheetName(sheetName);
-  const templateNameLower = (opts.templateBlockName ?? "").trim().toLowerCase();
+  const templateNameLower = cellText(opts.templateBlockName).toLowerCase();
   const deltaDays =
     opts.templateStartDate && opts.newStartDate
       ? diffDaysIso(opts.templateStartDate, opts.newStartDate)
@@ -399,7 +403,7 @@ export function buildHeaderUpdatesForNewBlock(
   for (let r = 0; r < maxRows; r += 1) {
     const row = headerRows[r] ?? [];
     for (let c = 0; c < row.length; c += 1) {
-      const raw = String(row[c] ?? "").trim();
+      const raw = cellText(row[c]);
       if (!raw || raw.startsWith("=")) continue;
 
       if (deltaDays !== 0) {
@@ -475,24 +479,24 @@ export function createStudentMatcher(students: SheetStudentRef[]): StudentMatche
 
   return {
     matchSheetRow(studentNo, lastName, firstName, email = "") {
-      const rawNo = studentNo.trim().toLowerCase();
+      const rawNo = cellText(studentNo).toLowerCase();
       if (rawNo) {
         const exact = byExactNo.get(rawNo);
         if (exact) return exact;
         const norm = byNormNo.get(normalizeStudentNo(rawNo));
         if (norm) return norm;
       }
-      const em = email.trim().toLowerCase();
+      const em = cellText(email).toLowerCase();
       if (em) {
         const found = byEmail.get(em);
         if (found) return found;
       }
-      const lf = normalizeName(`${lastName} ${firstName}`);
+      const lf = normalizeName(`${cellText(lastName)} ${cellText(firstName)}`);
       if (lf) {
         const m = byName.get(lf);
         if (m && m !== "ambiguous") return m;
       }
-      const fl = normalizeName(`${firstName} ${lastName}`);
+      const fl = normalizeName(`${cellText(firstName)} ${cellText(lastName)}`);
       if (fl) {
         const m = byName.get(fl);
         if (m && m !== "ambiguous") return m;
