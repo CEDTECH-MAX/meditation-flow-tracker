@@ -46,6 +46,7 @@ const adminNav: { to: string; label: string; exact?: boolean }[] = [
   { to: "/admin/cohorts", label: "Cohorts" },
   { to: "/admin/blocks", label: "Blocks" },
   { to: "/admin/reports", label: "Reports" },
+  { to: "/admin/sheets", label: "Google Sheet sync" },
   { to: "/mail", label: "Mail" },
 ];
 

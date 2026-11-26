@@ -519,6 +519,10 @@ export const markAttendance = createServerFn({ method: "POST" })
         .eq("slot", data.slot);
       if (error) throw new Error(error.message);
       await audit(c, "clear", "attendance", data.student_id, data as any);
+      const { pushMarksToLinkedSheets } = await import("@/lib/sheet-sync.server");
+      await pushMarksToLinkedSheets(data.block_id, [
+        { student_id: data.student_id, session_date: data.session_date, slot: data.slot, points: null },
+      ]);
       return { ok: true };
     }
 
@@ -542,6 +546,10 @@ export const markAttendance = createServerFn({ method: "POST" })
 
     if (error) throw new Error(error.message);
     await audit(c, "mark", "attendance", data.student_id, data as any);
+    const { pushMarksToLinkedSheets } = await import("@/lib/sheet-sync.server");
+    await pushMarksToLinkedSheets(data.block_id, [
+      { student_id: data.student_id, session_date: data.session_date, slot: data.slot, points: data.points },
+    ]);
     return { ok: true };
   });
 
@@ -581,6 +589,16 @@ export const markDayForAll = createServerFn({ method: "POST" })
       points: data.points,
       count: rows.length,
     });
+    const { pushMarksToLinkedSheets } = await import("@/lib/sheet-sync.server");
+    await pushMarksToLinkedSheets(
+      data.block_id,
+      data.student_ids.map((student_id) => ({
+        student_id,
+        session_date: data.session_date,
+        slot: data.slot,
+        points: data.points,
+      })),
+    );
     return { ok: true };
   });
 

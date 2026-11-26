@@ -293,6 +293,10 @@ export const markAsMarker = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
       await audit(c, "clear", "attendance", data.student_id, data as any);
       await touchPresence(c, "marking", data.block_id, (block as any).cohort_id ?? null);
+      const { pushMarksToLinkedSheets } = await import("@/lib/sheet-sync.server");
+      await pushMarksToLinkedSheets(data.block_id, [
+        { student_id: data.student_id, session_date: data.session_date, slot: data.slot, points: null },
+      ]);
       return { ok: true };
     }
 
@@ -319,6 +323,10 @@ export const markAsMarker = createServerFn({ method: "POST" })
     await Promise.all([
       audit(c, "mark", "attendance", data.student_id, data as any),
       touchPresence(c, "marking", data.block_id, (block as any).cohort_id ?? null),
+    ]);
+    const { pushMarksToLinkedSheets } = await import("@/lib/sheet-sync.server");
+    await pushMarksToLinkedSheets(data.block_id, [
+      { student_id: data.student_id, session_date: data.session_date, slot: data.slot, points: data.points },
     ]);
     return { ok: true };
   });

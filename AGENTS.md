@@ -10,3 +10,4 @@
 <!-- LOVABLE:END -->
 
 - Account profile attributes shared across roles belong on `profiles`, because all account types use one identity record.
+- Google Sheets sync links live in `public.sheet_links` scoped by institution and block, because MII and MIU registers stay separate and one block can map to multiple group tabs.

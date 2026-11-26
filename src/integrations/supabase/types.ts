@@ -1123,6 +1123,75 @@ export type Database = {
           },
         ]
       }
+      sheet_links: {
+        Row: {
+          block_id: string
+          created_at: string
+          created_by: string | null
+          enabled: boolean
+          id: string
+          institution: Database["public"]["Enums"]["institution"]
+          label: string
+          last_sync_direction: string | null
+          last_sync_status: string | null
+          last_synced_at: string | null
+          sheet_name: string
+          spreadsheet_id: string
+          spreadsheet_url: string
+          updated_at: string
+          webhook_secret: string
+        }
+        Insert: {
+          block_id: string
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          id?: string
+          institution: Database["public"]["Enums"]["institution"]
+          label: string
+          last_sync_direction?: string | null
+          last_sync_status?: string | null
+          last_synced_at?: string | null
+          sheet_name: string
+          spreadsheet_id: string
+          spreadsheet_url: string
+          updated_at?: string
+          webhook_secret: string
+        }
+        Update: {
+          block_id?: string
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          id?: string
+          institution?: Database["public"]["Enums"]["institution"]
+          label?: string
+          last_sync_direction?: string | null
+          last_sync_status?: string | null
+          last_synced_at?: string | null
+          sheet_name?: string
+          spreadsheet_id?: string
+          spreadsheet_url?: string
+          updated_at?: string
+          webhook_secret?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sheet_links_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sheet_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_sessions: {
         Row: {
           created_at: string

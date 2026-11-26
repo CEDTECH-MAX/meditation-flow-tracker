@@ -37,6 +37,7 @@ import { Route as AuthenticatedAdminFeedbackRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminMarkersRouteImport } from './routes/_authenticated/admin.markers'
 import { Route as AuthenticatedAdminNoticesRouteImport } from './routes/_authenticated/admin.notices'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin.reports'
+import { Route as AuthenticatedAdminSheetsRouteImport } from './routes/_authenticated/admin.sheets'
 import { Route as AuthenticatedAdminStudentsRouteImport } from './routes/_authenticated/admin.students'
 import { Route as AuthenticatedDeveloperIndexRouteImport } from './routes/_authenticated/developer.index'
 import { Route as AuthenticatedDeveloperAuditRouteImport } from './routes/_authenticated/developer.audit'
@@ -54,6 +55,7 @@ import { Route as AuthenticatedDeveloperUsersRouteImport } from './routes/_authe
 import { Route as AuthenticatedMarkerIndexRouteImport } from './routes/_authenticated/marker.index'
 import { Route as AuthenticatedMarkerAppealsRouteImport } from './routes/_authenticated/marker.appeals'
 import { Route as AuthenticatedMarkerPasswordRouteImport } from './routes/_authenticated/marker.password'
+import { Route as ApiPublicSheetSyncRouteImport } from './routes/api/public/sheet-sync'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 
 const IndexRoute = IndexRouteImport.update({
@@ -205,6 +207,12 @@ const AuthenticatedAdminReportsRoute =
     path: '/reports',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminSheetsRoute =
+  AuthenticatedAdminSheetsRouteImport.update({
+    id: '/sheets',
+    path: '/sheets',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminStudentsRoute =
   AuthenticatedAdminStudentsRouteImport.update({
     id: '/students',
@@ -307,6 +315,11 @@ const AuthenticatedMarkerPasswordRoute =
     path: '/password',
     getParentRoute: () => AuthenticatedMarkerRoute,
   } as any)
+const ApiPublicSheetSyncRoute = ApiPublicSheetSyncRouteImport.update({
+  id: '/api/public/sheet-sync',
+  path: '/api/public/sheet-sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LovableEmailTransactionalPreviewRoute =
   LovableEmailTransactionalPreviewRouteImport.update({
     id: '/lovable/email/transactional/preview',
@@ -341,6 +354,7 @@ export interface FileRoutesByFullPath {
   '/admin/markers': typeof AuthenticatedAdminMarkersRoute
   '/admin/notices': typeof AuthenticatedAdminNoticesRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
+  '/admin/sheets': typeof AuthenticatedAdminSheetsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/developer/audit': typeof AuthenticatedDeveloperAuditRoute
   '/developer/email': typeof AuthenticatedDeveloperEmailRoute
@@ -356,6 +370,7 @@ export interface FileRoutesByFullPath {
   '/developer/users': typeof AuthenticatedDeveloperUsersRoute
   '/marker/appeals': typeof AuthenticatedMarkerAppealsRoute
   '/marker/password': typeof AuthenticatedMarkerPasswordRoute
+  '/api/public/sheet-sync': typeof ApiPublicSheetSyncRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/developer/': typeof AuthenticatedDeveloperIndexRoute
   '/marker/': typeof AuthenticatedMarkerIndexRoute
@@ -385,6 +400,7 @@ export interface FileRoutesByTo {
   '/admin/markers': typeof AuthenticatedAdminMarkersRoute
   '/admin/notices': typeof AuthenticatedAdminNoticesRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
+  '/admin/sheets': typeof AuthenticatedAdminSheetsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/developer/audit': typeof AuthenticatedDeveloperAuditRoute
   '/developer/email': typeof AuthenticatedDeveloperEmailRoute
@@ -400,6 +416,7 @@ export interface FileRoutesByTo {
   '/developer/users': typeof AuthenticatedDeveloperUsersRoute
   '/marker/appeals': typeof AuthenticatedMarkerAppealsRoute
   '/marker/password': typeof AuthenticatedMarkerPasswordRoute
+  '/api/public/sheet-sync': typeof ApiPublicSheetSyncRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/developer': typeof AuthenticatedDeveloperIndexRoute
   '/marker': typeof AuthenticatedMarkerIndexRoute
@@ -434,6 +451,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/markers': typeof AuthenticatedAdminMarkersRoute
   '/_authenticated/admin/notices': typeof AuthenticatedAdminNoticesRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
+  '/_authenticated/admin/sheets': typeof AuthenticatedAdminSheetsRoute
   '/_authenticated/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/_authenticated/developer/audit': typeof AuthenticatedDeveloperAuditRoute
   '/_authenticated/developer/email': typeof AuthenticatedDeveloperEmailRoute
@@ -449,6 +467,7 @@ export interface FileRoutesById {
   '/_authenticated/developer/users': typeof AuthenticatedDeveloperUsersRoute
   '/_authenticated/marker/appeals': typeof AuthenticatedMarkerAppealsRoute
   '/_authenticated/marker/password': typeof AuthenticatedMarkerPasswordRoute
+  '/api/public/sheet-sync': typeof ApiPublicSheetSyncRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/developer/': typeof AuthenticatedDeveloperIndexRoute
   '/_authenticated/marker/': typeof AuthenticatedMarkerIndexRoute
@@ -483,6 +502,7 @@ export interface FileRouteTypes {
     | '/admin/markers'
     | '/admin/notices'
     | '/admin/reports'
+    | '/admin/sheets'
     | '/admin/students'
     | '/developer/audit'
     | '/developer/email'
@@ -498,6 +518,7 @@ export interface FileRouteTypes {
     | '/developer/users'
     | '/marker/appeals'
     | '/marker/password'
+    | '/api/public/sheet-sync'
     | '/admin/'
     | '/developer/'
     | '/marker/'
@@ -527,6 +548,7 @@ export interface FileRouteTypes {
     | '/admin/markers'
     | '/admin/notices'
     | '/admin/reports'
+    | '/admin/sheets'
     | '/admin/students'
     | '/developer/audit'
     | '/developer/email'
@@ -542,6 +564,7 @@ export interface FileRouteTypes {
     | '/developer/users'
     | '/marker/appeals'
     | '/marker/password'
+    | '/api/public/sheet-sync'
     | '/admin'
     | '/developer'
     | '/marker'
@@ -575,6 +598,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/markers'
     | '/_authenticated/admin/notices'
     | '/_authenticated/admin/reports'
+    | '/_authenticated/admin/sheets'
     | '/_authenticated/admin/students'
     | '/_authenticated/developer/audit'
     | '/_authenticated/developer/email'
@@ -590,6 +614,7 @@ export interface FileRouteTypes {
     | '/_authenticated/developer/users'
     | '/_authenticated/marker/appeals'
     | '/_authenticated/marker/password'
+    | '/api/public/sheet-sync'
     | '/_authenticated/admin/'
     | '/_authenticated/developer/'
     | '/_authenticated/marker/'
@@ -605,6 +630,7 @@ export interface RootRouteChildren {
   MiiRoute: typeof MiiRoute
   MiuRoute: typeof MiuRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  ApiPublicSheetSyncRoute: typeof ApiPublicSheetSyncRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
 }
 
@@ -806,6 +832,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminReportsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/sheets': {
+      id: '/_authenticated/admin/sheets'
+      path: '/sheets'
+      fullPath: '/admin/sheets'
+      preLoaderRoute: typeof AuthenticatedAdminSheetsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/students': {
       id: '/_authenticated/admin/students'
       path: '/students'
@@ -925,6 +958,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMarkerPasswordRouteImport
       parentRoute: typeof AuthenticatedMarkerRoute
     }
+    '/api/public/sheet-sync': {
+      id: '/api/public/sheet-sync'
+      path: '/api/public/sheet-sync'
+      fullPath: '/api/public/sheet-sync'
+      preLoaderRoute: typeof ApiPublicSheetSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lovable/email/transactional/preview': {
       id: '/lovable/email/transactional/preview'
       path: '/lovable/email/transactional/preview'
@@ -946,6 +986,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminMarkersRoute: typeof AuthenticatedAdminMarkersRoute
   AuthenticatedAdminNoticesRoute: typeof AuthenticatedAdminNoticesRoute
   AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
+  AuthenticatedAdminSheetsRoute: typeof AuthenticatedAdminSheetsRoute
   AuthenticatedAdminStudentsRoute: typeof AuthenticatedAdminStudentsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
@@ -961,6 +1002,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminMarkersRoute: AuthenticatedAdminMarkersRoute,
   AuthenticatedAdminNoticesRoute: AuthenticatedAdminNoticesRoute,
   AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
+  AuthenticatedAdminSheetsRoute: AuthenticatedAdminSheetsRoute,
   AuthenticatedAdminStudentsRoute: AuthenticatedAdminStudentsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
@@ -1058,6 +1100,7 @@ const rootRouteChildren: RootRouteChildren = {
   MiiRoute: MiiRoute,
   MiuRoute: MiuRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  ApiPublicSheetSyncRoute: ApiPublicSheetSyncRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
 }
 export const routeTree = rootRouteImport
