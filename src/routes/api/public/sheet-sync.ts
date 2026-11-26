@@ -60,13 +60,28 @@ export const Route = createFileRoute("/api/public/sheet-sync")({
           if (pause?.enabled) {
             return Response.json({ ok: false, error: "Marking is paused" }, { status: 423 });
           }
-          if (!link.enabled) {
+
+          // Match the edited tab strictly within the same spreadsheet and institution
+          // so one installed Apps Script automatically covers newly created block tabs.
+          let activeLink = link;
+          if (link.sheet_name !== parsed.data.sheet_name) {
+            const { data: sibling } = await supabaseAdmin
+              .from("sheet_links")
+              .select("*, block:blocks(id, start_date, end_date, status)")
+              .eq("institution", link.institution)
+              .eq("spreadsheet_id", link.spreadsheet_id)
+              .eq("sheet_name", parsed.data.sheet_name)
+              .maybeSingle();
+            if (!sibling) {
+              return Response.json({ ok: true, applied: 0, skipped: parsed.data.edits.length });
+            }
+            activeLink = sibling;
+          }
+
+          if (!activeLink.enabled) {
             return Response.json({ ok: true, applied: 0, skipped: parsed.data.edits.length, paused: true });
           }
-          if (link.sheet_name !== parsed.data.sheet_name) {
-            return Response.json({ ok: true, applied: 0, skipped: parsed.data.edits.length });
-          }
-          const block = (link as any).block as {
+          const block = (activeLink as any).block as {
             id: string;
             start_date: string;
             end_date: string;
@@ -79,11 +94,11 @@ export const Route = createFileRoute("/api/public/sheet-sync")({
           const { applySheetWebhookEdits } = await import("@/lib/sheet-sync.server");
           const result = await applySheetWebhookEdits({
             link: {
-              id: link.id,
-              institution: link.institution,
-              block_id: link.block_id,
-              spreadsheet_id: link.spreadsheet_id,
-              sheet_name: link.sheet_name,
+              id: activeLink.id,
+              institution: activeLink.institution,
+              block_id: activeLink.block_id,
+              spreadsheet_id: activeLink.spreadsheet_id,
+              sheet_name: activeLink.sheet_name,
               block,
             },
             edits: parsed.data.edits,

@@ -259,6 +259,170 @@ export function parseSheetColumns(rows: string[][], blockStartDate: string): Par
   };
 }
 
+export function sanitizeSheetTabName(name: string): string {
+  const cleaned = name
+    .replace(/[:\\/?*[\]]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 100);
+  return cleaned || "New Block";
+}
+
+export function quoteSheetName(sheetName: string): string {
+  return `'${sheetName.replace(/'/g, "''")}'`;
+}
+
+function isSummaryOrFormulaRow(row: string[]): boolean {
+  for (let c = 0; c < Math.min(row.length, 6); c += 1) {
+    const cell = (row[c] ?? "").trim();
+    if (!cell) continue;
+    if (cell.startsWith("=")) return true;
+    if (/^(total|totals|grand total|subtotal|summary|average|count)\b/i.test(cell)) return true;
+  }
+  return false;
+}
+
+/**
+ * Builds minimal contiguous A1 ranges covering only mapped attendance columns
+ * across student rows so `values:batchClear` removes old marks while preserving
+ * all formulas, headers, student rows, formatting, and dropdown validations.
+ */
+export function buildAttendanceClearRanges(
+  sheetName: string,
+  layout: ParsedSheetLayout,
+  leftRows: string[][],
+): string[] {
+  if (layout.columns.length === 0) return [];
+
+  // Find last populated student row so we don't clear past real rows or hit footer totals
+  let lastStudentRow = layout.dataStartRow - 1;
+  for (let r = layout.dataStartRow - 1; r < leftRows.length; r += 1) {
+    const row = leftRows[r] ?? [];
+    if (isSummaryOrFormulaRow(row)) continue;
+    const no = layout.studentNoCol >= 0 ? (row[layout.studentNoCol] ?? "").trim() : "";
+    const last = layout.lastNameCol >= 0 ? (row[layout.lastNameCol] ?? "").trim() : "";
+    const first = layout.firstNameCol >= 0 ? (row[layout.firstNameCol] ?? "").trim() : "";
+    if (no || last || first) lastStudentRow = r + 1;
+  }
+  if (lastStudentRow < layout.dataStartRow) return [];
+
+  // Build contiguous clearable row spans (splitting around any mid-sheet summary/formula row)
+  const rowSpans: [number, number][] = [];
+  let spanStart: number | null = null;
+  for (let sheetRow = layout.dataStartRow; sheetRow <= lastStudentRow; sheetRow += 1) {
+    const row = leftRows[sheetRow - 1] ?? [];
+    if (isSummaryOrFormulaRow(row)) {
+      if (spanStart !== null) {
+        rowSpans.push([spanStart, sheetRow - 1]);
+        spanStart = null;
+      }
+    } else if (spanStart === null) {
+      spanStart = sheetRow;
+    }
+  }
+  if (spanStart !== null) rowSpans.push([spanStart, lastStudentRow]);
+  if (rowSpans.length === 0) return [];
+
+  // Group contiguous attendance column indices (skips formula/Yellow/summary gaps)
+  const sortedCols = [...layout.columns].sort((a, b) => a.colIndex - b.colIndex);
+  const colSpans: [number, number][] = [];
+  for (const col of sortedCols) {
+    const prev = colSpans[colSpans.length - 1];
+    if (prev && col.colIndex === prev[1] + 1) {
+      prev[1] = col.colIndex;
+    } else if (!prev || col.colIndex > prev[1]) {
+      colSpans.push([col.colIndex, col.colIndex]);
+    }
+  }
+
+  const quoted = quoteSheetName(sheetName);
+  const ranges: string[] = [];
+  for (const [rStart, rEnd] of rowSpans) {
+    for (const [cStart, cEnd] of colSpans) {
+      ranges.push(`${quoted}!${colIndexToLetter(cStart)}${rStart}:${colIndexToLetter(cEnd)}${rEnd}`);
+    }
+  }
+  return ranges;
+}
+
+function diffDaysIso(fromIso: string, toIso: string): number {
+  const a = new Date(`${fromIso}T00:00:00Z`).getTime();
+  const b = new Date(`${toIso}T00:00:00Z`).getTime();
+  if (Number.isNaN(a) || Number.isNaN(b)) return 0;
+  return Math.round((b - a) / 86_400_000);
+}
+
+function shiftFormattedDate(raw: string, deltaDays: number): string | null {
+  const s = raw.trim();
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return addDays(s, deltaDays);
+  const dmy = s.match(/^(\d{1,2})([/-])(\d{1,2})\2(\d{4})$/);
+  if (dmy?.[1] && dmy[2] && dmy[3] && dmy[4]) {
+    const sep = dmy[2];
+    const shifted = addDays(`${dmy[4]}-${dmy[3].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`, deltaDays);
+    const [y, m, d] = shifted.split("-");
+    return `${d}${sep}${m}${sep}${y}`;
+  }
+  return null;
+}
+
+/**
+ * Updates block-title headers (e.g. "BLOCK 10") and shifts explicit date headers
+ * on a freshly duplicated template tab without touching formulas or summary labels.
+ */
+export function buildHeaderUpdatesForNewBlock(
+  sheetName: string,
+  headerRows: string[][],
+  opts: {
+    blockName: string;
+    templateBlockName?: string | null;
+    templateStartDate?: string | null;
+    newStartDate: string;
+  },
+): { range: string; values: string[][] }[] {
+  const updates: { range: string; values: string[][] }[] = [];
+  const quoted = quoteSheetName(sheetName);
+  const templateNameLower = (opts.templateBlockName ?? "").trim().toLowerCase();
+  const deltaDays =
+    opts.templateStartDate && opts.newStartDate
+      ? diffDaysIso(opts.templateStartDate, opts.newStartDate)
+      : 0;
+
+  const maxRows = Math.min(headerRows.length, 6);
+  for (let r = 0; r < maxRows; r += 1) {
+    const row = headerRows[r] ?? [];
+    for (let c = 0; c < row.length; c += 1) {
+      const raw = String(row[c] ?? "").trim();
+      if (!raw || raw.startsWith("=")) continue;
+
+      if (deltaDays !== 0) {
+        const shifted = shiftFormattedDate(raw, deltaDays);
+        if (shifted && shifted !== raw) {
+          updates.push({
+            range: `${quoted}!${colIndexToLetter(c)}${r + 1}`,
+            values: [[shifted]],
+          });
+          continue;
+        }
+      }
+
+      // Update standalone block labels in the top title rows (rows 1-4)
+      if (r <= 3) {
+        const isNumberedBlockLabel = /^BLOCK\s*#?\s*\d+$/i.test(raw);
+        const isTemplateNameMatch =
+          Boolean(templateNameLower) && raw.toLowerCase() === templateNameLower;
+        if ((isNumberedBlockLabel || isTemplateNameMatch) && raw !== opts.blockName) {
+          updates.push({
+            range: `${quoted}!${colIndexToLetter(c)}${r + 1}`,
+            values: [[opts.blockName]],
+          });
+        }
+      }
+    }
+  }
+  return updates;
+}
+
 export type StudentMatcher = {
   matchSheetRow: (studentNo: string, lastName: string, firstName: string, email?: string) => SheetStudentRef | null;
 };
@@ -348,16 +512,16 @@ export function buildAppsScript(params: {
   return `// MeditationFlo Live Sync — Paste into Extensions -> Apps Script
 // Step 1: Paste this code and click Save (Ctrl+S).
 // Step 2: Pick "setupAutoSync" in the toolbar and click Run once to grant permission.
-// Step 3: Done! Every dropdown mark on "${params.sheetName}" now syncs to the website automatically.
+// Step 3: Done! Every dropdown mark on linked block tabs (including new tabs created from the website) syncs automatically.
 
 const SYNC_URL = ${JSON.stringify(params.webhookUrl)};
 const LINK_ID = ${JSON.stringify(params.linkId)};
 const SYNC_SECRET = ${JSON.stringify(params.secret)};
-const TARGET_SHEET = ${JSON.stringify(params.sheetName)};
 const DATA_START_ROW = ${params.dataStartRow};
 const STUDENT_NO_COL = ${stCol};
 const LAST_NAME_COL = ${lnCol};
 const FIRST_NAME_COL = ${fnCol};
+const VALID_MARK_RE = /^(|[-—]|0(\\.[0])?|0[.,]5|1(\\.[0])?|1[.,]5|2(\\.[0])?)$/;
 
 function setupAutoSync() {
   const ss = SpreadsheetApp.getActive();
@@ -365,13 +529,13 @@ function setupAutoSync() {
     if (t.getHandlerFunction() === "handleAttendanceEdit") ScriptApp.deleteTrigger(t);
   }
   ScriptApp.newTrigger("handleAttendanceEdit").forSpreadsheet(ss).onEdit().create();
-  SpreadsheetApp.getUi().alert("Live sync is now active for " + TARGET_SHEET + ".");
+  SpreadsheetApp.getUi().alert("Live sync is now active for all linked MeditationFlo tabs in this spreadsheet.");
 }
 
 function handleAttendanceEdit(e) {
   if (!e || !e.range) return;
   const sheet = e.range.getSheet();
-  if (sheet.getName() !== TARGET_SHEET) return;
+  const sheetName = sheet.getName();
 
   const startRow = e.range.getRow();
   const numRows = e.range.getNumRows();
@@ -389,13 +553,15 @@ function handleAttendanceEdit(e) {
     const firstName = String(sheet.getRange(sheetRow, FIRST_NAME_COL).getDisplayValue() || "").trim();
     if (!studentNo && !lastName && !firstName) continue;
     for (let c = 0; c < numCols; c++) {
+      const val = String(values[r][c] || "").trim();
+      if (!VALID_MARK_RE.test(val)) continue;
       edits.push({
         row: sheetRow,
         col: startCol + c,
         student_number: studentNo,
         last_name: lastName,
         first_name: firstName,
-        value: String(values[r][c] || "").trim(),
+        value: val,
       });
     }
   }
@@ -405,7 +571,7 @@ function handleAttendanceEdit(e) {
     method: "post",
     contentType: "application/json",
     headers: { "X-Sheet-Sync-Secret": SYNC_SECRET },
-    payload: JSON.stringify({ link_id: LINK_ID, sheet_name: TARGET_SHEET, edits: edits }),
+    payload: JSON.stringify({ link_id: LINK_ID, sheet_name: sheetName, edits: edits }),
     muteHttpExceptions: true,
   });
 }

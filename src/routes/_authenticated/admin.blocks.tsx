@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
@@ -18,6 +18,7 @@ import { useBlocks, useCohorts } from "@/lib/admin-hooks";
 import { useMe } from "@/components/AppShell";
 import { deleteBlock, resetBlockAttendance, saveBlock, setBlockStatus } from "@/lib/data.functions";
 import { blockDates, blockProgress, formatDate, type Block, type BlockStatus } from "@/lib/attendance";
+import { createBlockSheetTab, listSheetLinks } from "@/lib/sheet-sync.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/blocks")({
   head: () => ({
@@ -48,6 +49,10 @@ type FormState = {
   percent_input: string;
   rounding: boolean;
   rounding_dates: string[];
+  create_sheet_tab: boolean;
+  template_link_id: string;
+  sheet_tab_name: string;
+  sheet_tab_custom: boolean;
 };
 
 const empty: FormState = {
@@ -59,6 +64,10 @@ const empty: FormState = {
   percent_input: "",
   rounding: false,
   rounding_dates: [],
+  create_sheet_tab: false,
+  template_link_id: "",
+  sheet_tab_name: "",
+  sheet_tab_custom: false,
 };
 
 /**
@@ -111,24 +120,38 @@ function AdminBlocks() {
   const statusFn = useServerFn(setBlockStatus);
   const deleteFn = useServerFn(deleteBlock);
   const resetFn = useServerFn(resetBlockAttendance);
+  const listSheetsFn = useServerFn(listSheetLinks);
+  const createSheetTabFn = useServerFn(createBlockSheetTab);
+
+  const { data: sheetLinks } = useQuery({
+    queryKey: ["sheet-links"],
+    queryFn: () => listSheetsFn(),
+  });
 
   const refresh = (msg: string) => {
     qc.invalidateQueries({ queryKey: ["blocks"] });
     qc.invalidateQueries({ queryKey: ["attendance"] });
+    qc.invalidateQueries({ queryKey: ["sheet-links"] });
     setForm(null);
     setConfirm(null);
     toast.success(msg);
   };
 
   const save = useMutation({
-    mutationFn: (v: FormState) => {
+    mutationFn: async (v: FormState) => {
       const d = derive(v.start_date, v.end_date, institution, v.rounding ? v.rounding_dates : []);
       if (!d.valid) throw new Error("Enter a start date and an end date that comes after it.");
       const typed = Number(v.percent_input);
       if (!v.percent_input.trim() || !Number.isFinite(typed) || typed <= 0) {
         throw new Error("Enter how many percent one full 2.0 session is worth.");
       }
-      return saveFn({
+      if (!v.id && v.create_sheet_tab) {
+        if (!v.template_link_id) throw new Error("Choose a Google Sheet template tab to copy from.");
+        if (!(v.sheet_tab_name.trim() || v.name.trim())) {
+          throw new Error("Enter a name for the new Google Sheet tab.");
+        }
+      }
+      const saved = await saveFn({
         data: {
           ...(v.id ? { id: v.id } : {}),
           name: v.name,
@@ -142,8 +165,39 @@ function AdminBlocks() {
           rounding_dates: v.rounding ? v.rounding_dates : [],
         },
       });
+
+      if (!v.id && v.create_sheet_tab && v.template_link_id) {
+        try {
+          const sheetRes = await createSheetTabFn({
+            data: {
+              block_id: saved.id,
+              template_link_id: v.template_link_id,
+              tab_name: (v.sheet_tab_name.trim() || v.name.trim()).slice(0, 100),
+            },
+          });
+          return { ...saved, sheetTab: sheetRes.sheet_name, sheetError: null as string | null };
+        } catch (err) {
+          return {
+            ...saved,
+            sheetTab: null as string | null,
+            sheetError: err instanceof Error ? err.message : "Could not create Google Sheet tab.",
+          };
+        }
+      }
+      return { ...saved, sheetTab: null as string | null, sheetError: null as string | null };
     },
-    onSuccess: () => refresh("Block saved"),
+    onSuccess: (res) => {
+      if (res.sheetTab) {
+        refresh(`Block saved and Google Sheet tab "${res.sheetTab}" created and linked.`);
+      } else if (res.sheetError) {
+        qc.invalidateQueries({ queryKey: ["blocks"] });
+        qc.invalidateQueries({ queryKey: ["attendance"] });
+        setForm(null);
+        toast.warning(`Block saved, but creating the Google Sheet tab failed: ${res.sheetError}`);
+      } else {
+        refresh("Block saved");
+      }
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -172,7 +226,18 @@ function AdminBlocks() {
       <SectionTitle
         title="Meditation blocks"
         subtitle="Percentages always scale to 100% of the sessions in the selected block"
-        action={<Button onClick={() => setForm({ ...empty })}>New block</Button>}
+        action={
+          <Button
+            onClick={() =>
+              setForm({
+                ...empty,
+                template_link_id: (sheetLinks as any[])?.[0]?.id ?? "",
+              })
+            }
+          >
+            New block
+          </Button>
+        }
       />
 
       {(blocks ?? []).length === 0 ? (
@@ -236,6 +301,10 @@ function AdminBlocks() {
                           : String(round1(100 / Math.max(1, b.meditation_days * 2))),
                       rounding: ((b as any).rounding_dates ?? []).length > 0,
                       rounding_dates: (b as any).rounding_dates ?? [],
+                      create_sheet_tab: false,
+                      template_link_id: "",
+                      sheet_tab_name: "",
+                      sheet_tab_custom: false,
                     })
                   }
                 >
@@ -296,7 +365,13 @@ function AdminBlocks() {
                 minLength={2}
                 maxLength={120}
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    name: e.target.value,
+                    ...(form.sheet_tab_custom ? {} : { sheet_tab_name: e.target.value }),
+                  })
+                }
               />
             </Field>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -409,6 +484,76 @@ function AdminBlocks() {
                 <option value="closed">Closed (locked)</option>
               </Select>
             </Field>
+            {!form.id ? (
+              <div className="rounded-xl border border-border/60 bg-card/40 p-3">
+                {(sheetLinks as any[] | undefined)?.length ? (
+                  <>
+                    <label className="flex items-center gap-2 text-sm font-medium">
+                      <input
+                        type="checkbox"
+                        checked={form.create_sheet_tab}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            create_sheet_tab: e.target.checked,
+                            template_link_id:
+                              form.template_link_id || (sheetLinks as any[])?.[0]?.id || "",
+                            sheet_tab_name: form.sheet_tab_name || form.name,
+                          })
+                        }
+                      />
+                      Create matching tab in Google Sheets
+                    </label>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Duplicates your template tab with students, dropdowns and formulas, clears old
+                      marks, updates block headers, and links it for live sync.
+                    </p>
+                    {form.create_sheet_tab ? (
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <Field label="Copy layout from">
+                          <Select
+                            value={form.template_link_id}
+                            onChange={(e) =>
+                              setForm({ ...form, template_link_id: e.target.value })
+                            }
+                          >
+                            {(sheetLinks as any[]).map((link) => (
+                              <option key={link.id} value={link.id}>
+                                {link.label}
+                              </option>
+                            ))}
+                          </Select>
+                        </Field>
+                        <Field label="New tab name">
+                          <Input
+                            required
+                            maxLength={100}
+                            placeholder="e.g. BLOCK 11"
+                            value={form.sheet_tab_name}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                sheet_tab_name: e.target.value,
+                                sheet_tab_custom: true,
+                              })
+                            }
+                          />
+                        </Field>
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Want a Google Sheets tab created automatically for new blocks? Connect your
+                    template once under{" "}
+                    <Link to="/admin/sheets" className="font-medium text-primary underline">
+                      Google Sheet sync
+                    </Link>
+                    .
+                  </p>
+                )}
+              </div>
+            ) : null}
             {(() => {
               const d = derive(form.start_date, form.end_date, institution, form.rounding ? form.rounding_dates : []);
               const per = Number(form.percent_input);
@@ -455,7 +600,11 @@ function AdminBlocks() {
                 Cancel
               </Button>
               <Button type="submit" disabled={save.isPending}>
-                {save.isPending ? "Saving…" : "Save block"}
+                {save.isPending
+                  ? form.create_sheet_tab
+                    ? "Creating block & sheet tab…"
+                    : "Saving…"
+                  : "Save block"}
               </Button>
             </div>
           </form>

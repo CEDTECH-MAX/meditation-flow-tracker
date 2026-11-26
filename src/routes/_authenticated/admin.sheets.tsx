@@ -334,7 +334,7 @@ function AdminSheets() {
                     <li>Open your Google Sheet and click <strong>Extensions → Apps Script</strong>.</li>
                     <li>Replace any code in the editor with the script below and click <strong>Save</strong>.</li>
                     <li>Select <strong>setupAutoSync</strong> in the top bar and click <strong>Run</strong> once to allow permission.</li>
-                    <li>Done — every dropdown change on this tab now updates the website automatically.</li>
+                    <li>Done — every dropdown change on linked block tabs in this spreadsheet (including new tabs created from <strong>Meditation blocks</strong>) now updates the website automatically.</li>
                   </ol>
                   <pre className="max-h-60 overflow-auto rounded-xl border border-border/60 bg-background/70 p-3 text-[11px] leading-relaxed">
                     {link.apps_script}

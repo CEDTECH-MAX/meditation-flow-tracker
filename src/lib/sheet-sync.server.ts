@@ -2,10 +2,15 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { fetchAllRows, statusFromPoints } from "@/lib/data.helpers";
 import type { SessionSlot } from "@/lib/attendance";
 import {
+  buildAttendanceClearRanges,
+  buildHeaderUpdatesForNewBlock,
   colIndexToLetter,
   createStudentMatcher,
   parseSheetColumns,
   parseSheetPoints,
+  parseSpreadsheetGid,
+  quoteSheetName,
+  sanitizeSheetTabName,
   type ParsedSheetLayout,
   type SheetStudentRef,
 } from "@/lib/sheet-layout";
@@ -26,7 +31,7 @@ function gatewayHeaders(): Record<string, string> {
 }
 
 function quoteSheet(sheetName: string): string {
-  return `'${sheetName.replace(/'/g, "''")}'`;
+  return quoteSheetName(sheetName);
 }
 
 async function sheetsRequest<T>(path: string, init?: RequestInit): Promise<T> {
@@ -82,11 +87,12 @@ export async function fetchSheetValues(
   spreadsheetId: string,
   sheetName: string,
   range = "A1:CZ450",
+  valueRenderOption: "FORMATTED_VALUE" | "FORMULA" = "FORMATTED_VALUE",
 ): Promise<string[][]> {
   // Do not encode colons in the range segment — Google Sheets rejects %3A
   const fullRange = `${encodeURIComponent(quoteSheet(sheetName))}!${range}`;
   const data = await sheetsRequest<{ values?: string[][] }>(
-    `/spreadsheets/${spreadsheetId}/values/${fullRange}?valueRenderOption=FORMATTED_VALUE`,
+    `/spreadsheets/${spreadsheetId}/values/${fullRange}?valueRenderOption=${valueRenderOption}`,
   );
   return data.values ?? [];
 }
@@ -103,6 +109,161 @@ async function batchUpdateCells(
       data: updates,
     }),
   });
+}
+
+async function batchClearRanges(spreadsheetId: string, ranges: string[]): Promise<void> {
+  if (ranges.length === 0) return;
+  await sheetsRequest(`/spreadsheets/${spreadsheetId}/values:batchClear`, {
+    method: "POST",
+    body: JSON.stringify({ ranges }),
+  });
+}
+
+function pickUniqueTabName(desired: string, existingTitles: string[]): string {
+  const base = sanitizeSheetTabName(desired);
+  const taken = new Set(existingTitles.map((t) => t.trim().toLowerCase()));
+  if (!taken.has(base.toLowerCase())) return base;
+  for (let i = 2; i <= 50; i += 1) {
+    const suffix = ` (${i})`;
+    const candidate = `${base.slice(0, 100 - suffix.length)}${suffix}`;
+    if (!taken.has(candidate.toLowerCase())) return candidate;
+  }
+  return `${base.slice(0, 86)} ${Date.now().toString().slice(-6)}`;
+}
+
+/**
+ * Duplicates an existing institution-scoped template tab inside the same Google
+ * Spreadsheet for a newly created block, clears old attendance marks (preserving
+ * all formulas, student rows, and dropdowns), updates block/date headers, and
+ * creates an enabled `sheet_links` record for live two-way sync.
+ */
+export async function duplicateTemplateTabForBlock(params: {
+  templateLinkId: string;
+  institution: "MII" | "MIU";
+  newBlockId: string;
+  newBlockName: string;
+  newBlockStartDate: string;
+  newTabName: string;
+  actorId: string;
+  actorEmail: string | null;
+}) {
+  const { data: template, error: tmplErr } = await supabaseAdmin
+    .from("sheet_links")
+    .select("*, block:blocks(name, start_date)")
+    .eq("id", params.templateLinkId)
+    .eq("institution", params.institution)
+    .maybeSingle();
+  if (tmplErr || !template) {
+    throw new Error("Template Google Sheet link not found in your institution.");
+  }
+
+  const meta = await fetchSpreadsheetMeta(template.spreadsheet_id);
+  const preferredGid = parseSpreadsheetGid(template.spreadsheet_url);
+  const sourceTab =
+    meta.sheets.find((s) => s.title === template.sheet_name) ??
+    (preferredGid !== null ? meta.sheets.find((s) => s.sheetId === preferredGid) : undefined) ??
+    meta.sheets[0];
+  if (!sourceTab) {
+    throw new Error(`Could not find template tab "${template.sheet_name}" in Google Sheets.`);
+  }
+
+  const finalTabName = pickUniqueTabName(
+    params.newTabName || params.newBlockName,
+    meta.sheets.map((s) => s.title),
+  );
+
+  const dupRes = await sheetsRequest<{
+    replies?: { duplicateSheet?: { properties?: { sheetId?: number; title?: string } } }[];
+  }>(`/spreadsheets/${template.spreadsheet_id}:batchUpdate`, {
+    method: "POST",
+    body: JSON.stringify({
+      requests: [
+        {
+          duplicateSheet: {
+            sourceSheetId: sourceTab.sheetId,
+            insertSheetIndex: 0,
+            newSheetName: finalTabName,
+          },
+        },
+      ],
+    }),
+  });
+
+  const createdProps = dupRes.replies?.[0]?.duplicateSheet?.properties;
+  const newSheetId = createdProps?.sheetId ?? null;
+  const actualTabName = createdProps?.title ?? finalTabName;
+
+  // Read formula-preserving headers and student rows on the new tab
+  const [headerRows, leftRows] = await Promise.all([
+    fetchSheetValues(template.spreadsheet_id, actualTabName, "A1:CZ8", "FORMULA"),
+    fetchSheetValues(template.spreadsheet_id, actualTabName, "A1:H450", "FORMULA"),
+  ]);
+
+  const layout = parseSheetColumns(headerRows, params.newBlockStartDate);
+  const clearRanges = buildAttendanceClearRanges(actualTabName, layout, leftRows);
+  const templateBlock = (template as any).block as { name?: string; start_date?: string } | null;
+  const headerUpdates = buildHeaderUpdatesForNewBlock(actualTabName, headerRows, {
+    blockName: params.newBlockName,
+    templateBlockName: templateBlock?.name ?? null,
+    templateStartDate: templateBlock?.start_date ?? null,
+    newStartDate: params.newBlockStartDate,
+  });
+
+  await Promise.all([
+    batchClearRanges(template.spreadsheet_id, clearRanges),
+    batchUpdateCells(template.spreadsheet_id, headerUpdates),
+  ]);
+
+  const { randomBytes } = await import("node:crypto");
+  const secret = randomBytes(24).toString("hex");
+  const tabUrl =
+    newSheetId !== null
+      ? `https://docs.google.com/spreadsheets/d/${template.spreadsheet_id}/edit#gid=${newSheetId}`
+      : template.spreadsheet_url;
+
+  const { data: createdLink, error: linkErr } = await supabaseAdmin
+    .from("sheet_links")
+    .insert({
+      institution: params.institution,
+      block_id: params.newBlockId,
+      label: actualTabName,
+      spreadsheet_id: template.spreadsheet_id,
+      spreadsheet_url: tabUrl,
+      sheet_name: actualTabName,
+      webhook_secret: secret,
+      enabled: true,
+      last_synced_at: new Date().toISOString(),
+      last_sync_status: "created from template",
+      last_sync_direction: "web_to_sheet",
+      created_by: params.actorId,
+    })
+    .select("id, sheet_name, spreadsheet_url")
+    .single();
+  if (linkErr) throw new Error(linkErr.message);
+
+  await supabaseAdmin.from("audit_logs").insert({
+    actor_id: params.actorId,
+    actor_email: params.actorEmail,
+    action: "sheet_create_tab",
+    entity: "sheet_links",
+    entity_id: createdLink.id,
+    details: {
+      block_id: params.newBlockId,
+      template_link_id: template.id,
+      template_tab: sourceTab.title,
+      new_tab: actualTabName,
+      cleared_ranges: clearRanges.length,
+      headers_updated: headerUpdates.length,
+    },
+  });
+
+  return {
+    link_id: createdLink.id as string,
+    sheet_name: createdLink.sheet_name as string,
+    spreadsheet_url: createdLink.spreadsheet_url as string,
+    cleared_ranges: clearRanges.length,
+    headers_updated: headerUpdates.length,
+  };
 }
 
 export async function loadInstitutionStudents(institution: "MII" | "MIU"): Promise<SheetStudentRef[]> {

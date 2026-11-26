@@ -221,3 +221,41 @@ export const runManualSheetSync = createServerFn({ method: "POST" })
       actorEmail: (c.claims?.["email"] as string) ?? null,
     });
   });
+
+export const createBlockSheetTab = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        block_id: z.string().uuid(),
+        template_link_id: z.string().uuid(),
+        tab_name: z.string().trim().min(1).max(100),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const c = context as unknown as Ctx;
+    await assertAdmin(c);
+    const inst = await myInstitution(c);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: block } = await supabaseAdmin
+      .from("blocks")
+      .select("id, name, start_date, institution")
+      .eq("id", data.block_id)
+      .eq("institution", inst)
+      .maybeSingle();
+    if (!block) throw new Error("Block not found in your institution.");
+
+    const { duplicateTemplateTabForBlock } = await import("@/lib/sheet-sync.server");
+    return duplicateTemplateTabForBlock({
+      templateLinkId: data.template_link_id,
+      institution: inst,
+      newBlockId: block.id,
+      newBlockName: block.name,
+      newBlockStartDate: block.start_date,
+      newTabName: data.tab_name,
+      actorId: c.userId,
+      actorEmail: (c.claims?.["email"] as string) ?? null,
+    });
+  });
