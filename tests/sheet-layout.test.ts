@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildAttendanceClearRanges,
+  buildCanonicalSpreadsheetUrl,
   buildHeaderUpdatesForNewBlock,
   createStudentMatcher,
   parseSheetColumns,
@@ -16,6 +17,17 @@ describe("parseSpreadsheetId & parseSpreadsheetGid", () => {
       "https://docs.google.com/spreadsheets/d/1bDUUuVBoUpsFwGGu7B6JV8P6xTNSKeZ3qC5cCWtVPwc/edit?gid=640080935#gid=640080935";
     expect(parseSpreadsheetId(url)).toBe("1bDUUuVBoUpsFwGGu7B6JV8P6xTNSKeZ3qC5cCWtVPwc");
     expect(parseSpreadsheetGid(url)).toBe(640080935);
+  });
+
+  it("normalizes duplicated or malformed Google Sheets URLs into a clean canonical link", () => {
+    const messy =
+      "[https://docs.google.com/spreadsheets/d/1bDUUuVBoUpsFwGGu7B6JV8P6xTNSKeZ3qC5cCWtVPwc/edithttps://docs.google.com/spreadsheets/d/1bDUUuVBoUpsFwGGu7B6JV8P6xTNSKeZ3qC5cCWtVPwc/edit?gid=640080935#gid=640080935";
+    expect(
+      buildCanonicalSpreadsheetUrl("1bDUUuVBoUpsFwGGu7B6JV8P6xTNSKeZ3qC5cCWtVPwc", messy),
+    ).toBe("https://docs.google.com/spreadsheets/d/1bDUUuVBoUpsFwGGu7B6JV8P6xTNSKeZ3qC5cCWtVPwc/edit#gid=640080935");
+    expect(buildCanonicalSpreadsheetUrl("1bDUUuVBoUpsFwGGu7B6JV8P6xTNSKeZ3qC5cCWtVPwc")).toBe(
+      "https://docs.google.com/spreadsheets/d/1bDUUuVBoUpsFwGGu7B6JV8P6xTNSKeZ3qC5cCWtVPwc/edit",
+    );
   });
 });
 

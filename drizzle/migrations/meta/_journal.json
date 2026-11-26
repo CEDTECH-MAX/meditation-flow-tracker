@@ -22,6 +22,13 @@
       "when": 1795676492902,
       "tag": "0002_google_sheets_sync_links",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795678616177,
+      "tag": "0003_sheet_links_preserve_template",
+      "breakpoints": true
     }
   ]
 }

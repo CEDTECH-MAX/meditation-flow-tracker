@@ -253,12 +253,13 @@ function AdminSheets() {
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <h4 className="font-semibold">{link.label}</h4>
-                    <Badge tone={link.enabled ? "green" : "neutral"}>
-                      {link.enabled ? "Live sync on" : "Paused"}
+                    <Badge tone={!link.block ? "amber" : link.enabled ? "green" : "neutral"}>
+                      {!link.block ? "Saved template" : link.enabled ? "Live sync on" : "Paused"}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Block: {link.block?.name ?? "Unknown"} · Tab: {link.sheet_name}
+                    {link.block ? `Block: ${link.block.name}` : "Template saved (previous block deleted)"} · Tab:{" "}
+                    {link.sheet_name}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {link.last_synced_at
@@ -277,22 +278,26 @@ function AdminSheets() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  variant="soft"
-                  disabled={manualSync.isPending}
-                  onClick={() => manualSync.mutate({ id: link.id, direction: "push" })}
-                >
-                  <RefreshCw className="h-3.5 w-3.5" /> Push website → sheet
-                </Button>
-                <Button
-                  size="sm"
-                  variant="soft"
-                  disabled={manualSync.isPending}
-                  onClick={() => manualSync.mutate({ id: link.id, direction: "pull" })}
-                >
-                  <RefreshCw className="h-3.5 w-3.5" /> Pull sheet → website
-                </Button>
+                {link.block ? (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="soft"
+                      disabled={manualSync.isPending}
+                      onClick={() => manualSync.mutate({ id: link.id, direction: "push" })}
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" /> Push website → sheet
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="soft"
+                      disabled={manualSync.isPending}
+                      onClick={() => manualSync.mutate({ id: link.id, direction: "pull" })}
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" /> Pull sheet → website
+                    </Button>
+                  </>
+                ) : null}
                 <Button
                   size="sm"
                   variant="outline"
@@ -300,14 +305,16 @@ function AdminSheets() {
                 >
                   {openScriptId === link.id ? "Hide Sheet → Web script" : "Sheet → Web live script"}
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={toggle.isPending}
-                  onClick={() => toggle.mutate({ id: link.id, enabled: !link.enabled })}
-                >
-                  {link.enabled ? "Pause" : "Resume"}
-                </Button>
+                {link.block ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={toggle.isPending}
+                    onClick={() => toggle.mutate({ id: link.id, enabled: !link.enabled })}
+                  >
+                    {link.enabled ? "Pause" : "Resume"}
+                  </Button>
+                ) : null}
                 <Button
                   size="sm"
                   variant="ghost"

@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertAdmin, audit, myInstitution, type Ctx } from "@/lib/data.helpers";
 import {
   buildAppsScript,
+  buildCanonicalSpreadsheetUrl,
   parseSpreadsheetGid,
   parseSpreadsheetId,
 } from "@/lib/sheet-layout";
@@ -25,6 +26,7 @@ export const listSheetLinks = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return (data ?? []).map((row: any) => ({
       ...row,
+      spreadsheet_url: buildCanonicalSpreadsheetUrl(row.spreadsheet_id, row.spreadsheet_url),
       webhook_url: `${PUBLISHED_ORIGIN}/api/public/sheet-sync`,
       apps_script: buildAppsScript({
         webhookUrl: `${PUBLISHED_ORIGIN}/api/public/sheet-sync`,
@@ -131,7 +133,7 @@ export const createSheetLink = createServerFn({ method: "POST" })
         block_id: data.block_id,
         label: data.label,
         spreadsheet_id: spreadsheetId,
-        spreadsheet_url: data.spreadsheet_url,
+        spreadsheet_url: buildCanonicalSpreadsheetUrl(spreadsheetId, data.spreadsheet_url),
         sheet_name: data.sheet_name,
         webhook_secret: secret,
         enabled: true,

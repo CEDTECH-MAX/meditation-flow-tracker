@@ -43,6 +43,13 @@ export function parseSpreadsheetGid(input: string): number | null {
   return match?.[1] ? Number(match[1]) : null;
 }
 
+export function buildCanonicalSpreadsheetUrl(spreadsheetId: string, rawUrl?: string | null): string {
+  const gid = rawUrl ? parseSpreadsheetGid(rawUrl) : null;
+  return gid !== null
+    ? `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${gid}`
+    : `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+}
+
 export function colIndexToLetter(index: number): string {
   let n = index + 1;
   let out = "";

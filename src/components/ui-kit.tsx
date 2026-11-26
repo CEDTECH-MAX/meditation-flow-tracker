@@ -135,8 +135,8 @@ export function Modal({
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-foreground/25 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="glass animate-rise w-full max-w-lg rounded-t-3xl p-6 sm:rounded-3xl">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/25 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="glass animate-rise max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-3xl p-6 sm:rounded-3xl">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold">{title}</h3>
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">

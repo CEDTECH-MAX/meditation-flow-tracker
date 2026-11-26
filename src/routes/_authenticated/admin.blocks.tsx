@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -50,6 +50,7 @@ type FormState = {
   rounding: boolean;
   rounding_dates: string[];
   create_sheet_tab: boolean;
+  sheet_tab_touched: boolean;
   template_link_id: string;
   sheet_tab_name: string;
   sheet_tab_custom: boolean;
@@ -65,6 +66,7 @@ const empty: FormState = {
   rounding: false,
   rounding_dates: [],
   create_sheet_tab: false,
+  sheet_tab_touched: false,
   template_link_id: "",
   sheet_tab_name: "",
   sheet_tab_custom: false,
@@ -127,6 +129,23 @@ function AdminBlocks() {
     queryKey: ["sheet-links"],
     queryFn: () => listSheetsFn(),
   });
+  const availableTemplates = (sheetLinks as any[] | undefined) ?? [];
+  const firstTemplateId = availableTemplates[0]?.id ?? "";
+
+  // If the modal opens while sheet links are still loading, automatically turn on
+  // tab creation as soon as a template link is ready (unless the user toggled it).
+  useEffect(() => {
+    if (!firstTemplateId) return;
+    setForm((prev) => {
+      if (!prev || prev.id || prev.sheet_tab_touched || prev.template_link_id) return prev;
+      return {
+        ...prev,
+        create_sheet_tab: true,
+        template_link_id: firstTemplateId,
+        sheet_tab_name: prev.sheet_tab_name || prev.name,
+      };
+    });
+  }, [firstTemplateId]);
 
   const refresh = (msg: string) => {
     qc.invalidateQueries({ queryKey: ["blocks"] });
@@ -219,6 +238,21 @@ function AdminBlocks() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const createTabForExisting = useMutation({
+    mutationFn: (b: Block) => {
+      if (!firstTemplateId) throw new Error("Connect a template Google Sheet first.");
+      return createSheetTabFn({
+        data: {
+          block_id: b.id,
+          template_link_id: firstTemplateId,
+          tab_name: b.name.slice(0, 100),
+        },
+      });
+    },
+    onSuccess: (res) => refresh(`Created and linked Google Sheet tab "${res.sheet_name}".`),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   if (isLoading) return <Spinner label="Loading blocks" />;
 
   return (
@@ -231,7 +265,8 @@ function AdminBlocks() {
             onClick={() =>
               setForm({
                 ...empty,
-                template_link_id: (sheetLinks as any[])?.[0]?.id ?? "",
+                create_sheet_tab: Boolean(firstTemplateId),
+                template_link_id: firstTemplateId,
               })
             }
           >
@@ -248,7 +283,9 @@ function AdminBlocks() {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {(blocks ?? []).map((b) => (
+          {(blocks ?? []).map((b) => {
+            const linkedTabs = availableTemplates.filter((l) => l.block_id === b.id);
+            return (
             <Card key={b.id}>
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
@@ -259,6 +296,20 @@ function AdminBlocks() {
                   <p className="mt-1 text-xs text-muted-foreground">
                     {cohortName(b.cohort_id) ? `Cohort · ${cohortName(b.cohort_id)}` : "All cohorts"}
                   </p>
+                  {linkedTabs.length > 0 ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Sheet:{" "}
+                      <a
+                        href={linkedTabs[0].spreadsheet_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium text-primary underline"
+                      >
+                        {linkedTabs[0].sheet_name}
+                      </a>
+                      {linkedTabs.length > 1 ? ` (+${linkedTabs.length - 1} more)` : ""}
+                    </p>
+                  ) : null}
                 </div>
                 <Badge
                   tone={b.status === "active" ? "green" : b.status === "closed" ? "red" : "gold"}
@@ -302,6 +353,7 @@ function AdminBlocks() {
                       rounding: ((b as any).rounding_dates ?? []).length > 0,
                       rounding_dates: (b as any).rounding_dates ?? [],
                       create_sheet_tab: false,
+                      sheet_tab_touched: true,
                       template_link_id: "",
                       sheet_tab_name: "",
                       sheet_tab_custom: false,
@@ -310,6 +362,16 @@ function AdminBlocks() {
                 >
                   Edit
                 </Button>
+                {linkedTabs.length === 0 && firstTemplateId ? (
+                  <Button
+                    size="sm"
+                    variant="soft"
+                    disabled={createTabForExisting.isPending}
+                    onClick={() => createTabForExisting.mutate(b)}
+                  >
+                    {createTabForExisting.isPending ? "Creating tab…" : "Create sheet tab"}
+                  </Button>
+                ) : null}
                 {b.status !== "active" ? (
                   <Button
                     size="sm"
@@ -342,7 +404,8 @@ function AdminBlocks() {
                 </Button>
               </div>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -486,7 +549,7 @@ function AdminBlocks() {
             </Field>
             {!form.id ? (
               <div className="rounded-xl border border-border/60 bg-card/40 p-3">
-                {(sheetLinks as any[] | undefined)?.length ? (
+                {availableTemplates.length > 0 ? (
                   <>
                     <label className="flex items-center gap-2 text-sm font-medium">
                       <input
@@ -496,8 +559,8 @@ function AdminBlocks() {
                           setForm({
                             ...form,
                             create_sheet_tab: e.target.checked,
-                            template_link_id:
-                              form.template_link_id || (sheetLinks as any[])?.[0]?.id || "",
+                            sheet_tab_touched: true,
+                            template_link_id: form.template_link_id || firstTemplateId,
                             sheet_tab_name: form.sheet_tab_name || form.name,
                           })
                         }
@@ -517,7 +580,7 @@ function AdminBlocks() {
                               setForm({ ...form, template_link_id: e.target.value })
                             }
                           >
-                            {(sheetLinks as any[]).map((link) => (
+                            {availableTemplates.map((link) => (
                               <option key={link.id} value={link.id}>
                                 {link.label}
                               </option>

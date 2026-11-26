@@ -3,6 +3,7 @@ import { fetchAllRows, statusFromPoints } from "@/lib/data.helpers";
 import type { SessionSlot } from "@/lib/attendance";
 import {
   buildAttendanceClearRanges,
+  buildCanonicalSpreadsheetUrl,
   buildHeaderUpdatesForNewBlock,
   colIndexToLetter,
   createStudentMatcher,
@@ -219,7 +220,7 @@ export async function duplicateTemplateTabForBlock(params: {
   const tabUrl =
     newSheetId !== null
       ? `https://docs.google.com/spreadsheets/d/${template.spreadsheet_id}/edit#gid=${newSheetId}`
-      : template.spreadsheet_url;
+      : buildCanonicalSpreadsheetUrl(template.spreadsheet_id, template.spreadsheet_url);
 
   const { data: createdLink, error: linkErr } = await supabaseAdmin
     .from("sheet_links")

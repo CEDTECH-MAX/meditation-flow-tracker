@@ -87,7 +87,7 @@ export const Route = createFileRoute("/api/public/sheet-sync")({
             end_date: string;
             status: string;
           } | null;
-          if (!block) {
+          if (!block || !activeLink.block_id) {
             return Response.json({ ok: false, error: "Block missing" }, { status: 404 });
           }
 

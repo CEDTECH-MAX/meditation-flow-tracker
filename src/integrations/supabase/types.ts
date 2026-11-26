@@ -1125,7 +1125,7 @@ export type Database = {
       }
       sheet_links: {
         Row: {
-          block_id: string
+          block_id: string | null
           created_at: string
           created_by: string | null
           enabled: boolean
@@ -1142,7 +1142,7 @@ export type Database = {
           webhook_secret: string
         }
         Insert: {
-          block_id: string
+          block_id?: string | null
           created_at?: string
           created_by?: string | null
           enabled?: boolean
@@ -1159,7 +1159,7 @@ export type Database = {
           webhook_secret: string
         }
         Update: {
-          block_id?: string
+          block_id?: string | null
           created_at?: string
           created_by?: string | null
           enabled?: boolean
