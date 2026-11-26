@@ -283,7 +283,7 @@ function AdminSheets() {
                     <Button
                       size="sm"
                       variant="soft"
-                      disabled={manualSync.isPending}
+                      disabled={manualSync.isPending || link.block.status === "closed"}
                       onClick={() => manualSync.mutate({ id: link.id, direction: "push" })}
                     >
                       <RefreshCw className="h-3.5 w-3.5" /> Push website → sheet
@@ -291,7 +291,7 @@ function AdminSheets() {
                     <Button
                       size="sm"
                       variant="soft"
-                      disabled={manualSync.isPending}
+                      disabled={manualSync.isPending || link.block.status === "closed"}
                       onClick={() => manualSync.mutate({ id: link.id, direction: "pull" })}
                     >
                       <RefreshCw className="h-3.5 w-3.5" /> Pull sheet → website

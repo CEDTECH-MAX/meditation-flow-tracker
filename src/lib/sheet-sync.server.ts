@@ -1,11 +1,10 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { fetchAllRows, statusFromPoints } from "@/lib/data.helpers";
-import type { SessionSlot } from "@/lib/attendance";
+import { blockSessions, type AttendanceRecord, type Block, type SessionSlot } from "@/lib/attendance";
+import { buildWebsiteRegister, buildRegisterSummaryValues, registerSignature, type RegisterBlock } from "@/lib/sheet-register";
 import {
-  buildAttendanceClearRanges,
   buildCanonicalSpreadsheetUrl,
   buildDropdownValidationRequests,
-  buildHeaderUpdatesForNewBlock,
   colIndexToLetter,
   createStudentMatcher,
   parseSheetColumns,
@@ -54,6 +53,7 @@ export type SheetTabMeta = {
   title: string;
   rowCount: number;
   columnCount: number;
+  conditionalFormats: { ranges: { startColumnIndex?: number; endColumnIndex?: number }[] }[];
 };
 
 export async function fetchSpreadsheetMeta(spreadsheetId: string): Promise<{
@@ -63,6 +63,7 @@ export async function fetchSpreadsheetMeta(spreadsheetId: string): Promise<{
   const data = await sheetsRequest<{
     properties?: { title?: string };
     sheets?: {
+      conditionalFormats?: { ranges?: { startColumnIndex?: number; endColumnIndex?: number }[] }[];
       properties?: {
         sheetId?: number;
         title?: string;
@@ -70,7 +71,7 @@ export async function fetchSpreadsheetMeta(spreadsheetId: string): Promise<{
       };
     }[];
   }>(
-    `/spreadsheets/${spreadsheetId}?fields=properties.title,sheets(properties(sheetId,title,gridProperties))`,
+    `/spreadsheets/${spreadsheetId}?fields=properties.title,sheets(properties(sheetId,title,gridProperties),conditionalFormats.ranges)`,
   );
   return {
     title: data.properties?.title ?? "Google Spreadsheet",
@@ -80,6 +81,7 @@ export async function fetchSpreadsheetMeta(spreadsheetId: string): Promise<{
         title: s.properties?.title ?? "Sheet1",
         rowCount: s.properties?.gridProperties?.rowCount ?? 200,
         columnCount: s.properties?.gridProperties?.columnCount ?? 60,
+        conditionalFormats: (s.conditionalFormats ?? []).map((rule) => ({ ranges: rule.ranges ?? [] })),
       }))
       .filter((s) => Boolean(s.title)),
   };
@@ -88,7 +90,7 @@ export async function fetchSpreadsheetMeta(spreadsheetId: string): Promise<{
 export async function fetchSheetValues(
   spreadsheetId: string,
   sheetName: string,
-  range = "A1:CZ450",
+  range = "A1:AZZ450",
   valueRenderOption: "FORMATTED_VALUE" | "FORMULA" = "FORMATTED_VALUE",
 ): Promise<string[][]> {
   // Do not encode colons in the range segment — Google Sheets rejects %3A
@@ -110,17 +112,10 @@ async function batchUpdateCells(
   await sheetsRequest(`/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
     method: "POST",
     body: JSON.stringify({
-      valueInputOption: "USER_ENTERED",
+      // Preserve the website's exact percentage display rather than letting old template number formats reinterpret it.
+      valueInputOption: "RAW",
       data: updates,
     }),
-  });
-}
-
-async function batchClearRanges(spreadsheetId: string, ranges: string[]): Promise<void> {
-  if (ranges.length === 0) return;
-  await sheetsRequest(`/spreadsheets/${spreadsheetId}/values:batchClear`, {
-    method: "POST",
-    body: JSON.stringify({ ranges }),
   });
 }
 
@@ -177,12 +172,10 @@ export async function duplicateTemplateTabForBlock(params: {
     meta.sheets.map((s) => s.title),
   );
 
-  // Read and parse the template tab before duplicating so a parse/read failure never leaves an orphan tab
-  const [headerRows, leftRows] = await Promise.all([
-    fetchSheetValues(template.spreadsheet_id, sourceTab.title, "A1:CZ8", "FORMULA"),
-    fetchSheetValues(template.spreadsheet_id, sourceTab.title, "A1:H450", "FORMULA"),
-  ]);
-  const layout = parseSheetColumns(headerRows, params.newBlockStartDate);
+  // Load the saved block before duplicating; layout failures below remove the unfinished copy.
+  const { data: newBlock, error: blockError } = await supabaseAdmin.from("blocks")
+    .select("*").eq("id", params.newBlockId).eq("institution", params.institution).single();
+  if (blockError || !newBlock) throw new Error("Block settings could not be loaded.");
 
   const dupRes = await sheetsRequest<{
     replies?: { duplicateSheet?: { properties?: { sheetId?: number; title?: string } } }[];
@@ -205,19 +198,17 @@ export async function duplicateTemplateTabForBlock(params: {
   const newSheetId = createdProps?.sheetId ?? null;
   const actualTabName = createdProps?.title ?? finalTabName;
 
-  const clearRanges = buildAttendanceClearRanges(actualTabName, layout, leftRows);
-  const templateBlock = (template as any).block as { name?: string; start_date?: string } | null;
-  const headerUpdates = buildHeaderUpdatesForNewBlock(actualTabName, headerRows, {
-    blockName: params.newBlockName,
-    templateBlockName: templateBlock?.name ?? null,
-    templateStartDate: templateBlock?.start_date ?? null,
-    newStartDate: params.newBlockStartDate,
-  });
-
-  await Promise.all([
-    batchClearRanges(template.spreadsheet_id, clearRanges),
-    batchUpdateCells(template.spreadsheet_id, headerUpdates),
-  ]);
+  if (newSheetId === null) throw new Error("Google Sheets did not return the new tab ID.");
+  // Build from the actual saved settings, not the template's number of weeks or rounding slots.
+  try {
+    await prepareWebsiteRegister({ id: `new:${newSheetId}`, spreadsheet_id: template.spreadsheet_id,
+      sheet_name: actualTabName, institution: params.institution }, newBlock as Block, true);
+  } catch (err) {
+    await sheetsRequest(`/spreadsheets/${template.spreadsheet_id}:batchUpdate`, {
+      method: "POST", body: JSON.stringify({ requests: [{ deleteSheet: { sheetId: newSheetId } }] }),
+    });
+    throw err;
+  }
 
   const { randomBytes } = await import("node:crypto");
   const secret = randomBytes(24).toString("hex");
@@ -257,8 +248,7 @@ export async function duplicateTemplateTabForBlock(params: {
       template_link_id: template.id,
       template_tab: sourceTab.title,
       new_tab: actualTabName,
-      cleared_ranges: clearRanges.length,
-      headers_updated: headerUpdates.length,
+      layout_source: "website_block_settings",
     },
   });
 
@@ -266,8 +256,8 @@ export async function duplicateTemplateTabForBlock(params: {
     link_id: createdLink.id as string,
     sheet_name: createdLink.sheet_name as string,
     spreadsheet_url: createdLink.spreadsheet_url as string,
-    cleared_ranges: clearRanges.length,
-    headers_updated: headerUpdates.length,
+    cleared_ranges: 1,
+    headers_updated: 5,
   };
 }
 
@@ -459,7 +449,7 @@ export async function syncSheetDropdownsForBlockStatus(params: {
 
       const blockStartDate = ((link as any).block as { start_date?: string } | null)?.start_date ?? localTodayIso();
       const [headerRows, leftRows] = await Promise.all([
-        fetchSheetValues(link.spreadsheet_id, targetTab.title, "A1:CZ8", "FORMULA"),
+        fetchSheetValues(link.spreadsheet_id, targetTab.title, "A1:AZZ8", "FORMULA"),
         fetchSheetValues(link.spreadsheet_id, targetTab.title, "A1:H450", "FORMULA"),
       ]);
 
@@ -541,6 +531,7 @@ type CachedSheetMap = {
   layout: ParsedSheetLayout;
   colByKey: Map<string, string>; // "YYYY-MM-DD:slot" -> colLetter
   rowByStudentId: Map<string, number>; // student_id -> 1-based sheet row
+  signature: string;
 };
 
 const sheetMapCache = new Map<string, CachedSheetMap>();
@@ -562,7 +553,7 @@ async function loadSheetMap(link: {
   if (cached && cached.expiresAt > Date.now()) return cached;
 
   const [headerRows, leftRows, students] = await Promise.all([
-    fetchSheetValues(link.spreadsheet_id, link.sheet_name, "A1:CZ8"),
+    fetchSheetValues(link.spreadsheet_id, link.sheet_name, "A1:AZZ8"),
     fetchSheetValues(link.spreadsheet_id, link.sheet_name, "A1:H450"),
     loadInstitutionStudents(link.institution),
   ]);
@@ -593,9 +584,127 @@ async function loadSheetMap(link: {
     layout,
     colByKey,
     rowByStudentId,
+    signature: headerRows[1]?.[layout.columns[0]?.colIndex ?? 6] ?? "",
   };
   sheetMapCache.set(link.id, entry);
   return entry;
+}
+
+type RegisterLink = { id: string; spreadsheet_id: string; sheet_name: string; institution: "MII" | "MIU" };
+type RegisterRecord = Pick<AttendanceRecord, "student_id" | "session_date" | "slot" | "points" | "status">;
+
+async function registerRecords(blockId: string, studentIds?: string[]): Promise<RegisterRecord[]> {
+  return fetchAllRows<RegisterRecord>(() => {
+    let query = supabaseAdmin.from("attendance")
+      .select("student_id, session_date, slot, points, status").eq("block_id", blockId).order("id");
+    if (studentIds?.length && studentIds.length <= 100) query = query.in("student_id", studentIds);
+    return query;
+  });
+}
+
+function summaryUpdates(link: RegisterLink, block: RegisterBlock, map: CachedSheetMap, records: RegisterRecord[], ids?: Set<string>) {
+  const register = buildWebsiteRegister(block, map.layout);
+  const byStudent = new Map<string, RegisterRecord[]>();
+  for (const record of records) {
+    const list = byStudent.get(record.student_id) ?? [];
+    list.push(record);
+    byStudent.set(record.student_id, list);
+  }
+  return [...map.rowByStudentId.entries()].filter(([id]) => !ids || ids.has(id)).flatMap(([id, row]) =>
+    buildRegisterSummaryValues(block, register, byStudent.get(id) ?? []).map(({ column, value }) => ({
+      range: `${quoteSheet(link.sheet_name)}!${colIndexToLetter(column)}${row}`, values: [[value]],
+    })));
+}
+
+/** Rebuild only unsettled registers. Closed historical tabs retain their original layout and values. */
+async function prepareWebsiteRegister(link: RegisterLink, block: Block, force = false): Promise<CachedSheetMap> {
+  let map = await loadSheetMap({ ...link, block_start_date: block.start_date });
+  if (!force && (block.status === "closed" || map.signature === registerSignature(block))) return map;
+  const meta = await fetchSpreadsheetMeta(link.spreadsheet_id);
+  const tab = meta.sheets.find((s) => s.title === link.sheet_name);
+  if (!tab) throw new Error(`Tab "${link.sheet_name}" was not found.`);
+  const register = buildWebsiteRegister(block, map.layout);
+  const leftRows = await fetchSheetValues(link.spreadsheet_id, link.sheet_name, "A1:H450", "FORMULA");
+  const endColumn = Math.max(tab.columnCount, register.columnCount);
+  await sheetsRequest(`/spreadsheets/${link.spreadsheet_id}:batchUpdate`, {
+    method: "POST", body: JSON.stringify({ requests: [
+      { updateSheetProperties: { properties: { sheetId: tab.sheetId, gridProperties: {
+        columnCount: endColumn, frozenRowCount: 5, frozenColumnCount: register.startColumn,
+      } }, fields: "gridProperties.columnCount,gridProperties.frozenRowCount,gridProperties.frozenColumnCount" } },
+      { unmergeCells: { range: { sheetId: tab.sheetId } } },
+      { repeatCell: { range: { sheetId: tab.sheetId, startColumnIndex: register.startColumn, endColumnIndex: endColumn },
+        cell: {}, fields: "userEnteredValue,dataValidation" } },
+      // Old template thresholds/rounding colors must not keep styling the new schedule or website percentages.
+      ...tab.conditionalFormats.flatMap((rule, index) => rule.ranges.some((range) =>
+        (range.endColumnIndex ?? tab.columnCount) > register.startColumn)
+        ? [{ deleteConditionalFormatRule: { sheetId: tab.sheetId, index } }] : []).reverse(),
+      { copyPaste: { source: { sheetId: tab.sheetId, startRowIndex: 5, endRowIndex: tab.rowCount,
+        startColumnIndex: register.startColumn, endColumnIndex: register.startColumn + 1 },
+        destination: { sheetId: tab.sheetId, startRowIndex: 5, endRowIndex: tab.rowCount,
+          startColumnIndex: register.startColumn, endColumnIndex: endColumn }, pasteType: "PASTE_FORMAT" } },
+      ...(endColumn > register.columnCount ? [{ deleteDimension: { range: { sheetId: tab.sheetId,
+        dimension: "COLUMNS", startIndex: register.columnCount, endIndex: endColumn } } }] : []),
+      { updateDimensionProperties: { range: { sheetId: tab.sheetId, dimension: "ROWS", startIndex: 1, endIndex: 2 },
+        properties: { hiddenByUser: true }, fields: "hiddenByUser" } },
+      { updateDimensionProperties: { range: { sheetId: tab.sheetId, dimension: "COLUMNS",
+        startIndex: register.startColumn, endIndex: register.columnCount }, properties: { pixelSize: 105 }, fields: "pixelSize" } },
+      ...[...register.weekly.flatMap((w) => [w.pointsColumn, w.cumulativeColumn]), register.pointsColumn, register.percentageColumn]
+        .map((column) => ({ updateDimensionProperties: { range: { sheetId: tab.sheetId, dimension: "COLUMNS",
+          startIndex: column, endIndex: column + 1 }, properties: { pixelSize: 150 }, fields: "pixelSize" } })),
+      { repeatCell: { range: { sheetId: tab.sheetId, startRowIndex: 0, endRowIndex: 5,
+        startColumnIndex: register.startColumn, endColumnIndex: register.columnCount },
+        cell: { userEnteredFormat: { wrapStrategy: "WRAP", horizontalAlignment: "CENTER" } },
+        fields: "userEnteredFormat.wrapStrategy,userEnteredFormat.horizontalAlignment" } },
+      { mergeCells: { range: { sheetId: tab.sheetId, startRowIndex: 0, endRowIndex: 1,
+        startColumnIndex: register.startColumn, endColumnIndex: register.columnCount }, mergeType: "MERGE_ALL" } },
+      { updateDimensionProperties: { range: { sheetId: tab.sheetId, dimension: "ROWS", startIndex: 4, endIndex: 5 },
+        properties: { pixelSize: 44 }, fields: "pixelSize" } },
+      ...buildDropdownValidationRequests({ sheetId: tab.sheetId, layout: register.layout, leftRows,
+        rowCount: tab.rowCount, mode: block.status === "closed" ? "remove" : "restore" }),
+    ] }),
+  });
+  await batchUpdateCells(link.spreadsheet_id, [{
+    range: `${quoteSheet(link.sheet_name)}!${colIndexToLetter(register.startColumn)}1:${colIndexToLetter(register.columnCount - 1)}5`,
+    values: register.headers,
+  }]);
+  clearSheetMapCache(link.id);
+  map = await loadSheetMap({ ...link, block_start_date: block.start_date });
+  const records = await registerRecords(block.id);
+  const updates = records.flatMap((r) => {
+    const row = map.rowByStudentId.get(r.student_id);
+    const column = map.colByKey.get(`${r.session_date}:${r.slot}`);
+    return row && column ? [{ range: `${quoteSheet(link.sheet_name)}!${column}${row}`, values: [[r.points]] }] : [];
+  });
+  const allUpdates = [...updates, ...summaryUpdates(link, block, map, records)];
+  for (let i = 0; i < allUpdates.length; i += 500) await batchUpdateCells(link.spreadsheet_id, allUpdates.slice(i, i + 500));
+  return map;
+}
+
+export async function syncWebsiteRegisterSettings(blockId: string, institution: "MII" | "MIU"): Promise<string[]> {
+  const [{ data: block }, { data: links }] = await Promise.all([
+    supabaseAdmin.from("blocks").select("*").eq("id", blockId).eq("institution", institution).maybeSingle(),
+    supabaseAdmin.from("sheet_links").select("id, spreadsheet_id, sheet_name, institution")
+      .eq("block_id", blockId).eq("institution", institution).eq("enabled", true),
+  ]);
+  if (!block || block.status === "closed") return [];
+  const warnings: string[] = [];
+  for (const link of links ?? []) {
+    try {
+      clearSheetMapCache(link.id);
+      const map = await prepareWebsiteRegister(link, block as Block);
+      await batchUpdateCells(link.spreadsheet_id, summaryUpdates(link, block as Block, map, await registerRecords(blockId)));
+    }
+    catch (err) { warnings.push(err instanceof Error ? err.message : String(err)); }
+  }
+  return warnings;
+}
+
+async function refreshRegisterSummaries(link: RegisterLink, blockId: string): Promise<void> {
+  const { data: block } = await supabaseAdmin.from("blocks").select("*")
+    .eq("id", blockId).eq("institution", link.institution).maybeSingle();
+  if (!block || block.status === "closed") return;
+  const map = await prepareWebsiteRegister(link, block as Block);
+  await batchUpdateCells(link.spreadsheet_id, summaryUpdates(link, block as Block, map, await registerRecords(blockId)));
 }
 
 export function localTodayIso(): string {
@@ -621,7 +730,7 @@ export async function pushMarksToLinkedSheets(
   if (marks.length === 0) return;
   const { data: links } = await supabaseAdmin
     .from("sheet_links")
-    .select("id, institution, spreadsheet_id, sheet_name, block:blocks(start_date)")
+    .select("id, institution, spreadsheet_id, sheet_name, block:blocks(*)")
     .eq("block_id", blockId)
     .eq("enabled", true);
 
@@ -632,13 +741,8 @@ export async function pushMarksToLinkedSheets(
       const startDate = raw.block?.start_date as string | undefined;
       if (!startDate) return;
       try {
-        const map = await loadSheetMap({
-          id: raw.id,
-          spreadsheet_id: raw.spreadsheet_id,
-          sheet_name: raw.sheet_name,
-          institution: raw.institution,
-          block_start_date: startDate,
-        });
+        if (raw.block.status === "closed") return;
+        const map = await prepareWebsiteRegister(raw, raw.block as Block);
         const updates: { range: string; values: (string | number)[][] }[] = [];
         for (const m of marks) {
           const rowNum = map.rowByStudentId.get(m.student_id);
@@ -646,10 +750,12 @@ export async function pushMarksToLinkedSheets(
           if (!rowNum || !colLetter) continue;
           updates.push({
             range: `${quoteSheet(raw.sheet_name)}!${colLetter}${rowNum}`,
-            values: [[m.points === null ? 0 : m.points]],
+            values: [[m.points === null ? "" : m.points]],
           });
         }
         if (updates.length > 0) {
+          const ids = new Set(marks.map((m) => m.student_id));
+          updates.push(...summaryUpdates(raw, raw.block as Block, map, await registerRecords(blockId, [...ids]), ids));
           await batchUpdateCells(raw.spreadsheet_id, updates);
           await supabaseAdmin
             .from("sheet_links")
@@ -694,7 +800,7 @@ export async function inspectSheetAgainstBlock(params: {
   if (!chosen) throw new Error("This Google Spreadsheet has no visible tabs.");
 
   const [headerRows, leftRows, students] = await Promise.all([
-    fetchSheetValues(params.spreadsheetId, chosen.title, "A1:CZ8"),
+    fetchSheetValues(params.spreadsheetId, chosen.title, "A1:AZZ8"),
     fetchSheetValues(params.spreadsheetId, chosen.title, "A1:H450"),
     loadInstitutionStudents(params.institution),
   ]);
@@ -738,31 +844,20 @@ export async function runFullSheetSync(params: {
 }) {
   const { data: link, error } = await supabaseAdmin
     .from("sheet_links")
-    .select("*, block:blocks(id, start_date, end_date, status, institution)")
+    .select("*, block:blocks(*)")
     .eq("id", params.linkId)
     .eq("institution", params.institution)
     .maybeSingle();
   if (error || !link) throw new Error("Linked spreadsheet not found.");
-  const block = (link as any).block as {
-    id: string;
-    start_date: string;
-    end_date: string;
-    status: string;
-    institution: "MII" | "MIU";
-  } | null;
+  const block = (link as any).block as Block | null;
   if (!block) throw new Error("Block not found for this sheet link.");
 
   clearSheetMapCache(link.id);
 
   if (params.direction === "push") {
+    if (block.status === "closed") throw new Error("Closed historical registers are preserved. Reopen the block before updating its sheet.");
     const [map, records] = await Promise.all([
-      loadSheetMap({
-        id: link.id,
-        spreadsheet_id: link.spreadsheet_id,
-        sheet_name: link.sheet_name,
-        institution: params.institution,
-        block_start_date: block.start_date,
-      }),
+      prepareWebsiteRegister(link, block),
       fetchAllRows<{
         student_id: string;
         session_date: string;
@@ -788,6 +883,9 @@ export async function runFullSheetSync(params: {
       });
     }
 
+    const markCount = updates.length;
+    updates.push(...summaryUpdates(link, block, map, await registerRecords(block.id)));
+
     // Chunk in batches of 500 to stay well within Google Sheets payload limits
     for (let i = 0; i < updates.length; i += 500) {
       await batchUpdateCells(link.spreadsheet_id, updates.slice(i, i + 500));
@@ -797,7 +895,7 @@ export async function runFullSheetSync(params: {
       .from("sheet_links")
       .update({
         last_synced_at: new Date().toISOString(),
-        last_sync_status: `ok (pushed ${updates.length} marks)`,
+        last_sync_status: `ok (pushed ${markCount} marks and updated website totals)`,
         last_sync_direction: "web_to_sheet",
         updated_at: new Date().toISOString(),
       })
@@ -809,19 +907,21 @@ export async function runFullSheetSync(params: {
       action: "sheet_sync_push",
       entity: "sheet_links",
       entity_id: link.id,
-      details: { block_id: block.id, sheet_name: link.sheet_name, cells_updated: updates.length },
+      details: { block_id: block.id, sheet_name: link.sheet_name, cells_updated: updates.length, marks_updated: markCount },
     });
 
-    return { updated: updates.length, direction: "push" as const };
+    return { updated: markCount, direction: "push" as const };
   }
 
   // PULL: Google Sheets -> Website
   if (block.status === "closed") throw new Error("Cannot pull marks into a closed block.");
   const [rows, students] = await Promise.all([
-    fetchSheetValues(link.spreadsheet_id, link.sheet_name, "A1:CZ450"),
+    fetchSheetValues(link.spreadsheet_id, link.sheet_name, "A1:AZZ450"),
     loadInstitutionStudents(params.institution),
   ]);
   const layout = parseSheetColumns(rows, block.start_date);
+  const schedule = blockSessions(block);
+  const allowedSessions = new Set([...schedule.compulsory, ...schedule.optional].map((s) => `${s.date}:${s.slot}`));
   const matcher = createStudentMatcher(students);
   const today = localTodayIso();
 
@@ -829,6 +929,7 @@ export async function runFullSheetSync(params: {
   // never import pre-filled template 0.0 cells from unstarted/future sessions.
   const activeCols = new Set<number>();
   for (const col of layout.columns) {
+    if (!allowedSessions.has(`${col.date}:${col.slot}`)) continue;
     if (col.date > today || col.date < block.start_date || col.date > block.end_date) continue;
     for (let r = layout.dataStartRow - 1; r < rows.length; r += 1) {
       const pts = parseSheetPoints(rows[r]?.[col.colIndex]);
@@ -885,6 +986,8 @@ export async function runFullSheetSync(params: {
     if (upErr) throw new Error(upErr.message);
   }
 
+  await refreshRegisterSummaries(link, block.id);
+
   await supabaseAdmin
     .from("sheet_links")
     .update({
@@ -940,9 +1043,14 @@ export async function applySheetWebhookEdits(params: {
   }
 
   const [headerRows, students] = await Promise.all([
-    fetchSheetValues(link.spreadsheet_id, link.sheet_name, "A1:CZ8"),
+    fetchSheetValues(link.spreadsheet_id, link.sheet_name, "A1:AZZ8"),
     loadInstitutionStudents(link.institution),
   ]);
+  const { data: block } = await supabaseAdmin.from("blocks").select("*")
+    .eq("id", link.block_id).eq("institution", link.institution).maybeSingle();
+  if (!block || block.status === "closed") return { applied: 0, skipped: edits.length, reason: "block_closed" };
+  const schedule = blockSessions(block as Block);
+  const allowedSessions = new Set([...schedule.compulsory, ...schedule.optional].map((s) => `${s.date}:${s.slot}`));
   const layout = parseSheetColumns(headerRows, link.block.start_date);
   const colByIndex = new Map(layout.columns.map((c) => [c.colIndex, c]));
   const matcher = createStudentMatcher(students);
@@ -953,7 +1061,7 @@ export async function applySheetWebhookEdits(params: {
 
   for (const edit of edits) {
     const col = colByIndex.get(edit.col - 1); // Apps Script col is 1-based
-    if (!col) {
+    if (!col || !allowedSessions.has(`${col.date}:${col.slot}`)) {
       skipped += 1;
       continue;
     }
@@ -1032,6 +1140,8 @@ export async function applySheetWebhookEdits(params: {
     });
     applied += 1;
   }
+
+  if (applied > 0) await refreshRegisterSummaries(link, link.block_id);
 
   await supabaseAdmin
     .from("sheet_links")

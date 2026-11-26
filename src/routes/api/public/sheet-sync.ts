@@ -4,7 +4,7 @@ import { z } from "zod";
 
 const EditSchema = z.object({
   row: z.number().int().min(1).max(2000),
-  col: z.number().int().min(1).max(500),
+  col: z.number().int().min(1).max(2000),
   student_number: z.string().max(80).default(""),
   last_name: z.string().max(120).default(""),
   first_name: z.string().max(120).default(""),

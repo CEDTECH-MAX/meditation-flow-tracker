@@ -10,3 +10,8 @@
 
 ## Account management
 - [x] Required gender dropdowns for student, marker, and staff account forms; spreadsheet gender import supported
+
+## Website-driven Google Sheets registers
+- [x] Generate exact block weeks and selected rounding sessions, including existing linked tabs on sync.
+- [x] Mirror website-calculated overall percentages after website and spreadsheet marking.
+- [x] Run layout/calculation tests and verify connected-sheet output without changing official attendance.

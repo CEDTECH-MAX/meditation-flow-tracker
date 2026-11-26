@@ -205,7 +205,8 @@ export function parseSheetColumns(rows: unknown[][], blockStartDate: string): Pa
         : dayBucket.length === 2
           ? ["morning", "afternoon"]
           : [
-              /^\s*pm\b/i.test(dayBucket[0]?.slotHeader ?? "") ? "afternoon" : "morning",
+              /evening/i.test(dayBucket[0]?.slotHeader ?? "") ? "evening" :
+                /^\s*pm\b|afternoon/i.test(dayBucket[0]?.slotHeader ?? "") ? "afternoon" : "morning",
             ];
     for (let i = 0; i < Math.min(dayBucket.length, slots.length); i += 1) {
       const entry = dayBucket[i]!;

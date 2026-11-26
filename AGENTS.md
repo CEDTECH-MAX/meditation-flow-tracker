@@ -11,3 +11,4 @@
 
 - Account profile attributes shared across roles belong on `profiles`, because all account types use one identity record.
 - Google Sheets sync links live in `public.sheet_links` scoped by institution and block, because MII and MIU registers stay separate and one block can map to multiple group tabs.
+- Generate linked register attendance columns from `blockSessions` and totals from `summarise`, not template formulas, so dates, rounding, institution schedules and percentages match the website.

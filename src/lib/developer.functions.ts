@@ -998,7 +998,10 @@ export const devRecalculateBlock = createServerFn({ method: "POST" })
       rows: (rows ?? []).length,
       repaired,
     });
-    return { rows: (rows ?? []).length, repaired };
+    const { syncWebsiteRegisterSettings } = await import("@/lib/sheet-sync.server");
+    const sheetWarnings = block.institution === "MII" || block.institution === "MIU"
+      ? await syncWebsiteRegisterSettings(data.block_id, block.institution) : [];
+    return { rows: (rows ?? []).length, repaired, sheetWarnings };
   });
 
 export const devRepairAccount = createServerFn({ method: "POST" })

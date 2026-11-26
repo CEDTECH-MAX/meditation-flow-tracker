@@ -855,7 +855,10 @@ export function ToolsSection() {
 
   const recalc = useMutation({
     mutationFn: () => recalcFn({ data: { block_id: blockId } }),
-    onSuccess: (r: any) => toast.success(`Checked ${r.rows} marks · repaired ${r.repaired}`),
+    onSuccess: (r) => {
+      toast.success(`Checked ${r.rows} marks · repaired ${r.repaired}`);
+      if (r.sheetWarnings.length) toast.warning(`Google Sheet warning: ${r.sheetWarnings.join(" ")}`);
+    },
     onError: (e: any) => toast.error(e?.message ?? "Could not run that check."),
   });
   const revoke = useMutation({

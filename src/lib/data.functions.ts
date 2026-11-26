@@ -158,6 +158,10 @@ export const saveBlock = createServerFn({ method: "POST" })
       }
     }
 
+    if (data.id && data.status !== "closed") {
+      const { syncWebsiteRegisterSettings } = await import("@/lib/sheet-sync.server");
+      sheetWarnings.push(...await syncWebsiteRegisterSettings(blockId, inst));
+    }
     return { id: blockId, lockedTabs, restoredTabs, sheetWarnings };
   });
 
@@ -239,6 +243,10 @@ export const setBlockStatus = createServerFn({ method: "POST" })
       }
     }
 
+    if (restoreIds.length > 0) {
+      const { syncWebsiteRegisterSettings } = await import("@/lib/sheet-sync.server");
+      sheetWarnings.push(...await syncWebsiteRegisterSettings(data.id, inst));
+    }
     return { ok: true, lockedTabs, restoredTabs, sheetWarnings };
   });
 
