@@ -88,7 +88,7 @@ export function DeveloperShell({ children, alerts = 0 }: { children: React.React
     await queryClient.cancelQueries();
     queryClient.clear();
     await supabase.auth.signOut();
-    navigate({ to: "/developer-signin", replace: true });
+    navigate({ to: "/", replace: true });
   }
 
   return (

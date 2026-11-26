@@ -10,5 +10,6 @@
 <!-- LOVABLE:END -->
 
 - Account profile attributes shared across roles belong on `profiles`, because all account types use one identity record.
+- Use the shared sign-in at `/` and resolve navigation from authenticated role rows and the account profile; legacy sign-in URLs redirect there so institution choices cannot misroute accounts. Navigation never replaces server authorization or institution RLS.
 - Google Sheets sync links live in `public.sheet_links` scoped by institution and block, because MII and MIU registers stay separate and one block can map to multiple group tabs.
 - Generate linked register attendance columns from `blockSessions` and totals from `summarise`, not template formulas, so dates, rounding, institution schedules and percentages match the website.

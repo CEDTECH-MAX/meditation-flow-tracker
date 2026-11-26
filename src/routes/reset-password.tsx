@@ -52,7 +52,7 @@ function ResetPassword() {
       setBusy(false);
       return;
     }
-    navigate({ to: "/dashboard", replace: true });
+    navigate({ to: "/", replace: true });
   }
 
   return (

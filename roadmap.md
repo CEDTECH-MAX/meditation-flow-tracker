@@ -9,6 +9,7 @@
 - [ ] Automatic weekly sending (after the domain works)
 
 ## Account management
+- [x] Unified sign-in with automatic role/institution routing and legacy login redirects; verified signed-in account routing and sign-out.
 - [x] Required gender dropdowns for student, marker, and staff account forms; spreadsheet gender import supported
 
 ## Website-driven Google Sheets registers

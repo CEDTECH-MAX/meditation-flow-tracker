@@ -100,11 +100,10 @@ export function AppShell({
   const info = institutionInfo((me as any)?.institution as Institution | undefined);
 
   async function signOut() {
-    const path = marker ? "/marker-signin" : info.path;
     await queryClient.cancelQueries();
     queryClient.clear();
     await supabase.auth.signOut();
-    navigate({ to: path, replace: true });
+    navigate({ to: "/", replace: true });
   }
 
 
