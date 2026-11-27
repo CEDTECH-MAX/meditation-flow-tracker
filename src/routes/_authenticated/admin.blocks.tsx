@@ -17,7 +17,7 @@ import {
 import { useBlocks, useCohorts } from "@/lib/admin-hooks";
 import { useMe } from "@/components/AppShell";
 import { deleteBlock, resetBlockAttendance, saveBlock, setBlockStatus } from "@/lib/data.functions";
-import { blockDates, blockProgress, formatDate, type Block, type BlockStatus } from "@/lib/attendance";
+import { blockDates, blockProgress, blockSessions, dateKey, formatDate, type Block, type BlockStatus } from "@/lib/attendance";
 import { createBlockSheetTab, listSheetLinks } from "@/lib/sheet-sync.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/blocks")({
@@ -49,6 +49,8 @@ type FormState = {
   percent_input: string;
   rounding: boolean;
   rounding_dates: string[];
+  holidays: boolean;
+  holiday_dates: string[];
   create_sheet_tab: boolean;
   sheet_tab_touched: boolean;
   template_link_id: string;
@@ -65,6 +67,8 @@ const empty: FormState = {
   percent_input: "",
   rounding: false,
   rounding_dates: [],
+  holidays: false,
+  holiday_dates: [],
   create_sheet_tab: false,
   sheet_tab_touched: false,
   template_link_id: "",
@@ -77,32 +81,46 @@ const empty: FormState = {
  * Friday/Saturday sessions; MIU attends Monday–Thursday only, so Fridays and
  * Saturdays do not exist for MIU blocks.
  */
-function derive(start: string, end: string, institution?: string | null, rounding: string[] = []) {
-  if (!start || !end) return { valid: false, days: 0, weeks: 0, sessions: 0 };
+function derive(
+  start: string,
+  end: string,
+  institution?: string | null,
+  rounding: string[] = [],
+  holidays: string[] = [],
+) {
+  if (!start || !end) return { valid: false, rangeValid: false, days: 0, weeks: 0, sessions: 0, holidayCount: 0 };
   const s = new Date(`${start}T00:00:00`);
   const e = new Date(`${end}T00:00:00`);
   if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime()) || e < s) {
-    return { valid: false, days: 0, weeks: 0, sessions: 0 };
+    return { valid: false, rangeValid: false, days: 0, weeks: 0, sessions: 0, holidayCount: 0 };
   }
+  const holidaySet = new Set(holidays.filter((h) => h >= start && h <= end));
   let days = 0;
   let total = 0;
   let sessions = 0;
+  let holidayCount = 0;
   for (const d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
     total += 1;
     const dow = d.getDay();
     if (dow === 0) continue;
     if (institution === "MIU" && dow === 6) continue;
+    const key = dateKey(d);
+    if (holidaySet.has(key)) {
+      holidayCount += 1;
+      continue;
+    }
     days += 1;
     // MIU Friday has a morning session only.
     sessions += institution === "MIU" && dow === 5 ? 1 : 2;
   }
   // Each rounding day has three compulsory sessions (6 points).
   for (const r of new Set(rounding)) {
-    if (r < start || r > end) continue;
+    if (r < start || r > end || holidaySet.has(r)) continue;
     const dow = new Date(`${r}T00:00:00`).getDay();
+    if (dow === 0 || (institution === "MIU" && dow === 6)) continue;
     sessions += institution === "MIU" && dow === 5 ? 2 : 1;
   }
-  return { valid: days > 0, days, weeks: Math.max(1, Math.ceil(total / 7)), sessions };
+  return { valid: days > 0, rangeValid: true, days, weeks: Math.max(1, Math.ceil(total / 7)), sessions, holidayCount };
 }
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -158,8 +176,17 @@ function AdminBlocks() {
 
   const save = useMutation({
     mutationFn: async (v: FormState) => {
-      const d = derive(v.start_date, v.end_date, institution, v.rounding ? v.rounding_dates : []);
-      if (!d.valid) throw new Error("Enter a start date and an end date that comes after it.");
+      const holidayDates = v.holidays ? v.holiday_dates : [];
+      const holidaySet = new Set(holidayDates);
+      const roundingDates = v.rounding ? v.rounding_dates.filter((r) => !holidaySet.has(r)) : [];
+      const d = derive(v.start_date, v.end_date, institution, roundingDates, holidayDates);
+      if (!d.valid) {
+        throw new Error(
+          d.rangeValid
+            ? "At least one meditation day must remain in the block."
+            : "Enter a start date and an end date that comes after it.",
+        );
+      }
       const typed = Number(v.percent_input);
       if (!v.percent_input.trim() || !Number.isFinite(typed) || typed <= 0) {
         throw new Error("Enter how many percent one full 2.0 session is worth.");
@@ -181,7 +208,8 @@ function AdminBlocks() {
           status: v.status,
           cohort_id: v.cohort_id || null,
           percent_per_session: typed,
-          rounding_dates: v.rounding ? v.rounding_dates : [],
+          rounding_dates: roundingDates,
+          holiday_dates: holidayDates,
         },
       });
 
@@ -321,6 +349,9 @@ function AdminBlocks() {
         <div className="grid gap-4 md:grid-cols-2">
           {(blocks ?? []).map((b) => {
             const linkedTabs = availableTemplates.filter((l) => l.block_id === b.id);
+            const blockSessionGroups = blockSessions(b);
+            const totalBlockSessions = blockSessionGroups.compulsory.length + blockSessionGroups.optional.length;
+            const holidayCount = (b.holiday_dates ?? []).length;
             return (
             <Card key={b.id}>
               <div className="mb-3 flex items-start justify-between gap-3">
@@ -331,6 +362,7 @@ function AdminBlocks() {
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {cohortName(b.cohort_id) ? `Cohort · ${cohortName(b.cohort_id)}` : "All cohorts"}
+                    {holidayCount > 0 ? ` · ${holidayCount} holiday${holidayCount === 1 ? "" : "s"}` : ""}
                   </p>
                   {linkedTabs.length > 0 ? (
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -357,7 +389,7 @@ function AdminBlocks() {
               <div className="grid grid-cols-3 gap-2 text-center text-sm">
                 <Stat label="Weeks" value={b.weeks} />
                 <Stat label="Meditation days" value={b.meditation_days} />
-                <Stat label="Sessions" value={b.meditation_days * 2 + ((b as any).rounding_dates ?? []).length} />
+                <Stat label="Sessions" value={totalBlockSessions} />
               </div>
 
               <div className="mt-4">
@@ -385,9 +417,11 @@ function AdminBlocks() {
                       percent_input:
                         (b as any).percent_per_session > 0
                           ? String((b as any).percent_per_session)
-                          : String(round1(100 / Math.max(1, b.meditation_days * 2))),
+                          : String(round1(100 / Math.max(1, totalBlockSessions))),
                       rounding: ((b as any).rounding_dates ?? []).length > 0,
                       rounding_dates: (b as any).rounding_dates ?? [],
+                      holidays: ((b as any).holiday_dates ?? []).length > 0,
+                      holiday_dates: (b as any).holiday_dates ?? [],
                       create_sheet_tab: false,
                       sheet_tab_touched: true,
                       template_link_id: "",
@@ -497,6 +531,51 @@ function AdminBlocks() {
               <label className="flex items-center gap-2 text-sm font-medium">
                 <input
                   type="checkbox"
+                  checked={form.holidays}
+                  onChange={(e) => setForm({ ...form, holidays: e.target.checked })}
+                />
+                This block has holidays or no-meditation days
+              </label>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Selected days have no meditation sessions and are excluded from attendance totals and Google Sheets.
+              </p>
+              {form.holidays ? (
+                form.start_date && form.end_date ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {blockDates({ start_date: form.start_date, end_date: form.end_date, institution: institution ?? null }).map((d) => {
+                      const on = form.holiday_dates.includes(d);
+                      return (
+                        <button
+                          type="button"
+                          key={d}
+                          onClick={() => {
+                            const nextHolidays = on
+                              ? form.holiday_dates.filter((x) => x !== d)
+                              : [...form.holiday_dates, d].sort();
+                            setForm({
+                              ...form,
+                              holiday_dates: nextHolidays,
+                              rounding_dates: on
+                                ? form.rounding_dates
+                                : form.rounding_dates.filter((x) => x !== d),
+                            });
+                          }}
+                          className={`rounded-full border px-3 py-1 text-xs ${on ? "border-destructive bg-destructive text-destructive-foreground" : "border-border bg-background/60"}`}
+                        >
+                          {formatDate(d)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-muted-foreground">Pick the start and end dates first.</p>
+                )
+              ) : null}
+            </div>
+            <div className="rounded-xl border border-border/60 bg-card/40 p-3">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
                   checked={form.rounding}
                   onChange={(e) => setForm({ ...form, rounding: e.target.checked })}
                 />
@@ -508,7 +587,12 @@ function AdminBlocks() {
               {form.rounding ? (
                 form.start_date && form.end_date ? (
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {blockDates({ start_date: form.start_date, end_date: form.end_date, institution: institution ?? null }).map((d) => {
+                    {blockDates({
+                      start_date: form.start_date,
+                      end_date: form.end_date,
+                      institution: institution ?? null,
+                      holiday_dates: form.holidays ? form.holiday_dates : [],
+                    }).map((d) => {
                       const on = form.rounding_dates.includes(d);
                       return (
                         <button
@@ -547,7 +631,13 @@ function AdminBlocks() {
               />
             </Field>
             {(() => {
-              const d = derive(form.start_date, form.end_date, institution, form.rounding ? form.rounding_dates : []);
+              const d = derive(
+                form.start_date,
+                form.end_date,
+                institution,
+                form.rounding ? form.rounding_dates : [],
+                form.holidays ? form.holiday_dates : [],
+              );
               if (!d.valid) return null;
               return (
                 <Button
@@ -656,12 +746,20 @@ function AdminBlocks() {
               </div>
             ) : null}
             {(() => {
-              const d = derive(form.start_date, form.end_date, institution, form.rounding ? form.rounding_dates : []);
+              const d = derive(
+                form.start_date,
+                form.end_date,
+                institution,
+                form.rounding ? form.rounding_dates : [],
+                form.holidays ? form.holiday_dates : [],
+              );
               const per = Number(form.percent_input);
               if (!d.valid) {
                 return (
                   <p className="text-xs text-muted-foreground">
-                    Enter the start and end dates and the system works out the length of the block.
+                    {d.rangeValid
+                      ? "At least one meditation day must remain in the block."
+                      : "Enter the start and end dates and the system works out the length of the block."}
                   </p>
                 );
               }
@@ -674,6 +772,9 @@ function AdminBlocks() {
                     {d.weeks} week{d.weeks === 1 ? "" : "s"} · {d.days} meditation days (
                     {institution === "MIU" ? "Monday–Thursday + Friday morning" : "Sundays excluded"}) ·{" "}
                     {d.sessions} sessions · {round1(d.sessions * 2)} points available
+                    {d.holidayCount > 0
+                      ? ` · ${d.holidayCount} holiday${d.holidayCount === 1 ? "" : "s"} excluded`
+                      : ""}
                   </p>
                   {valid ? (
                     <>

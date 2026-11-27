@@ -172,7 +172,8 @@ function MarkerHome() {
 
   const marked = rows.filter((r) => r.morning || r.afternoon).length;
   const dayClosed = date !== today && !(access?.unlocked ?? []).includes(date);
-  const locked = !block || block.status === "closed" || dayClosed;
+  const isHoliday = Boolean(((block as any)?.holiday_dates ?? []).includes(date));
+  const locked = !block || block.status === "closed" || dayClosed || isHoliday;
 
   if (isLoading) return <Spinner label="Loading your cohort" />;
 
@@ -254,6 +255,8 @@ function MarkerHome() {
               <p className="mt-3 rounded-2xl bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 {block?.status === "closed"
                   ? "This block is closed. Marking is locked."
+                  : isHoliday
+                    ? "No meditation is scheduled on this day (holiday / off day)."
                   : "This day is closed. You can only mark today's sessions — ask your administrator to unlock a past day."}
               </p>
             ) : (

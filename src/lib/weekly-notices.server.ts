@@ -72,7 +72,7 @@ export async function findFlaggedStudents(db: any, inst: Inst, monday: string) {
 
   const { data: blocks } = await db
     .from("blocks")
-    .select("id, cohort_id, start_date, end_date, institution, rounding_dates, status")
+    .select("id, cohort_id, start_date, end_date, institution, rounding_dates, holiday_dates, status")
     .eq("institution", inst)
     .lte("start_date", saturday)
     .gte("end_date", monday);
@@ -138,7 +138,7 @@ export async function findFlaggedStudents(db: any, inst: Inst, monday: string) {
       const day = addDays(monday, i);
       if (day < block.start_date || day > block.end_date) continue;
       for (const slot of slotsFor(day, block.rounding_dates)) {
-        if (sessionKind(day, slot, inst, block.rounding_dates) === "compulsory") compulsory += 1;
+        if (sessionKind(day, slot, inst, block.rounding_dates, block.holiday_dates) === "compulsory") compulsory += 1;
       }
     }
 
@@ -146,7 +146,7 @@ export async function findFlaggedStudents(db: any, inst: Inst, monday: string) {
     let points = 0;
     let excused = 0;
     for (const r of records) {
-      if (sessionKind(r.session_date, r.slot, inst, block.rounding_dates) === "none") continue;
+      if (sessionKind(r.session_date, r.slot, inst, block.rounding_dates, block.holiday_dates) === "none") continue;
       const p = Number(r.points ?? 0);
       if (p > 0) {
         sessions += 1;

@@ -255,6 +255,9 @@ export const markAsMarker = createServerFn({ method: "POST" })
       throw new Error("Forbidden: this block is outside your assigned cohort");
     }
     if ((block as any).status === "closed") throw new Error("This block is closed");
+    if (((block as any).holiday_dates ?? []).includes(data.session_date)) {
+      throw new Error("No meditation is scheduled on this holiday.");
+    }
 
     const today = localToday();
     if (data.session_date !== today) {

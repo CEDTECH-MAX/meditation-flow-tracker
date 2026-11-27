@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { blockDates } from "./attendance";
 import { assertAdmin, assertMarkingEnabled, audit, changeAccountEmail, internalEmail, myInstitution, statusFromPoints, type Ctx } from "./data.helpers";
 
 /* ---------------------------------- me ---------------------------------- */
@@ -53,6 +54,7 @@ const blockInput = z.object({
   cohort_id: z.string().uuid().nullable().optional(),
   percent_per_session: z.number().min(0).max(100).optional(),
   rounding_dates: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).max(400).optional(),
+  holiday_dates: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).max(400).optional(),
 });
 
 export const saveBlock = createServerFn({ method: "POST" })
@@ -63,11 +65,25 @@ export const saveBlock = createServerFn({ method: "POST" })
     await assertAdmin(c);
     const inst = await myInstitution(c);
     const actorEmail = (c.claims?.["email"] as string) ?? null;
+    const holidayDates = [...new Set((data.holiday_dates ?? []).filter((d) => d >= data.start_date && d <= data.end_date))].sort();
+    const holidaySet = new Set(holidayDates);
+    const roundingDates = [...new Set((data.rounding_dates ?? []).filter((d) => d >= data.start_date && d <= data.end_date && !holidaySet.has(d)))].sort();
+    const activeDays = blockDates({
+      start_date: data.start_date,
+      end_date: data.end_date,
+      institution: inst,
+      holiday_dates: holidayDates,
+    });
+    if (activeDays.length === 0) {
+      throw new Error("At least one meditation day must remain in the block.");
+    }
     const payload = {
       ...data,
+      meditation_days: activeDays.length,
       cohort_id: data.cohort_id ?? null,
       percent_per_session: data.percent_per_session ?? 0,
-      rounding_dates: (data.rounding_dates ?? []).filter((d) => d >= data.start_date && d <= data.end_date),
+      rounding_dates: roundingDates,
+      holiday_dates: holidayDates,
       institution: inst,
     };
     delete (payload as any).id;

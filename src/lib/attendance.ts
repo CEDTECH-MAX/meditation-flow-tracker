@@ -84,6 +84,7 @@ export type Block = {
   institution?: "MII" | "MIU" | null;
   percent_per_session?: number | null;
   rounding_dates?: string[] | null;
+  holiday_dates?: string[] | null;
 };
 
 export type AttendanceRecord = {
@@ -139,7 +140,10 @@ export function sessionKind(
   slot: SessionSlot,
   institution?: string | null,
   roundingDates?: string[] | null,
+  holidayDates?: string[] | null,
 ): SessionKind {
+  // Holidays / no-meditation days have no sessions at all.
+  if ((holidayDates ?? []).includes(date)) return "none";
   // Rounding days: all three sessions (6 points) are compulsory.
   if ((roundingDates ?? []).includes(date)) return "compulsory";
   if (slot === "evening") return "none";
@@ -157,12 +161,18 @@ export function sessionKind(
 }
 
 /** Every compulsory / optional session in a block. */
-export function blockSessions(block: Pick<Block, "start_date" | "end_date"> & { institution?: string | null; rounding_dates?: string[] | null }) {
+export function blockSessions(
+  block: Pick<Block, "start_date" | "end_date"> & {
+    institution?: string | null;
+    rounding_dates?: string[] | null;
+    holiday_dates?: string[] | null;
+  },
+) {
   const compulsory: { date: string; slot: SessionSlot }[] = [];
   const optional: { date: string; slot: SessionSlot }[] = [];
   for (const date of blockDates(block)) {
     for (const slot of slotsFor(date, block.rounding_dates)) {
-      const kind = sessionKind(date, slot, block.institution, block.rounding_dates);
+      const kind = sessionKind(date, slot, block.institution, block.rounding_dates, block.holiday_dates);
       if (kind === "compulsory") compulsory.push({ date, slot });
       else if (kind === "optional") optional.push({ date, slot });
     }
@@ -178,7 +188,12 @@ export function blockSessions(block: Pick<Block, "start_date" | "end_date"> & { 
  * leave the denominator so they never penalise the student.
  */
 export function summarise(
-  block: (Pick<Block, "start_date" | "end_date" | "meditation_days"> & { institution?: string | null; percent_per_session?: number | null; rounding_dates?: string[] | null }) | null,
+  block: (Pick<Block, "start_date" | "end_date" | "meditation_days"> & {
+    institution?: string | null;
+    percent_per_session?: number | null;
+    rounding_dates?: string[] | null;
+    holiday_dates?: string[] | null;
+  }) | null,
   records: Pick<AttendanceRecord, "slot" | "status" | "points" | "session_date">[],
 ): AttendanceSummary {
   const sessions = block
@@ -198,7 +213,13 @@ export function summarise(
   let recordedCompulsory = 0;
 
   for (const r of records) {
-    const kind = sessionKind(r.session_date, r.slot, block?.institution, block?.rounding_dates);
+    const kind = sessionKind(
+      r.session_date,
+      r.slot,
+      block?.institution,
+      block?.rounding_dates,
+      block?.holiday_dates,
+    );
     if (kind === "none") continue;
     const pts = Number(r.points ?? 0);
     if (r.status === "excused") {
@@ -331,15 +352,25 @@ export function skipSunday(date: string) {
   return dateKey(d);
 }
 
-/** Every session date inside a block, inclusive, excluding Sundays. */
-export function blockDates(block: Pick<Block, "start_date" | "end_date"> & { institution?: string | null; rounding_dates?: string[] | null }) {
+/** Every session date inside a block, inclusive, excluding Sundays and block holidays. */
+export function blockDates(
+  block: Pick<Block, "start_date" | "end_date"> & {
+    institution?: string | null;
+    rounding_dates?: string[] | null;
+    holiday_dates?: string[] | null;
+  },
+) {
   const miu = block.institution === "MIU";
+  const holidays = new Set(block.holiday_dates ?? []);
   const out: string[] = [];
   const cur = new Date(block.start_date + "T00:00:00");
   const end = new Date(block.end_date + "T00:00:00");
   while (cur <= end && out.length < 400) {
     const dow = cur.getDay();
-    if (dow !== 0 && !(miu && dow === 6)) out.push(dateKey(cur));
+    if (dow !== 0 && !(miu && dow === 6)) {
+      const key = dateKey(cur);
+      if (!holidays.has(key)) out.push(key);
+    }
     cur.setDate(cur.getDate() + 1);
   }
   return out;
@@ -354,7 +385,10 @@ export type DayCell = {
 };
 
 export function buildCalendar(
-  block: (Pick<Block, "start_date" | "end_date"> & { institution?: string | null }) | null,
+  block: (Pick<Block, "start_date" | "end_date"> & {
+    institution?: string | null;
+    holiday_dates?: string[] | null;
+  }) | null,
   records: AttendanceRecord[],
 ): DayCell[] {
   if (!block) return [];

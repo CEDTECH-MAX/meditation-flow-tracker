@@ -1,11 +1,16 @@
 import { blockSessions, summarise, type AttendanceRecord, type Block } from "@/lib/attendance";
 import { colIndexToLetter, type ParsedSheetLayout } from "@/lib/sheet-layout";
 
-export type RegisterBlock = Pick<Block, "name" | "start_date" | "end_date" | "meditation_days" | "institution" | "percent_per_session" | "rounding_dates">;
+export type RegisterBlock = Pick<
+  Block,
+  "name" | "start_date" | "end_date" | "meditation_days" | "institution" | "percent_per_session" | "rounding_dates" | "holiday_dates"
+>;
 
 export function registerSignature(block: RegisterBlock): string {
-  return JSON.stringify(["website-register-v3", block.name, block.start_date, block.end_date,
-    block.institution, block.percent_per_session ?? null, [...(block.rounding_dates ?? [])].sort()]);
+  const holidays = [...(block.holiday_dates ?? [])].sort();
+  const base = ["website-register-v3", block.name, block.start_date, block.end_date,
+    block.institution, block.percent_per_session ?? null, [...(block.rounding_dates ?? [])].sort()];
+  return JSON.stringify(holidays.length > 0 ? [...base, holidays] : base);
 }
 
 function weekKey(date: string, start: string): number {
@@ -32,7 +37,9 @@ export function buildWebsiteRegister(block: RegisterBlock, identity: ParsedSheet
   setHeader(1, col, registerSignature(block));
   for (const [index, key] of weeks.entries()) {
     let previousDate = "";
-    for (const s of scheduled.filter((entry) => weekKey(entry.date, block.start_date) === key)) {
+    const weekSessions = scheduled.filter((entry) => weekKey(entry.date, block.start_date) === key);
+    if (weekSessions.length === 0) continue;
+    for (const s of weekSessions) {
       const slotHeader = s.slot === "morning" ? "AM" : s.slot === "afternoon" ? "PM" : "Evening";
       const dayHeader = s.date === previousDate ? "" : s.date;
       setHeader(2, col, `Week ${index + 1}${(block.rounding_dates ?? []).includes(s.date) ? " — Rounding" : ""}`);

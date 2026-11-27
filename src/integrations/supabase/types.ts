@@ -298,6 +298,7 @@ export type Database = {
           created_at: string
           end_date: string
           friday_pm_compulsory: boolean
+          holiday_dates: string[]
           id: string
           institution: Database["public"]["Enums"]["institution"]
           max_attendance_percentage: number
@@ -327,6 +328,7 @@ export type Database = {
           created_at?: string
           end_date: string
           friday_pm_compulsory?: boolean
+          holiday_dates?: string[]
           id?: string
           institution?: Database["public"]["Enums"]["institution"]
           max_attendance_percentage?: number
@@ -356,6 +358,7 @@ export type Database = {
           created_at?: string
           end_date?: string
           friday_pm_compulsory?: boolean
+          holiday_dates?: string[]
           id?: string
           institution?: Database["public"]["Enums"]["institution"]
           max_attendance_percentage?: number
