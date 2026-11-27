@@ -29,6 +29,13 @@
       "when": 1795678616177,
       "tag": "0003_sheet_links_preserve_template",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795760129749,
+      "tag": "0004_add_block_holiday_dates",
+      "breakpoints": true
     }
   ]
 }
